@@ -19,9 +19,9 @@ public class Product {
 
     private String nombre;
     private Double precio;
+
+    @Column(name = "precio_compra")
+    private Double precioVenta = 0.0;
     private String foto;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "company_id")
-    private Company company;
 }

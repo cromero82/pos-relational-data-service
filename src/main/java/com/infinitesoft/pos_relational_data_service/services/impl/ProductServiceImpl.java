@@ -44,9 +44,13 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Product create(Product product) {
-        // Allows product.company to be null (no additional checks required)
-        product.setNombre(product.getNombre().toUpperCase());
-        product.setBarcode(product.getBarcode().toUpperCase());
+        // Normalize fields safely (allow null barcode/nombre)
+        if (product.getNombre() != null) {
+            product.setNombre(product.getNombre().toUpperCase());
+        }
+        if (product.getBarcode() != null) {
+            product.setBarcode(product.getBarcode().toUpperCase());
+        }
         return productRepository.save(product);
     }
 
@@ -73,7 +77,6 @@ public class ProductServiceImpl implements ProductService {
         }
         existing.setPrecio(product.getPrecio());
         existing.setFoto(product.getFoto());
-        existing.setCompany(product.getCompany()); // may be null
         return productRepository.save(existing);
     }
 }
