@@ -91,7 +91,7 @@ public class MigrationServiceImpl implements MigrationService {
                 if (cols.length < 2) {
                     skipped++;
                     // Only log, do not add to messages (messages should contain only failed imports)
-                    log.warn("[IMPORT] Line {}: not enough columns ({}), skipped | cols={} | raw='{}'", lineNo, cols.length, java.util.Arrays.toString(cols), raw);
+                    log.warn("[IMPORT] Line {}: not enough columns ({}), skipped | cols={} | raw='{}'", lineNo, cols.length, Arrays.toString(cols), raw);
                     continue;
                 }
 
@@ -169,7 +169,7 @@ public class MigrationServiceImpl implements MigrationService {
 
                 // After resolving prices: do not include non-failure info/warnings in messages; just log context for diagnostics
                 if (pendingMsg != null) {
-                    String ctxSummary = "codigo='" + codigo + "', descripcion='" + descripcion + "', precioCosto='" + precioCostoStr + "', precioVenta='" + precioVentaStr + "', cols=" + java.util.Arrays.toString(cols);
+                    String ctxSummary = "codigo='" + codigo + "', descripcion='" + descripcion + "', precioCosto='" + precioCostoStr + "', precioVenta='" + precioVentaStr + "', cols=" + Arrays.toString(cols);
                     log.debug("[IMPORT] Line {}: {} | {}", lineNo, pendingMsg, ctxSummary);
                 }
 
@@ -182,7 +182,7 @@ public class MigrationServiceImpl implements MigrationService {
                     String normalizedBarcode = codigo.toUpperCase(Locale.ROOT);
                     if (productRepository.findByBarcode(normalizedBarcode).isPresent()) {
                         duplicates++;
-                        String ctxSummary = "codigo='" + codigo + "', descripcion='" + descripcion + "', precioCosto='" + precioCostoStr + "', precioVenta='" + precioVentaStr + "', cols=" + java.util.Arrays.toString(cols);
+                        String ctxSummary = "codigo='" + codigo + "', descripcion='" + descripcion + "', precioCosto='" + precioCostoStr + "', precioVenta='" + precioVentaStr + "', cols=" + Arrays.toString(cols);
                         String dupMsg = "Line " + lineNo + ": duplicate barcode '" + codigo + "' – skipped | " + ctxSummary;
                         // Do not add to messages; duplicates are not failures
                         log.warn("[IMPORT] {}", dupMsg);
@@ -197,7 +197,7 @@ public class MigrationServiceImpl implements MigrationService {
                             .barcode(barcodeToSave)
                             .nombre((descripcion == null || descripcion.isBlank()) ? (barcodeToSave == null ? "" : barcodeToSave) : descripcion)
                             .precio(precioVenta)
-                            .precioVenta(precioCosto)
+                            .precioCompra(precioCosto)
                             .build();
 
                     Product saved = productService.create(p);
@@ -222,7 +222,7 @@ public class MigrationServiceImpl implements MigrationService {
                        .append("descripcion='").append(descripcion).append("', ")
                        .append("precioCosto='").append(precioCostoStr).append("', ")
                        .append("precioVenta='").append(precioVentaStr).append("', ")
-                       .append("cols=").append(java.util.Arrays.toString(cols));
+                       .append("cols=").append(Arrays.toString(cols));
                     String err = ex.getClass().getSimpleName() + ": " + (ex.getMessage() == null ? "(no message)" : ex.getMessage());
                     messages.add("Line " + lineNo + ": error - " + err + " | " + ctx);
                     log.error("[IMPORT] Line {}: ERROR {} | {}", lineNo, err, ctx, ex);

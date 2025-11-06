@@ -9,4 +9,5 @@ public interface ProductService {
     Page<Product> getByName(String name, Pageable pageable);
     Product create(Product product);
     Product update(Long id, Product product);
+    boolean delete(Long id);
 }

@@ -1,6 +1,8 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
+import com.infinitesoft.pos_relational_data_service.entities.HistorialProducto;
 import com.infinitesoft.pos_relational_data_service.entities.Product;
+import com.infinitesoft.pos_relational_data_service.repositories.HistorialProductoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,32 +11,36 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 @Service
 public class ProductServiceImpl implements ProductService {
     @Autowired
     private ProductRepository productRepository;
+    @Autowired
+    private HistorialProductoRepository historialProductoRepository;
 
     @Override
     public Page<Product> getAll(String barcodeOrName, Pageable pageable) {
         Pageable sorted = withNameAsc(pageable);
         if (barcodeOrName != null && !barcodeOrName.isEmpty()) {
             String q = barcodeOrName.toUpperCase();
-            return productRepository.findByBarcodeContainingOrNombreContaining(q, q, sorted);
+            return productRepository.searchActiveByBarcodeOrNombreContaining(q, sorted);
         }
-        return productRepository.findAll(sorted);
+        return productRepository.findAllActive(sorted);
     }
 
     @Override
     public Page<Product> getByName(String name, Pageable pageable) {
         Pageable sorted = withNameAsc(pageable);
         if (name == null || name.isEmpty()) {
-            return productRepository.findAll(sorted);
+            return productRepository.findAllActive(sorted);
         }
         String n = name.toUpperCase();
-        return productRepository.findByNombreContaining(n, sorted);
+        return productRepository.findActiveByNombreContaining(n, sorted);
     }
 
     private Pageable withNameAsc(Pageable pageable) {
@@ -43,6 +49,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional
     public Product create(Product product) {
         // Normalize fields safely (allow null barcode/nombre)
         if (product.getNombre() != null) {
@@ -51,7 +58,20 @@ public class ProductServiceImpl implements ProductService {
         if (product.getBarcode() != null) {
             product.setBarcode(product.getBarcode().toUpperCase());
         }
-        return productRepository.save(product);
+        // Ensure activate defaults to 1 (active)
+        if (product.getActivate() == null) {
+            product.setActivate(1);
+        }
+        Product saved = productRepository.save(product);
+        // Register historical record for manual creation
+        HistorialProducto historial = HistorialProducto.builder()
+                .productoId(saved.getId())
+                .evento("manual creation")
+                .precio(saved.getPrecio() != null ? BigDecimal.valueOf(saved.getPrecio()) : null)
+                .activo(true)
+                .build();
+        historialProductoRepository.save(historial);
+        return saved;
     }
 
     @Override
@@ -77,6 +97,17 @@ public class ProductServiceImpl implements ProductService {
         }
         existing.setPrecio(product.getPrecio());
         existing.setFoto(product.getFoto());
+        // Preserve activate flag unless explicitly provided
+        if (product.getActivate() != null) {
+            existing.setActivate(product.getActivate());
+        }
         return productRepository.save(existing);
+    }
+
+    @Override
+    public boolean delete(Long id) {
+        if (id == null) return false;
+        int updated = productRepository.softDeleteById(id);
+        return updated > 0;
     }
 }

@@ -21,7 +21,11 @@ public class Product {
     private Double precio;
 
     @Column(name = "precio_compra")
-    private Double precioVenta = 0.0;
+    private Double precioCompra = 0.0;
     private String foto;
 
+    // 1 = active, 0 = deleted
+    @Column(name = "activate")
+    @Builder.Default
+    private Integer activate = 1;
 }
