@@ -10,4 +10,7 @@ public interface TicketReciboService {
     TicketRecibo findById(Long id);
     TicketRecibo update(Long id, TicketRecibo tr);
     boolean delete(Long id);
+
+    // Find a TicketRecibo by ticketId, or create a new Recibo and link it if none exists
+    TicketRecibo getOrCreateByTicketId(Long ticketId);
 }

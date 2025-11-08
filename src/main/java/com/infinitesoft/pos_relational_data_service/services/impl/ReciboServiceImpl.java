@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
+import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
 import com.infinitesoft.pos_relational_data_service.services.ReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,10 @@ public class ReciboServiceImpl implements ReciboService {
 
     @Override
     public Recibo create(Recibo recibo) {
+        // Default estado to PENDIENTE_PAGO when not provided
+        if (recibo.getEstadoId() == null) {
+            recibo.setEstadoId(ReciboEstado.PENDIENTE_PAGO.getId());
+        }
         return reciboRepository.save(recibo);
     }
 

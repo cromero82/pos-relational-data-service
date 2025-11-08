@@ -34,6 +34,12 @@ public class ClientServiceImpl implements ClientService {
     }
 
     @Override
+    public Client findByNombre(String nombre) {
+        if (nombre == null) return null;
+        return clientRepository.findFirstByNombreIgnoreCase(nombre).orElse(null);
+    }
+
+    @Override
     public Client update(Long id, Client client) {
         if (id == null) return null;
         Optional<Client> existingOpt = clientRepository.findById(id);

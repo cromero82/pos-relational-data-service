@@ -38,6 +38,16 @@ public class TicketReciboController {
         return ResponseEntity.ok(found);
     }
 
+    // New endpoint: get by ticketId; creates Recibo and link when absent
+    @GetMapping("/ticket/{ticketId}")
+    public ResponseEntity<TicketRecibo> getByTicketId(@PathVariable Long ticketId) {
+        TicketRecibo result = service.getOrCreateByTicketId(ticketId);
+        if (result == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(result);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<TicketRecibo> update(@PathVariable Long id, @RequestBody TicketRecibo tr) {
         TicketRecibo updated = service.update(id, tr);

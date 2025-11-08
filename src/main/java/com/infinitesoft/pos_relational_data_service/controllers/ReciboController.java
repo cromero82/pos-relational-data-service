@@ -1,6 +1,10 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
+import com.infinitesoft.pos_relational_data_service.dto.ReciboDto;
+import com.infinitesoft.pos_relational_data_service.entities.Client;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
+import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
+import com.infinitesoft.pos_relational_data_service.services.ClientService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +21,9 @@ public class ReciboController {
     @Autowired
     private ReciboService reciboService;
 
+    @Autowired
+    private ClientService clientService;
+
     @PostMapping
     public ResponseEntity<Recibo> create(@RequestBody Recibo recibo) {
         Recibo saved = reciboService.create(recibo);
@@ -30,12 +37,33 @@ public class ReciboController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Recibo> findById(@PathVariable Long id) {
+    public ResponseEntity<ReciboDto> findById(@PathVariable Long id) {
         Recibo found = reciboService.findById(id);
         if (found == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(found);
+        // Resolve estado label from enum by estadoId
+        String estadoLabel = null;
+        ReciboEstado estadoEnum = ReciboEstado.fromId(found.getEstadoId());
+        if (estadoEnum != null) {
+            estadoLabel = estadoEnum.getLabel();
+        }
+        // Load Client details
+        Client cliente = null;
+        if (found.getClienteId() != null) {
+            cliente = clientService.findById(found.getClienteId());
+        }
+        ReciboDto dto = ReciboDto.builder()
+                .id(found.getId())
+                .clienteId(found.getClienteId())
+                .cliente(cliente)
+                .fechaCreacion(found.getFechaCreacion())
+                .estadoId(found.getEstadoId())
+                .estado(estadoLabel)
+                .metodoPagoId(found.getMetodoPagoId())
+                .total(found.getTotal())
+                .build();
+        return ResponseEntity.ok(dto);
     }
 
     @PutMapping("/{id}")

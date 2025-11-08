@@ -8,6 +8,7 @@ public interface ClientService {
     Client create(Client client);
     List<Client> findAll();
     Client findById(Long id);
+    Client findByNombre(String nombre);
     Client update(Long id, Client client);
     boolean delete(Long id);
 }

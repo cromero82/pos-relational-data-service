@@ -1,11 +1,18 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
+import com.infinitesoft.pos_relational_data_service.entities.Client;
+import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.entities.TicketRecibo;
+import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
+import com.infinitesoft.pos_relational_data_service.services.ClientService;
+import com.infinitesoft.pos_relational_data_service.services.ReciboService;
 import com.infinitesoft.pos_relational_data_service.services.TicketReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,6 +21,12 @@ public class TicketReciboServiceImpl implements TicketReciboService {
 
     @Autowired
     private TicketReciboRepository repository;
+
+    @Autowired
+    private ReciboService reciboService;
+
+    @Autowired
+    private ClientService clientService;
 
     @Override
     public TicketRecibo create(TicketRecibo tr) {
@@ -48,5 +61,38 @@ public class TicketReciboServiceImpl implements TicketReciboService {
         if (!repository.existsById(id)) return false;
         repository.deleteById(id);
         return true;
+    }
+
+    @Override
+    @Transactional
+    public TicketRecibo getOrCreateByTicketId(Long ticketId) {
+        if (ticketId == null) return null;
+        Optional<TicketRecibo> existing = repository.findFirstByTicketId(ticketId);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        // Resolve default client 'ANONIMO' via ClientService
+        Client anonimo = clientService.findByNombre("ANONIMO");
+        if (anonimo == null) {
+            anonimo = Client.builder()
+                    .nombre("ANONIMO")
+                    .build();
+            anonimo = clientService.create(anonimo);
+        }
+        Long clienteId = anonimo.getId();
+        // Create a minimal Recibo using defaults and the ANONIMO client
+        Recibo nuevoRecibo = Recibo.builder()
+                .clienteId(clienteId)
+                .estadoId(ReciboEstado.PENDIENTE_PAGO.getId())
+                .metodoPagoId(null)
+                .total(BigDecimal.ZERO)
+                .build();
+        Recibo savedRecibo = reciboService.create(nuevoRecibo);
+
+        TicketRecibo enlace = TicketRecibo.builder()
+                .ticketId(ticketId)
+                .reciboId(savedRecibo.getId())
+                .build();
+        return repository.save(enlace);
     }
 }

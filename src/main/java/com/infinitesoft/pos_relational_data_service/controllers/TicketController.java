@@ -38,6 +38,12 @@ public class TicketController {
         return ResponseEntity.ok(found);
     }
 
+    // New endpoint: get all tickets by sessionId
+    @GetMapping("/session/{sessionId}")
+    public List<Ticket> findBySession(@PathVariable Long sessionId) {
+        return ticketService.findBySessionId(sessionId);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<Ticket> update(@PathVariable Long id, @RequestBody Ticket ticket) {
         Ticket updated = ticketService.update(id, ticket);

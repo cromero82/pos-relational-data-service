@@ -34,6 +34,12 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
+    public List<Ticket> findBySessionId(Long sessionId) {
+        if (sessionId == null) return List.of();
+        return ticketRepository.findBySessionId(sessionId);
+    }
+
+    @Override
     public Ticket update(Long id, Ticket ticket) {
         if (id == null) return null;
         Optional<Ticket> existingOpt = ticketRepository.findById(id);
