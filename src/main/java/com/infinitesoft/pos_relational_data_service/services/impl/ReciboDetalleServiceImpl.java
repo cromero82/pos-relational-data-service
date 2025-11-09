@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
+import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleDto;
 import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalle;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
@@ -29,6 +30,12 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     public ReciboDetalle findById(Long id) {
         if (id == null) return null;
         return repository.findById(id).orElse(null);
+    }
+
+    @Override
+    public List<ReciboDetalleDto> findByReciboId(Long reciboId) {
+        if (reciboId == null) return List.of();
+        return repository.findDtoByReciboId(reciboId);
     }
 
     @Override

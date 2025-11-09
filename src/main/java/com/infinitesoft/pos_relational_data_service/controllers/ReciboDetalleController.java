@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
+import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleDto;
 import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalle;
 import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,12 @@ public class ReciboDetalleController {
     @GetMapping
     public List<ReciboDetalle> findAll() {
         return service.findAll();
+    }
+
+    // New endpoint: get all recibo-detalles by reciboId with product info
+    @GetMapping("/recibo/{reciboId}")
+    public List<ReciboDetalleDto> findByReciboId(@PathVariable Long reciboId) {
+        return service.findByReciboId(reciboId);
     }
 
     @GetMapping("/{id}")

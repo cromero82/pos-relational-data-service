@@ -13,4 +13,10 @@ public interface TicketReciboService {
 
     // Find a TicketRecibo by ticketId, or create a new Recibo and link it if none exists
     TicketRecibo getOrCreateByTicketId(Long ticketId);
+
+    // Find (non-creating) first TicketRecibo by ticketId
+    TicketRecibo findFirstByTicketId(Long ticketId);
+
+    // Find all links by ticketId (non-creating)
+    List<TicketRecibo> findByTicketId(Long ticketId);
 }

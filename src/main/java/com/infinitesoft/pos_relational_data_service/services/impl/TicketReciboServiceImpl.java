@@ -95,4 +95,16 @@ public class TicketReciboServiceImpl implements TicketReciboService {
                 .build();
         return repository.save(enlace);
     }
+
+    @Override
+    public TicketRecibo findFirstByTicketId(Long ticketId) {
+        if (ticketId == null) return null;
+        return repository.findFirstByTicketId(ticketId).orElse(null);
+    }
+
+    @Override
+    public List<TicketRecibo> findByTicketId(Long ticketId) {
+        if (ticketId == null) return List.of();
+        return repository.findAllByTicketId(ticketId);
+    }
 }
