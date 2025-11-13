@@ -107,4 +107,10 @@ public class TicketReciboServiceImpl implements TicketReciboService {
         if (ticketId == null) return List.of();
         return repository.findAllByTicketId(ticketId);
     }
+
+    @Override
+    public long deleteByReciboId(Long reciboId) {
+        if (reciboId == null) return 0L;
+        return repository.deleteByReciboId(reciboId);
+    }
 }

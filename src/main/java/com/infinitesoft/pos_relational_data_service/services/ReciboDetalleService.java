@@ -10,6 +10,10 @@ public interface ReciboDetalleService {
     List<ReciboDetalle> findAll();
     ReciboDetalle findById(Long id);
     List<ReciboDetalleDto> findByReciboId(Long reciboId);
+    // Additional helpers for migration use-cases
+    List<ReciboDetalle> findEntityListByReciboId(Long reciboId);
+    long deleteByReciboId(Long reciboId);
+
     ReciboDetalle update(Long id, ReciboDetalle detalle);
     boolean delete(Long id);
 }

@@ -39,6 +39,18 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     }
 
     @Override
+    public List<ReciboDetalle> findEntityListByReciboId(Long reciboId) {
+        if (reciboId == null) return List.of();
+        return repository.findByReciboId(reciboId);
+    }
+
+    @Override
+    public long deleteByReciboId(Long reciboId) {
+        if (reciboId == null) return 0L;
+        return repository.deleteByReciboId(reciboId);
+    }
+
+    @Override
     public ReciboDetalle update(Long id, ReciboDetalle detalle) {
         if (id == null) return null;
         Optional<ReciboDetalle> existingOpt = repository.findById(id);

@@ -19,4 +19,7 @@ public interface TicketReciboService {
 
     // Find all links by ticketId (non-creating)
     List<TicketRecibo> findByTicketId(Long ticketId);
+
+    // Bulk delete by reciboId
+    long deleteByReciboId(Long reciboId);
 }

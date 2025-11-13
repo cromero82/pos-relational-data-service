@@ -69,9 +69,6 @@ public class ReciboController {
     @PutMapping("/{id}")
     public ResponseEntity<Recibo> update(@PathVariable Long id, @RequestBody Recibo recibo) {
         Recibo updated = reciboService.update(id, recibo);
-        if (updated == null) {
-            return ResponseEntity.notFound().build();
-        }
         return ResponseEntity.ok(updated);
     }
 
