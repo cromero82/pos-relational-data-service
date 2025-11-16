@@ -6,6 +6,8 @@ import java.util.List;
 
 public interface HistorialReciboService {
     HistorialRecibo create(HistorialRecibo historialRecibo);
+    // Special quick create: defaults estado to PAGADO
+    HistorialRecibo createQuick(HistorialRecibo historialRecibo);
     List<HistorialRecibo> findAll();
     HistorialRecibo findById(Long id);
     HistorialRecibo update(Long id, HistorialRecibo historialRecibo);

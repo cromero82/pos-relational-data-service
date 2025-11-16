@@ -65,8 +65,8 @@ public class TicketReciboServiceImpl implements TicketReciboService {
 
     @Override
     @Transactional
-    public TicketRecibo getOrCreateByTicketId(Long ticketId) {
-        if (ticketId == null) return null;
+    public TicketRecibo getOrCreateByTicketId(Long ticketId, Long sessionId) {
+        if (ticketId == null || sessionId == null) return null;
         Optional<TicketRecibo> existing = repository.findFirstByTicketId(ticketId);
         if (existing.isPresent()) {
             return existing.get();
@@ -85,6 +85,7 @@ public class TicketReciboServiceImpl implements TicketReciboService {
                 .clienteId(clienteId)
                 .estadoId(ReciboEstado.PENDIENTE_PAGO.getId())
                 .metodoPagoId(null)
+                .sesionId(sessionId)
                 .total(BigDecimal.ZERO)
                 .build();
         Recibo savedRecibo = reciboService.create(nuevoRecibo);

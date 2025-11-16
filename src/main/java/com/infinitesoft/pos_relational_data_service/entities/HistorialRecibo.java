@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -36,6 +37,11 @@ public class HistorialRecibo {
 
     @Column(name = "metodo_pago_id")
     private Long metodoPagoId;
+
+    @JsonAlias("sessionId")
+    @Column(name = "sesion_id")
+    private Long sesionId;
+
 
     @Column(name = "total", nullable = false, precision = 10, scale = 2)
     private BigDecimal total;

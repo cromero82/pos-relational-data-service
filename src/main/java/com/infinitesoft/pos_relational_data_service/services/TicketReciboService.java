@@ -12,7 +12,7 @@ public interface TicketReciboService {
     boolean delete(Long id);
 
     // Find a TicketRecibo by ticketId, or create a new Recibo and link it if none exists
-    TicketRecibo getOrCreateByTicketId(Long ticketId);
+    TicketRecibo getOrCreateByTicketId(Long ticketId, Long sessionId);
 
     // Find (non-creating) first TicketRecibo by ticketId
     TicketRecibo findFirstByTicketId(Long ticketId);

@@ -23,5 +23,7 @@ public class ReciboDto {
 
     private Long metodoPagoId;
 
+    private Long sesionId;
+
     private BigDecimal total;
 }

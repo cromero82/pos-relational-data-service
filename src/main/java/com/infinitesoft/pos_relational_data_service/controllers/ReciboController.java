@@ -61,6 +61,7 @@ public class ReciboController {
                 .estadoId(found.getEstadoId())
                 .estado(estadoLabel)
                 .metodoPagoId(found.getMetodoPagoId())
+                .sesionId(found.getSesionId())
                 .total(found.getTotal())
                 .build();
         return ResponseEntity.ok(dto);

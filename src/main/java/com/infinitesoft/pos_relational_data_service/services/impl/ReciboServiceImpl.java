@@ -69,6 +69,10 @@ public class ReciboServiceImpl implements ReciboService {
         existing.setClienteId(recibo.getClienteId());
         existing.setEstadoId(recibo.getEstadoId());
         existing.setMetodoPagoId(recibo.getMetodoPagoId());
+        // Preserve existing sesionId if not provided in the update payload
+        if (recibo.getSesionId() != null) {
+            existing.setSesionId(recibo.getSesionId());
+        }
         existing.setTotal(recibo.getTotal());
 
         // Determine target estado
@@ -79,6 +83,7 @@ public class ReciboServiceImpl implements ReciboService {
                     .clienteId(existing.getClienteId())
                     .estadoId(existing.getEstadoId())
                     .metodoPagoId(existing.getMetodoPagoId())
+                    .sesionId(existing.getSesionId())
                     .total(existing.getTotal())
                     .build();
             HistorialRecibo savedHist = historialReciboService.create(hist);

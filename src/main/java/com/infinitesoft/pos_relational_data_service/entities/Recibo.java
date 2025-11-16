@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -27,7 +28,6 @@ public class Recibo {
     @JsonIgnore
     private Client cliente;
 
-
     @CreationTimestamp
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
@@ -35,8 +35,13 @@ public class Recibo {
     @Column(name = "estado_id", nullable = false)
     private Long estadoId;
 
-    @Column(name = "metodo_pago_id", nullable = true)
+    @Column(name = "metodo_pago_id")
     private Long metodoPagoId;
+
+    @JsonAlias("sessionId")
+    @Column(name = "sesion_id")
+    private Long sesionId;
+
 
     @Column(name = "total", nullable = false, precision = 10, scale = 2)
     private BigDecimal total;
