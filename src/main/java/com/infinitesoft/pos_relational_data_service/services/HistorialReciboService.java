@@ -2,6 +2,7 @@ package com.infinitesoft.pos_relational_data_service.services;
 
 import com.infinitesoft.pos_relational_data_service.entities.HistorialRecibo;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface HistorialReciboService {
@@ -12,4 +13,5 @@ public interface HistorialReciboService {
     HistorialRecibo findById(Long id);
     HistorialRecibo update(Long id, HistorialRecibo historialRecibo);
     boolean delete(Long id);
+    BigDecimal getTotalByDate(String fecha);
 }

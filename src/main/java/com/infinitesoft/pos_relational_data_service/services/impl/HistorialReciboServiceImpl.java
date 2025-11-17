@@ -13,11 +13,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class HistorialReciboServiceImpl implements HistorialReciboService {
+
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     @Autowired
     private HistorialReciboRepository repository;
@@ -103,5 +109,18 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         if (!repository.existsById(id)) return false;
         repository.deleteById(id);
         return true;
+    }
+
+    @Override
+    public BigDecimal getTotalByDate(String fecha) {
+        if (fecha == null) return BigDecimal.ZERO;
+        try {
+            LocalDate date = LocalDate.parse(fecha, DATE_FMT);
+            LocalDateTime startOfDay = date.atStartOfDay();
+            LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
+            return repository.sumTotalByFechaCreacionBetween(startOfDay, endOfDay);
+        } catch (Exception e) {
+            return BigDecimal.ZERO;
+        }
     }
 }

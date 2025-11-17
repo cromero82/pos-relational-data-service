@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
 
@@ -62,5 +63,10 @@ public class HistorialReciboController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/total-by-date")
+    public BigDecimal getTotalByDate(@RequestParam("fecha") String fecha) {
+        return service.getTotalByDate(fecha);
     }
 }
