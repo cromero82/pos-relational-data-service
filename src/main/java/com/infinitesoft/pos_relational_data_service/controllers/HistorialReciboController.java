@@ -3,6 +3,10 @@ package com.infinitesoft.pos_relational_data_service.controllers;
 import com.infinitesoft.pos_relational_data_service.entities.HistorialRecibo;
 import com.infinitesoft.pos_relational_data_service.services.HistorialReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -68,5 +72,11 @@ public class HistorialReciboController {
     @GetMapping("/total-by-date")
     public BigDecimal getTotalByDate(@RequestParam("fecha") String fecha) {
         return service.getTotalByDate(fecha);
+    }
+
+    @GetMapping("/search")
+    public Page<HistorialRecibo> search(@RequestParam(value = "fecha", required = false) String fecha,
+                                        @PageableDefault(sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable pageable) {
+        return service.search(fecha, pageable);
     }
 }

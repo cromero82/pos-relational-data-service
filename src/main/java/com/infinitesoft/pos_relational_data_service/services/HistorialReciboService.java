@@ -1,6 +1,8 @@
 package com.infinitesoft.pos_relational_data_service.services;
 
 import com.infinitesoft.pos_relational_data_service.entities.HistorialRecibo;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -14,4 +16,5 @@ public interface HistorialReciboService {
     HistorialRecibo update(Long id, HistorialRecibo historialRecibo);
     boolean delete(Long id);
     BigDecimal getTotalByDate(String fecha);
+    Page<HistorialRecibo> search(String fecha, Pageable pageable);
 }

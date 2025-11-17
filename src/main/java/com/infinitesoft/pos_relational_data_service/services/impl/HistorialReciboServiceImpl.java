@@ -9,6 +9,8 @@ import com.infinitesoft.pos_relational_data_service.repositories.HistorialRecibo
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.services.HistorialReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -122,5 +124,21 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         } catch (Exception e) {
             return BigDecimal.ZERO;
         }
+    }
+
+    @Override
+    public Page<HistorialRecibo> search(String fecha, Pageable pageable) {
+        if (fecha != null && !fecha.isBlank()) {
+            try {
+                LocalDate date = LocalDate.parse(fecha, DATE_FMT);
+                LocalDateTime startOfDay = date.atStartOfDay();
+                LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
+                return repository.findByFechaCreacionBetween(startOfDay, endOfDay, pageable);
+            } catch (Exception e) {
+                // Log error or handle it, for now, returning an empty page
+                return Page.empty(pageable);
+            }
+        }
+        return repository.findAll(pageable);
     }
 }
