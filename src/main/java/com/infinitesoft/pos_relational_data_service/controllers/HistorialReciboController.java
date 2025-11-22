@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
 import com.infinitesoft.pos_relational_data_service.entities.HistorialRecibo;
+import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.services.HistorialReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -52,11 +53,8 @@ public class HistorialReciboController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<HistorialRecibo> update(@PathVariable Long id, @RequestBody HistorialRecibo historialRecibo) {
-        HistorialRecibo updated = service.update(id, historialRecibo);
-        if (updated == null) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<HistorialRecibo> update(@PathVariable Long id, @RequestBody HistorialRecibo historialRecibo, @RequestParam(required = true) Long sesionId) {
+        HistorialRecibo updated = service.update(id, historialRecibo, sesionId);
         return ResponseEntity.ok(updated);
     }
 
@@ -76,7 +74,12 @@ public class HistorialReciboController {
 
     @GetMapping("/search")
     public Page<HistorialRecibo> search(@RequestParam(value = "fecha", required = false) String fecha,
+                                        @RequestParam(value = "estadoId", required = false) Long estadoId,
                                         @PageableDefault(sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable pageable) {
-        return service.search(fecha, pageable);
+        Long effectiveEstadoId = estadoId;
+        if (estadoId != null && estadoId == 0) {
+            effectiveEstadoId = ReciboEstado.PAGADO.getId();
+        }
+        return service.search(fecha, effectiveEstadoId, pageable);
     }
 }

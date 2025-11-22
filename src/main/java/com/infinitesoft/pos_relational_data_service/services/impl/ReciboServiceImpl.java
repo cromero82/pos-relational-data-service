@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
+import com.infinitesoft.pos_relational_data_service.entities.EdicionRecibo;
 import com.infinitesoft.pos_relational_data_service.entities.HistorialRecibo;
 import com.infinitesoft.pos_relational_data_service.entities.HistorialReciboDetalle;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
@@ -8,10 +9,12 @@ import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
+import com.infinitesoft.pos_relational_data_service.services.EdicionReciboService;
 import com.infinitesoft.pos_relational_data_service.services.HistorialReciboService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +28,7 @@ public class ReciboServiceImpl implements ReciboService {
     private ReciboRepository reciboRepository;
 
     @Autowired
+    @Lazy
     private HistorialReciboService historialReciboService;
 
     @Autowired
@@ -35,6 +39,9 @@ public class ReciboServiceImpl implements ReciboService {
 
     @Autowired
     private TicketReciboRepository ticketReciboRepository;
+
+    @Autowired
+    private EdicionReciboService edicionReciboService;
 
     @Override
     public Recibo create(Recibo recibo) {
@@ -88,7 +95,16 @@ public class ReciboServiceImpl implements ReciboService {
                     .build();
             HistorialRecibo savedHist = historialReciboService.create(hist);
 
-            // 2) Copy all ReciboDetalle rows into HistorialReciboDetalle linked to savedHist.id
+            // 2) Update EdicionRecibo if it exists
+            Optional<EdicionRecibo> edicionReciboOpt = edicionReciboService.findByReciboId(id);
+            if (edicionReciboOpt.isPresent()) {
+                EdicionRecibo edicionRecibo = edicionReciboOpt.get();
+                edicionRecibo.setHistorialReciboId(savedHist.getId());
+                edicionRecibo.setReciboId(null);
+                edicionReciboService.update(edicionRecibo.getId(), edicionRecibo);
+            }
+
+            // 3) Copy all ReciboDetalle rows into HistorialReciboDetalle linked to savedHist.id
             List<ReciboDetalle> detalles = reciboDetalleService.findEntityListByReciboId(existing.getId());
             for (ReciboDetalle d : detalles) {
                 HistorialReciboDetalle hd = HistorialReciboDetalle.builder()
@@ -100,13 +116,13 @@ public class ReciboServiceImpl implements ReciboService {
                 historialReciboDetalleRepository.save(hd);
             }
 
-            // 3) Delete all items from recibo_detalle
+            // 4) Delete all items from recibo_detalle
             reciboDetalleService.deleteByReciboId(existing.getId());
 
-            // 4) Delete from ticket_recibo using reciboId
+            // 5) Delete from ticket_recibo using reciboId
             ticketReciboRepository.deleteByReciboId(existing.getId());
 
-            // 5) Finally delete the recibo itself
+            // 6) Finally delete the recibo itself
             reciboRepository.deleteById(existing.getId());
 
             // Return null to signal resource removal to controller

@@ -10,7 +10,8 @@ package com.infinitesoft.pos_relational_data_service.entities.enums;
 public enum ReciboEstado {
     PENDIENTE_PAGO(1L, "pendiente pago"),
     PAGADO(2L, "pagado"),
-    ANULADO(3L, "anulado");
+    ANULADO(3L, "anulado"),
+    EDICION(4L, "edicion");
 
     private final Long id;
     private final String label;

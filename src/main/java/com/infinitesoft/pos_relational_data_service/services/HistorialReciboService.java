@@ -13,8 +13,9 @@ public interface HistorialReciboService {
     HistorialRecibo createQuick(HistorialRecibo historialRecibo);
     List<HistorialRecibo> findAll();
     HistorialRecibo findById(Long id);
-    HistorialRecibo update(Long id, HistorialRecibo historialRecibo);
+    HistorialRecibo update(Long id, HistorialRecibo historialRecibo, Long sesionId);
     boolean delete(Long id);
     BigDecimal getTotalByDate(String fecha);
-    Page<HistorialRecibo> search(String fecha, Pageable pageable);
+    Page<HistorialRecibo> search(String fecha, Long estadoId, Pageable pageable);
+    void moveToEdition(Long historialReciboId, Long sesionId);
 }

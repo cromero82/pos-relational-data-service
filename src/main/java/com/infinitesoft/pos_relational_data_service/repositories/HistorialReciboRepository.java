@@ -17,4 +17,8 @@ public interface HistorialReciboRepository extends JpaRepository<HistorialRecibo
     BigDecimal sumTotalByFechaCreacionBetween(LocalDateTime start, LocalDateTime end);
 
     Page<HistorialRecibo> findByFechaCreacionBetween(LocalDateTime start, LocalDateTime end, Pageable pageable);
+
+    Page<HistorialRecibo> findByEstadoId(Long estadoId, Pageable pageable);
+
+    Page<HistorialRecibo> findByFechaCreacionBetweenAndEstadoId(LocalDateTime start, LocalDateTime end, Long estadoId, Pageable pageable);
 }
