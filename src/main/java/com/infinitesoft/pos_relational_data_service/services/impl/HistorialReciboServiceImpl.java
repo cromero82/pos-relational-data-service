@@ -157,7 +157,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
     @Override
     public Page<HistorialRecibo> search(String fecha, Long estadoId, Pageable pageable) {
         boolean hasFecha = fecha != null && !fecha.isBlank();
-        boolean hasEstado = estadoId != null;
+        boolean hasEstado = estadoId != null && estadoId != 0;
 
         if (hasFecha && hasEstado) {
             try {
