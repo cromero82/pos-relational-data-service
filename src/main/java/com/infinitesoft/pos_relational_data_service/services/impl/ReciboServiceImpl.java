@@ -1,18 +1,11 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
-import com.infinitesoft.pos_relational_data_service.entities.EdicionRecibo;
-import com.infinitesoft.pos_relational_data_service.entities.HistorialRecibo;
-import com.infinitesoft.pos_relational_data_service.entities.HistorialReciboDetalle;
-import com.infinitesoft.pos_relational_data_service.entities.Recibo;
-import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalle;
+import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
-import com.infinitesoft.pos_relational_data_service.services.EdicionReciboService;
-import com.infinitesoft.pos_relational_data_service.services.HistorialReciboService;
-import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
-import com.infinitesoft.pos_relational_data_service.services.ReciboService;
+import com.infinitesoft.pos_relational_data_service.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -43,6 +36,9 @@ public class ReciboServiceImpl implements ReciboService {
     @Autowired
     private EdicionReciboService edicionReciboService;
 
+    @Autowired
+    private TicketService ticketService;
+
     @Override
     public Recibo create(Recibo recibo) {
         // Default estado to PENDIENTE_PAGO when not provided
@@ -50,6 +46,11 @@ public class ReciboServiceImpl implements ReciboService {
             recibo.setEstadoId(ReciboEstado.PENDIENTE_PAGO.getId());
         }
         return reciboRepository.save(recibo);
+    }
+
+    @Override
+    public Recibo saveAndFlush(Recibo recibo) {
+        return reciboRepository.saveAndFlush(recibo);
     }
 
     @Override
@@ -95,14 +96,8 @@ public class ReciboServiceImpl implements ReciboService {
                     .build();
             HistorialRecibo savedHist = historialReciboService.create(hist);
 
-            // 2) Update EdicionRecibo if it exists
-            Optional<EdicionRecibo> edicionReciboOpt = edicionReciboService.findByReciboId(id);
-            if (edicionReciboOpt.isPresent()) {
-                EdicionRecibo edicionRecibo = edicionReciboOpt.get();
-                edicionRecibo.setHistorialReciboId(savedHist.getId());
-                edicionRecibo.setReciboId(null);
-                edicionReciboService.update(edicionRecibo.getId(), edicionRecibo);
-            }
+            // 2) Find the link to the ticket
+            Optional<TicketRecibo> ticketReciboOpt = ticketReciboRepository.findByReciboId(id);
 
             // 3) Copy all ReciboDetalle rows into HistorialReciboDetalle linked to savedHist.id
             List<ReciboDetalle> detalles = reciboDetalleService.findEntityListByReciboId(existing.getId());
@@ -119,11 +114,29 @@ public class ReciboServiceImpl implements ReciboService {
             // 4) Delete all items from recibo_detalle
             reciboDetalleService.deleteByReciboId(existing.getId());
 
-            // 5) Delete from ticket_recibo using reciboId
-            ticketReciboRepository.deleteByReciboId(existing.getId());
+            // 5) Update EdicionRecibo if it exists
+            Optional<EdicionRecibo> edicionReciboOpt = edicionReciboService.findByReciboId(id);
+            if (edicionReciboOpt.isPresent()) {
+                EdicionRecibo edicionRecibo = edicionReciboOpt.get();
+                edicionRecibo.setHistorialReciboId(savedHist.getId());
+                edicionRecibo.setReciboId(null);
+                edicionReciboService.update(edicionRecibo.getId(), edicionRecibo);
 
-            // 6) Finally delete the recibo itself
-            reciboRepository.deleteById(existing.getId());
+                // Delete the ticket only if it came from an edition
+                if (ticketReciboOpt.isPresent()) {
+                    Long ticketId = ticketReciboOpt.get().getTicketId();
+                    ticketReciboRepository.delete(ticketReciboOpt.get()); // Delete child first
+                    ticketService.delete(ticketId); // Then delete parent
+                }
+
+                // Finally delete the recibo itself
+                reciboRepository.deleteById(existing.getId());
+            } else {
+                // If not from an edition, still delete the link if it exists
+                if (ticketReciboOpt.isPresent()) {
+                    ticketReciboRepository.delete(ticketReciboOpt.get());
+                }
+            }
 
             // Return null to signal resource removal to controller
             return null;

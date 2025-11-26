@@ -8,4 +8,6 @@ public interface SesionService {
     Sesion create(Sesion sesion);
     List<Sesion> findAll();
     Sesion findById(Long id);
+    Sesion update(Long id, Sesion sesion);
+    boolean delete(Long id);
 }

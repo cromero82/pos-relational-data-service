@@ -6,6 +6,7 @@ import java.util.List;
 
 public interface TicketReciboService {
     TicketRecibo create(TicketRecibo tr);
+    TicketRecibo createAndFlush(Long ticketId, Long reciboId);
     List<TicketRecibo> findAll();
     TicketRecibo findById(Long id);
     TicketRecibo update(Long id, TicketRecibo tr);

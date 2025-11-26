@@ -2,11 +2,13 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.entities.Client;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
+import com.infinitesoft.pos_relational_data_service.entities.Sesion;
 import com.infinitesoft.pos_relational_data_service.entities.TicketRecibo;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
 import com.infinitesoft.pos_relational_data_service.services.ClientService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboService;
+import com.infinitesoft.pos_relational_data_service.services.SesionService;
 import com.infinitesoft.pos_relational_data_service.services.TicketReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -28,9 +30,21 @@ public class TicketReciboServiceImpl implements TicketReciboService {
     @Autowired
     private ClientService clientService;
 
+    @Autowired
+    private SesionService sesionService;
+
     @Override
     public TicketRecibo create(TicketRecibo tr) {
         return repository.save(tr);
+    }
+
+    @Override
+    public TicketRecibo createAndFlush(Long ticketId, Long reciboId) {
+        TicketRecibo ticketRecibo = TicketRecibo.builder()
+                .ticketId(ticketId)
+                .reciboId(reciboId)
+                .build();
+        return repository.saveAndFlush(ticketRecibo);
     }
 
     @Override
@@ -67,10 +81,19 @@ public class TicketReciboServiceImpl implements TicketReciboService {
     @Transactional
     public TicketRecibo getOrCreateByTicketId(Long ticketId, Long sessionId) {
         if (ticketId == null || sessionId == null) return null;
+
+        // Update session with the latest ticket ID
+        Sesion sesion = sesionService.findById(sessionId);
+        if (sesion != null) {
+            sesion.setUltimoTicketId(ticketId);
+            sesionService.update(sessionId, sesion);
+        }
+
         Optional<TicketRecibo> existing = repository.findFirstByTicketId(ticketId);
         if (existing.isPresent()) {
             return existing.get();
         }
+
         // Resolve default client 'ANONIMO' via ClientService
         Client anonimo = clientService.findByNombre("ANONIMO");
         if (anonimo == null) {
