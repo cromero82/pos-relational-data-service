@@ -5,6 +5,7 @@ import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.TicketRepository;
 import com.infinitesoft.pos_relational_data_service.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -57,6 +58,12 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Autowired
     private EdicionReciboDetalleService edicionReciboDetalleService;
+
+    @Autowired
+    private TicketRepository ticketRepository;
+
+    @Autowired
+    private SesionService sesionService;
 
     @Override
     public HistorialRecibo create(HistorialRecibo historialRecibo) {
@@ -201,7 +208,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                 .sesionId(sesionId)
                 .total(historial.getTotal())
                 .build();
-        Recibo reciboGuardado = reciboService.create(nuevoRecibo);
+        Recibo reciboGuardado = reciboService.saveAndFlush(nuevoRecibo);
 
         // 2. Copy HistorialRecibo to EdicionRecibo
         EdicionRecibo edicionRecibo = EdicionRecibo.builder()
@@ -253,16 +260,19 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                 .sessionId(sesionId)
                 .nombre(ticketName)
                 .build();
-        Ticket ticketGuardado = ticketService.create(ticket);
+        Ticket ticketGuardado = ticketRepository.saveAndFlush(ticket);
 
         // 5. Create TicketRecibo
-        TicketRecibo ticketRecibo = TicketRecibo.builder()
-                .ticketId(ticketGuardado.getId())
-                .reciboId(reciboGuardado.getId())
-                .build();
-        ticketReciboService.create(ticketRecibo);
+        ticketReciboService.createAndFlush(ticketGuardado.getId(), reciboGuardado.getId());
 
-        // 6. Delete original HistorialRecibo and its details
+        // 6. Update Session with the new ticket ID
+        Sesion sesion = sesionService.findById(sesionId);
+        if (sesion != null) {
+            sesion.setUltimoTicketId(ticketGuardado.getId());
+            sesionService.update(sesionId, sesion);
+        }
+
+        // 7. Delete original HistorialRecibo and its details
         historialReciboDetalleService.deleteByReciboId(historialReciboId);
         repository.delete(historial);
     }
