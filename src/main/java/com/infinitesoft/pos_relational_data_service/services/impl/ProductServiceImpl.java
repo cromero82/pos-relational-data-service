@@ -5,16 +5,20 @@ import com.infinitesoft.pos_relational_data_service.entities.Product;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialProductoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ProductServiceImpl implements ProductService {
@@ -26,11 +30,51 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public Page<Product> getAll(String barcodeOrName, Pageable pageable) {
         Pageable sorted = withNameAsc(pageable);
-        if (barcodeOrName != null && !barcodeOrName.isEmpty()) {
-            String q = barcodeOrName.toUpperCase();
-            return productRepository.searchActiveByBarcodeOrNombreContaining(q, sorted);
+        if (barcodeOrName == null || barcodeOrName.isBlank()) {
+            return productRepository.findAllActive(sorted);
         }
-        return productRepository.findAllActive(sorted);
+
+        String query = barcodeOrName.toUpperCase().trim();
+        String[] words = query.split("\\s+");
+
+        if (words.length < 2) {
+            return productRepository.searchActiveByBarcodeOrNombreContaining(query, sorted);
+        }
+
+        // Specification for products containing ALL words
+        Specification<Product> allWordsSpec = (root, q, cb) -> {
+            Predicate[] predicates = Arrays.stream(words)
+                    .map(word -> cb.like(cb.upper(root.get("nombre")), "%" + word + "%"))
+                    .toArray(Predicate[]::new);
+            return cb.and(predicates);
+        };
+
+        // Specification for products containing ANY word
+        Specification<Product> anyWordSpec = (root, q, cb) -> {
+            Predicate[] predicates = Arrays.stream(words)
+                    .map(word -> cb.like(cb.upper(root.get("nombre")), "%" + word + "%"))
+                    .toArray(Predicate[]::new);
+            return cb.or(predicates);
+        };
+
+        // Always active
+        Specification<Product> activeSpec = (root, q, cb) -> cb.notEqual(root.get("activate"), 0);
+
+        List<Product> intersectionResults = productRepository.findAll(activeSpec.and(allWordsSpec), sorted.getSort());
+        List<Product> unionResults = productRepository.findAll(activeSpec.and(anyWordSpec), sorted.getSort());
+
+        // Use a LinkedHashSet to maintain insertion order and remove duplicates
+        Set<Product> combinedResults = new LinkedHashSet<>(intersectionResults);
+        combinedResults.addAll(unionResults);
+
+        List<Product> finalList = new ArrayList<>(combinedResults);
+
+        // Manual pagination
+        int start = (int) sorted.getOffset();
+        int end = Math.min((start + sorted.getPageSize()), finalList.size());
+        List<Product> pageContent = finalList.subList(start, end);
+
+        return new PageImpl<>(pageContent, sorted, finalList.size());
     }
 
     @Override
