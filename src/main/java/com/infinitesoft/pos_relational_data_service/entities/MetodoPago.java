@@ -22,4 +22,10 @@ public class MetodoPago {
 
     @Column(name = "file", length = 300)
     private String file;
+
+    @Column(name = "sigla", length = 10)
+    private String sigla;
+
+    @Column(name = "color", length = 20)
+    private String color;
 }

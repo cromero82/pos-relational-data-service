@@ -16,6 +16,6 @@ public class MetodoPagoServiceImpl implements MetodoPagoService {
 
     @Override
     public List<MetodoPago> findAll() {
-        return repository.findAll();
+        return repository.findAllByOrderByIdAsc();
     }
 }
