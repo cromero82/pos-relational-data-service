@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "metodo_pago")
+@Table(name = "metodo_pago", schema = "dbo")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -20,7 +20,8 @@ public class MetodoPago {
     @Column(nullable = false)
     private String estado;
 
-    @Column(name = "file", length = 300)
+    // 'file' es palabra reservada en SQL Server; usar nombre entre corchetes para evitar errores de sintaxis
+    @Column(name = "[file]", length = 300)
     private String file;
 
     @Column(name = "sigla", length = 10)

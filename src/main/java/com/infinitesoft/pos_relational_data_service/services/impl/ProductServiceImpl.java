@@ -140,7 +140,7 @@ public class ProductServiceImpl implements ProductService {
             existing.setNombre(null);
         }
         existing.setPrecio(product.getPrecio());
-        existing.setFoto(product.getFoto());
+//        existing.setFoto(product.getFoto());
         // Preserve activate flag unless explicitly provided
         if (product.getActivate() != null) {
             existing.setActivate(product.getActivate());

@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "producto")
+@Table(name = "producto", schema = "dbo")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,7 +22,9 @@ public class Product {
 
     @Column(name = "precio_compra")
     private Double precioCompra = 0.0;
-    private String foto;
+
+//    @Column(name = "foto")
+//    private String foto;
 
     // 1 = active, 0 = deleted
     @Column(name = "activate")
