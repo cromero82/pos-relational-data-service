@@ -5,7 +5,7 @@ import com.infinitesoft.pos_relational_data_service.entities.Product;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialProductoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
-import jakarta.persistence.criteria.Predicate;
+import javax.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -140,8 +140,6 @@ public class ProductServiceImpl implements ProductService {
             existing.setNombre(null);
         }
         existing.setPrecio(product.getPrecio());
-//        existing.setFoto(product.getFoto());
-        // Preserve activate flag unless explicitly provided
         if (product.getActivate() != null) {
             existing.setActivate(product.getActivate());
         }
