@@ -4,12 +4,14 @@ import com.infinitesoft.pos_relational_data_service.entities.EdicionRecibo;
 import com.infinitesoft.pos_relational_data_service.services.EdicionReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.util.List;
 
 @RestController
+@PreAuthorize("hasAnyRole('admin','cajero','invitado')")
 @RequestMapping("/edicion-recibos")
 @CrossOrigin(origins = "*")
 public class EdicionReciboController {

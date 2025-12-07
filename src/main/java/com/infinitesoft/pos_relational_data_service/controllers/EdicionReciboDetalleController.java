@@ -1,13 +1,16 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
+
 import com.infinitesoft.pos_relational_data_service.dto.EdicionReciboDetalleDto;
 import com.infinitesoft.pos_relational_data_service.services.EdicionReciboDetalleService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
+@PreAuthorize("hasAnyRole('admin','cajero','invitado')")
 @RequestMapping("/edicion-recibo-detalles")
 @CrossOrigin(origins = "*")
 public class EdicionReciboDetalleController {
