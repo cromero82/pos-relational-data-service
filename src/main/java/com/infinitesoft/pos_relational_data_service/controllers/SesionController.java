@@ -5,10 +5,15 @@ import com.infinitesoft.pos_relational_data_service.services.SesionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import jakarta.servlet.http.HttpServletRequest;
+import com.infinitesoft.pos_relational_data_service.security.util.TokenUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import com.infinitesoft.pos_relational_data_service.dto.SesionDto;
 
 @RestController
 @PreAuthorize("hasAnyRole('admin','cajero','invitado')")
@@ -20,20 +25,26 @@ public class SesionController {
     private SesionService service;
 
     @PostMapping
-    public ResponseEntity<Sesion> create(@RequestBody Sesion sesion) {
-        Sesion saved = service.create(sesion);
+    public ResponseEntity<SesionDto> create(@RequestBody SesionDto sesionDto,
+                                            HttpServletRequest request) {
+        SesionDto saved = service.create(sesionDto, request);
         URI location = URI.create("/sesiones/" + saved.getId());
         return ResponseEntity.created(location).body(saved);
     }
 
     @GetMapping
-    public List<Sesion> findAll() {
-        return service.findAll();
+    public List<SesionDto> findAll(HttpServletRequest request) {
+        return service.findAll(request);
+    }
+
+    @GetMapping("/usuario/todas")
+    public List<SesionDto> findAllByUserAllStates(HttpServletRequest request) {
+        return service.findAllByUserAllStates(request);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Sesion> findById(@PathVariable Long id) {
-        Sesion found = service.findById(id);
+    public ResponseEntity<SesionDto> findById(@PathVariable Long id, HttpServletRequest request) {
+        SesionDto found = service.findById(id, request);
         if (found == null) {
             return ResponseEntity.notFound().build();
         }
@@ -41,8 +52,8 @@ public class SesionController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Sesion> update(@PathVariable Long id, @RequestBody Sesion sesion) {
-        Sesion updated = service.update(id, sesion);
+    public ResponseEntity<SesionDto> update(@PathVariable Long id, @RequestBody SesionDto sesionDto, HttpServletRequest request) {
+        SesionDto updated = service.update(id, sesionDto, request);
         if (updated == null) {
             return ResponseEntity.notFound().build();
         }
@@ -50,11 +61,13 @@ public class SesionController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        boolean deleted = service.delete(id);
+    public ResponseEntity<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+        boolean deleted = service.delete(id, request);
         if (!deleted) {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.noContent().build();
     }
+
+    // Mapping now handled inside service layer per requirements
 }

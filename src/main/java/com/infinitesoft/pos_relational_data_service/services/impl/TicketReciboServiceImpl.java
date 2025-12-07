@@ -11,6 +11,7 @@ import com.infinitesoft.pos_relational_data_service.services.ReciboService;
 import com.infinitesoft.pos_relational_data_service.services.SesionService;
 import com.infinitesoft.pos_relational_data_service.services.TicketReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +32,7 @@ public class TicketReciboServiceImpl implements TicketReciboService {
     private ClientService clientService;
 
     @Autowired
+    @Lazy
     private SesionService sesionService;
 
     @Override
