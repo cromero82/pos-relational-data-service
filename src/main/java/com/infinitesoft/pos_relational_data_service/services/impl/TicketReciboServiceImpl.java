@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Collections;
 import java.util.Optional;
 
 @Service
@@ -62,7 +63,7 @@ public class TicketReciboServiceImpl implements TicketReciboService {
     public TicketRecibo update(Long id, TicketRecibo tr) {
         if (id == null) return null;
         Optional<TicketRecibo> existingOpt = repository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         TicketRecibo existing = existingOpt.get();
         existing.setTicketId(tr.getTicketId());
         existing.setReciboId(tr.getReciboId());
@@ -128,7 +129,7 @@ public class TicketReciboServiceImpl implements TicketReciboService {
 
     @Override
     public List<TicketRecibo> findByTicketId(Long ticketId) {
-        if (ticketId == null) return List.of();
+        if (ticketId == null) return Collections.emptyList();
         return repository.findAllByTicketId(ticketId);
     }
 

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Collections;
 import java.util.Optional;
 
 @Service
@@ -34,13 +35,13 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
 
     @Override
     public List<ReciboDetalleDto> findByReciboId(Long reciboId) {
-        if (reciboId == null) return List.of();
+        if (reciboId == null) return Collections.emptyList();
         return repository.findDtoByReciboId(reciboId);
     }
 
     @Override
     public List<ReciboDetalle> findEntityListByReciboId(Long reciboId) {
-        if (reciboId == null) return List.of();
+        if (reciboId == null) return Collections.emptyList();
         return repository.findByReciboId(reciboId);
     }
 
@@ -54,7 +55,7 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     public ReciboDetalle update(Long id, ReciboDetalle detalle) {
         if (id == null) return null;
         Optional<ReciboDetalle> existingOpt = repository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         ReciboDetalle existing = existingOpt.get();
         existing.setReciboId(detalle.getReciboId());
         existing.setProductoId(detalle.getProductoId());

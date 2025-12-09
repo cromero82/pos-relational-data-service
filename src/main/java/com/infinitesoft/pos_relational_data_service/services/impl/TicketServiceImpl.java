@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Collections;
 import java.util.Optional;
 
 @Service
@@ -35,7 +36,7 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public List<Ticket> findBySessionId(Long sessionId) {
-        if (sessionId == null) return List.of();
+        if (sessionId == null) return Collections.emptyList();
         return ticketRepository.findBySessionId(sessionId);
     }
 
@@ -43,7 +44,7 @@ public class TicketServiceImpl implements TicketService {
     public Ticket update(Long id, Ticket ticket) {
         if (id == null) return null;
         Optional<Ticket> existingOpt = ticketRepository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         Ticket existing = existingOpt.get();
         // Update mutable fields only
         existing.setNombre(ticket.getNombre());

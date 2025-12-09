@@ -30,7 +30,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public Page<Product> getAll(String barcodeOrName, Pageable pageable) {
         Pageable sorted = withNameAsc(pageable);
-        if (barcodeOrName == null || barcodeOrName.isBlank()) {
+        if (barcodeOrName == null || barcodeOrName.trim().isEmpty()) {
             return productRepository.findAllActive(sorted);
         }
 
@@ -124,7 +124,7 @@ public class ProductServiceImpl implements ProductService {
             return null;
         }
         Optional<Product> existingOpt = productRepository.findById(id);
-        if (existingOpt.isEmpty()) {
+        if (!existingOpt.isPresent()) {
             return null;
         }
         Product existing = existingOpt.get();

@@ -128,7 +128,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
         if (id == null) return null;
         Optional<HistorialRecibo> existingOpt = repository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         HistorialRecibo existing = existingOpt.get();
         existing.setClienteId(historialRecibo.getClienteId());
         existing.setEstadoId(historialRecibo.getEstadoId());
@@ -163,7 +163,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Override
     public Page<HistorialRecibo> search(String fecha, Long estadoId, Pageable pageable) {
-        boolean hasFecha = fecha != null && !fecha.isBlank();
+        boolean hasFecha = fecha != null && !fecha.trim().isEmpty();
         boolean hasEstado = estadoId != null && estadoId != 0;
 
         if (hasFecha && hasEstado) {

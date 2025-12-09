@@ -35,7 +35,7 @@ public class HistorialProductoServiceImpl implements HistorialProductoService {
     public HistorialProducto update(Long id, HistorialProducto historial) {
         if (id == null) return null;
         Optional<HistorialProducto> existingOpt = repository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         HistorialProducto existing = existingOpt.get();
         existing.setProductoId(historial.getProductoId());
         existing.setEvento(historial.getEvento());

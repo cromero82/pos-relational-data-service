@@ -70,7 +70,7 @@ public class ReciboServiceImpl implements ReciboService {
     public Recibo update(Long id, Recibo recibo) {
         if (id == null) return null;
         Optional<Recibo> existingOpt = reciboRepository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
 
         Recibo existing = existingOpt.get();
         // Update mutable fields, keep id and fechaCreacion

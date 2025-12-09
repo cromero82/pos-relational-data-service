@@ -43,7 +43,7 @@ public class ClientServiceImpl implements ClientService {
     public Client update(Long id, Client client) {
         if (id == null) return null;
         Optional<Client> existingOpt = clientRepository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         Client existing = existingOpt.get();
         existing.setNombre(client.getNombre());
         existing.setTelefono(client.getTelefono());

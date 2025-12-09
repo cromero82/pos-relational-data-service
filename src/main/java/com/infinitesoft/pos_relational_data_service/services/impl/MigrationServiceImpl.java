@@ -43,7 +43,7 @@ public class MigrationServiceImpl implements MigrationService {
         if (file == null || file.isEmpty()) {
             return MigrationResult.error("Empty file");
         }
-        if (eventName == null || eventName.isBlank()) {
+        if (eventName == null || eventName.trim().isEmpty()) {
             return MigrationResult.error("Missing eventName");
         }
 
@@ -178,7 +178,7 @@ public class MigrationServiceImpl implements MigrationService {
                 log.debug("[IMPORT] Line {}: parsed precioCosto={} precioVenta={}", lineNo, precioCosto, precioVenta);
 
                 // Check duplicates only if a non-empty barcode is provided
-                if (codigo != null && !codigo.isBlank()) {
+                if (codigo != null && !codigo.trim().isEmpty()) {
                     String normalizedBarcode = codigo.toUpperCase(Locale.ROOT);
                     if (productRepository.findByBarcode(normalizedBarcode).isPresent()) {
                         duplicates++;
@@ -192,10 +192,10 @@ public class MigrationServiceImpl implements MigrationService {
 
                 try {
                     // Persist with null barcode if empty to avoid unique constraint collisions
-                    String barcodeToSave = (codigo == null || codigo.isBlank()) ? null : codigo;
+                    String barcodeToSave = (codigo == null || codigo.trim().isEmpty()) ? null : codigo;
                     Product p = Product.builder()
                             .barcode(barcodeToSave)
-                            .nombre((descripcion == null || descripcion.isBlank()) ? (barcodeToSave == null ? "" : barcodeToSave) : descripcion)
+                            .nombre((descripcion == null || descripcion.trim().isEmpty()) ? (barcodeToSave == null ? "" : barcodeToSave) : descripcion)
                             .precio(precioVenta)
                             .precioCompra(precioCosto)
                             .build();

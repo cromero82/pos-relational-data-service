@@ -59,7 +59,7 @@ public class EdicionReciboDetalleServiceImpl implements EdicionReciboDetalleServ
     public EdicionReciboDetalle update(Long id, EdicionReciboDetalle edicionReciboDetalle) {
         if (id == null) return null;
         Optional<EdicionReciboDetalle> existingOpt = repository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         EdicionReciboDetalle existing = existingOpt.get();
         existing.setEdicionId(edicionReciboDetalle.getEdicionId());
         existing.setProductoId(edicionReciboDetalle.getProductoId());

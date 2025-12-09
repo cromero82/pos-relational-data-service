@@ -25,7 +25,7 @@ public class MigrationController {
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(MigrationResult.error("Empty file"));
         }
-        if (eventName == null || eventName.isBlank()) {
+        if (eventName == null || eventName.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(MigrationResult.error("Missing eventName"));
         }
         MigrationResult result = migrationService.importVentasYa(file, eventName);

@@ -21,6 +21,7 @@ public class Product {
     private Double precio;
 
     @Column(name = "precio_compra")
+    @Builder.Default
     private Double precioCompra = 0.0;
 
 //    @Column(name = "foto")

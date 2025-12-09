@@ -40,7 +40,7 @@ public class VentasTipoServiceImpl implements VentasTipoService {
     public VentasTipo update(Long id, VentasTipo ventasTipo) {
         if (id == null) return null;
         Optional<VentasTipo> existingOpt = repository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         VentasTipo existing = existingOpt.get();
         existing.setMetodoPagoId(ventasTipo.getMetodoPagoId());
         existing.setFecha(ventasTipo.getFecha());

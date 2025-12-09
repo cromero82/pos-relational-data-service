@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -48,7 +49,7 @@ public class FlujoDineroServiceImpl implements FlujoDineroService {
     public FlujoDinero update(Long id, FlujoDinero flujo) {
         if (id == null) return null;
         Optional<FlujoDinero> existingOpt = repository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         FlujoDinero existing = existingOpt.get();
         existing.setFecha(flujo.getFecha());
         existing.setTipoId(flujo.getTipoId());
@@ -67,13 +68,13 @@ public class FlujoDineroServiceImpl implements FlujoDineroService {
 
     @Override
     public List<FlujoDinero> findByFecha(LocalDate fecha) {
-        if (fecha == null) return List.of();
+        if (fecha == null) return Collections.emptyList();
         return repository.findAllByFecha(fecha);
     }
 
     @Override
     public List<FlujoDinero> findByFechaBetween(LocalDate from, LocalDate to, Integer tipoId) {
-        if (from == null || to == null) return List.of();
+        if (from == null || to == null) return Collections.emptyList();
         if (tipoId == null || tipoId <= 0) {
             return repository.findAllByFechaBetween(from, to);
         }
@@ -82,19 +83,19 @@ public class FlujoDineroServiceImpl implements FlujoDineroService {
 
     @Override
     public List<FlujoDinero> searchAllDates(String dateInit, String dateEnd, Integer tipoId) {
-        if (dateInit == null || dateEnd == null) return List.of();
+        if (dateInit == null || dateEnd == null) return Collections.emptyList();
         try {
             LocalDate from = LocalDate.parse(dateInit, DATE_FMT);
             LocalDate to = LocalDate.parse(dateEnd, DATE_FMT);
             return findByFechaBetween(from, to, tipoId);
         } catch (DateTimeParseException e) {
-            return List.of();
+            return Collections.emptyList();
         }
     }
 
     @Override
     public List<FlujoDinero> searchByWeeks(String interval, Integer tipoId) {
-        if (interval == null || interval.isBlank()) return List.of();
+        if (interval == null || interval.trim().isEmpty()) return Collections.emptyList();
         String s = interval.trim().toLowerCase(Locale.ROOT);
         try {
             LocalDate to = LocalDate.now();
@@ -109,11 +110,11 @@ public class FlujoDineroServiceImpl implements FlujoDineroService {
                 int months = Integer.parseInt(s.substring(0, s.length() - 1));
                 from = to.minusMonths(months);
             } else {
-                return List.of();
+                return Collections.emptyList();
             }
             return findByFechaBetween(from, to, tipoId);
         } catch (NumberFormatException e) {
-            return List.of();
+            return Collections.emptyList();
         }
     }
 

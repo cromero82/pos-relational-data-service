@@ -41,7 +41,7 @@ public class EdicionReciboServiceImpl implements EdicionReciboService {
     public EdicionRecibo update(Long id, EdicionRecibo edicionRecibo) {
         if (id == null) return null;
         Optional<EdicionRecibo> existingOpt = repository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         EdicionRecibo existing = existingOpt.get();
         existing.setReciboId(edicionRecibo.getReciboId());
         existing.setClienteId(edicionRecibo.getClienteId());

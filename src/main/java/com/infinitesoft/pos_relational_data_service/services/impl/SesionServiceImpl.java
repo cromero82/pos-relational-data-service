@@ -35,7 +35,7 @@ public class SesionServiceImpl implements SesionService {
     public Sesion update(Long id, Sesion sesion) {
         if (id == null) return null;
         Optional<Sesion> existingOpt = repository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (!existingOpt.isPresent()) return null;
         Sesion existing = existingOpt.get();
         existing.setCookie(sesion.getCookie());
         existing.setUltimoTicketId(sesion.getUltimoTicketId());
