@@ -31,7 +31,11 @@ public class TicketServiceImpl implements TicketService {
     public Ticket findById(Long id) {
         if (id == null) return null;
         Optional<Ticket> opt = ticketRepository.findById(id);
-        return opt.orElse(null);
+        if (!opt.isPresent())
+            return null;
+        else
+            return opt.get();
+        //return opt.orElse(null);
     }
 
     @Override
