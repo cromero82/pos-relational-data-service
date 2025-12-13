@@ -5,7 +5,7 @@ import com.infinitesoft.pos_relational_data_service.services.SesionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 import com.infinitesoft.pos_relational_data_service.security.util.TokenUtils;
 import org.springframework.web.bind.annotation.*;
 

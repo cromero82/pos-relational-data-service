@@ -1,6 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.security.util;
 
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 public final class TokenUtils {
 

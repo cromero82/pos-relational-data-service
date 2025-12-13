@@ -2,7 +2,7 @@ package com.infinitesoft.pos_relational_data_service.services;
 
 import com.infinitesoft.pos_relational_data_service.entities.Sesion;
 import com.infinitesoft.pos_relational_data_service.dto.SesionDto;
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 import java.util.List;
 import java.util.UUID;

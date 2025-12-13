@@ -98,28 +98,37 @@ public class AuthValidationServiceImpl implements AuthValidationService {
             AuthUserDto user = new AuthUserDto();
             // Common fields in provided example
             Object nombre = payload.get("nombre");
-            if (nombre instanceof String s) user.setNombre(s);
+            if (nombre instanceof String) {
+                user.setNombre((String) nombre);
+            }
 
             Object sub = payload.get("sub");
-            if (sub instanceof String s) user.setCorreoElectronico(s);
+            if (sub instanceof String) {
+                user.setCorreoElectronico((String) sub);
+            }
 
             Object telefono = payload.get("telefono");
-            if (telefono instanceof String s) user.setTelefono(s);
+            if (telefono instanceof String) {
+                user.setTelefono((String) telefono);
+            }
 
             // Extract roles: could be array of strings or array of objects with 'sigla'/'nombre'
             List<AuthRoleDto> rolesOut = new ArrayList<>();
             Object rolesObj = payload.get("roles");
-            if (rolesObj instanceof List<?> list) {
+            if (rolesObj instanceof List) {
+                List<?> list = (List<?>) rolesObj;
                 for (Object r : list) {
                     AuthRoleDto role = new AuthRoleDto();
-                    if (r instanceof String rs) {
+                    if (r instanceof String) {
+                        String rs = (String) r;
                         role.setSigla(rs);
                         role.setNombre(rs);
-                    } else if (r instanceof Map<?,?> rm) {
+                    } else if (r instanceof Map) {
+                        Map<?,?> rm = (Map<?,?>) r;
                         Object sigla = rm.get("sigla");
                         Object rnombre = rm.get("nombre");
-                        if (sigla instanceof String s) role.setSigla(s);
-                        if (rnombre instanceof String s) role.setNombre(s);
+                        if (sigla instanceof String) role.setSigla((String) sigla);
+                        if (rnombre instanceof String) role.setNombre((String) rnombre);
                     }
                     if (role.getSigla() != null && !role.getSigla().isBlank()) {
                         rolesOut.add(role);
