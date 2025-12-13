@@ -22,7 +22,6 @@ public class Product {
 
     @Column(name = "precio_compra")
     private Double precioCompra = 0.0;
-    private String foto;
 
     // 1 = active, 0 = deleted
     @Column(name = "activate")
