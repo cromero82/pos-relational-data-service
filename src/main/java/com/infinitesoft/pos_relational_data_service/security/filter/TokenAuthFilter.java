@@ -37,6 +37,18 @@ public class TokenAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
+        // Skip auth for actuator health/info and internal debug endpoints (handled by Spring Security config)
+        String uri = request.getRequestURI();
+        if (uri != null) {
+            String u = uri.toLowerCase();
+            if (u.equals("/actuator/health") || u.startsWith("/actuator/health/")
+                    || u.equals("/actuator/info") || u.startsWith("/actuator/info/")
+                    || u.startsWith("/_debug/")) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+        }
+
         // Allow CORS preflight to pass through
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);

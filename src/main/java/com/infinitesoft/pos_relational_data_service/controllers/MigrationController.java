@@ -31,4 +31,19 @@ public class MigrationController {
         MigrationResult result = migrationService.importVentasYa(file, eventName);
         return ResponseEntity.ok(result);
     }
+
+    @PostMapping(path = "/importarLite", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<MigrationResult> importarLite(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("eventName") String eventName
+    ) {
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(MigrationResult.error("Empty file"));
+        }
+        if (eventName == null || eventName.isBlank()) {
+            return ResponseEntity.badRequest().body(MigrationResult.error("Missing eventName"));
+        }
+        MigrationResult result = migrationService.importarLite(file, eventName);
+        return ResponseEntity.ok(result);
+    }
 }

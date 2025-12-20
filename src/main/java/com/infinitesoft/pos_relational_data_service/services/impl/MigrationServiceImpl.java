@@ -238,6 +238,130 @@ public class MigrationServiceImpl implements MigrationService {
         return new MigrationResult(created, skipped, duplicates, errors, messages);
     }
 
+    @Override
+    public MigrationResult importarLite(MultipartFile file, String eventName) {
+        if (file == null || file.isEmpty()) {
+            return MigrationResult.error("Empty file");
+        }
+        if (eventName == null || eventName.isBlank()) {
+            return MigrationResult.error("Missing eventName");
+        }
+
+        int created = 0;
+        int skipped = 0;
+        int duplicates = 0;
+        int errors = 0;
+        List<String> messages = new ArrayList<>();
+
+        String filename = file.getOriginalFilename();
+        log.info("[IMPORT] Starting importarLite | event='{}' | file='{}'", eventName, filename);
+
+        try {
+            byte[] bytes = file.getBytes();
+            Charset detected = detectCharset(bytes);
+            String content = new String(bytes, detected);
+            if (log.isInfoEnabled()) {
+                log.info("[IMPORT] Using charset '{}' for file='{}'", detected.name(), filename);
+            }
+            if (!content.isEmpty() && content.charAt(0) == '\uFEFF') {
+                content = content.substring(1);
+            }
+
+            try (BufferedReader br = new BufferedReader(new StringReader(content))) {
+                String line;
+                int lineNo = 0;
+                while ((line = br.readLine()) != null) {
+                    lineNo++;
+                    String raw = line.trim();
+                    if (raw.isEmpty()) {
+                        log.debug("[IMPORT] Line {}: empty/blank, skipped", lineNo);
+                        continue;
+                    }
+
+                    if (lineNo == 1 && looksLikeLiteHeader(raw)) {
+                        log.debug("[IMPORT] Line {}: header detected, skipped: {}", lineNo, raw);
+                        continue;
+                    }
+
+                    log.trace("[IMPORT] Line {} RAW: {}", lineNo, raw);
+
+                    String[] cols = splitFlexible(raw);
+
+                    if (cols.length < 3) {
+                        skipped++;
+                        log.warn("[IMPORT] Line {}: not enough columns ({}), expected 3, skipped | cols={} | raw='{}'", lineNo, cols.length, Arrays.toString(cols), raw);
+                        continue;
+                    }
+
+                    String codigo = safeGet(cols, 0);
+                    String descripcion = safeGet(cols, 1);
+                    String precioVentaStr = safeGet(cols, 2);
+
+                    if (codigo == null || !codigo.matches(BARCODE_REGEX)) {
+                        skipped++;
+                        log.warn("[IMPORT] Line {}: invalid or missing barcode '{}', skipped | raw='{}'", lineNo, codigo, raw);
+                        continue;
+                    }
+
+                    Double precioVenta = parseMoneyToDouble(precioVentaStr).orElse(0.0);
+                    Double precioCosto = 0.0;
+
+                    log.debug("[IMPORT] Line {}: parsed codigo='{}' descripcion='{}' precioVenta={}", lineNo, codigo, descripcion, precioVenta);
+
+                    String normalizedBarcode = codigo.toUpperCase(Locale.ROOT);
+                    if (productRepository.findByBarcode(normalizedBarcode).isPresent()) {
+                        duplicates++;
+                        String dupMsg = "Line " + lineNo + ": duplicate barcode '" + codigo + "' – skipped";
+                        log.warn("[IMPORT] {}", dupMsg);
+                        continue;
+                    }
+
+                    try {
+                        Product p = Product.builder()
+                                .barcode(codigo)
+                                .nombre(descripcion)
+                                .precio(precioVenta)
+                                .precioCompra(precioCosto)
+                                .build();
+
+                        Product saved = productService.create(p);
+                        log.info("[IMPORT] Line {}: CREATED product id={} | barcode='{}' | nombre='{}' | precioVenta={}", lineNo, saved.getId(), saved.getBarcode(), saved.getNombre(), precioVenta);
+
+                        BigDecimal historialPrecio = toSafeMoney(saved.getPrecio());
+
+                        HistorialProducto hp = HistorialProducto.builder()
+                                .productoId(saved.getId())
+                                .evento(eventName)
+                                .precio(historialPrecio)
+                                .activo(true)
+                                .build();
+                        historialProductoService.create(hp);
+                        log.debug("[IMPORT] Line {}: HISTORIAL recorded for productoId={} event='{}' precio={}", lineNo, saved.getId(), eventName, historialPrecio);
+
+                        created++;
+                    } catch (Exception ex) {
+                        errors++;
+                        String ctx = "codigo='" + codigo + "', descripcion='" + descripcion + "', precioVenta='" + precioVentaStr + "'";
+                        String err = ex.getClass().getSimpleName() + ": " + (ex.getMessage() == null ? "(no message)" : ex.getMessage());
+                        messages.add("Line " + lineNo + ": error - " + err + " | " + ctx);
+                        log.error("[IMPORT] Line {}: ERROR {} | {}", lineNo, err, ctx, ex);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("[IMPORT] Failed to read CSV file='{}' | event='{}'", filename, eventName, e);
+            return MigrationResult.error("Failed to read CSV: " + e.getMessage());
+        }
+
+        log.info("[IMPORT] Completed importarLite | file='{}' | event='{}' | created={} | skipped={} | duplicates={} | errors={}", filename, eventName, created, skipped, duplicates, errors);
+        return new MigrationResult(created, skipped, duplicates, errors, messages);
+    }
+
+    private static boolean looksLikeLiteHeader(String raw) {
+        String normalized = raw.toLowerCase(Locale.ROOT);
+        return normalized.contains("codigo") && normalized.contains("nombre") && normalized.contains("precio");
+    }
+
     private static BigDecimal toSafeMoney(Double val) {
         if (val == null) {
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
@@ -439,14 +563,14 @@ public class MigrationServiceImpl implements MigrationService {
     private static int scoreTextForEncodingIssues(String text) {
         if (text == null || text.isEmpty()) return 0;
         int score = 0;
-        // Replacement character count (�)
+        // Replacement character count ()
         for (int i = 0; i < text.length(); i++) {
             if (text.charAt(i) == '\uFFFD') score += 10; // heavy penalty
         }
         // Common mojibake sequences when UTF-8 is decoded as Latin-1
         score += countOccurrences(text, "Ã") * 3;
         score += countOccurrences(text, "Â") * 2;
-        score += countOccurrences(text, "�") * 5; // literal replacement in some renderings
+        score += countOccurrences(text, "") * 5; // literal replacement in some renderings
         return score;
     }
 
