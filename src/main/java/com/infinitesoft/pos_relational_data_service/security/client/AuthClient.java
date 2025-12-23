@@ -1,0 +1,118 @@
+package com.infinitesoft.pos_relational_data_service.security.client;
+
+import com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+
+import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+@Component
+public class AuthClient {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthClient.class);
+    private final WebClient webClient;
+    private final Duration timeout;
+
+    private final String validatePath;
+    private final String claimsPath;
+    private final String userIdPath;
+    private final String usuariosPath;
+
+    public AuthClient(
+            WebClient.Builder webClientBuilder,
+            @Value("${auth.service.host:http://localhost:8081}") String serviceHost,
+            @Value("${auth.service.base-path:/auth}") String basePath,
+            @Value("${auth.service.timeout-ms:5000}") long timeoutMs,
+            @Value("${auth.service.path.validate:/validate}") String validatePath,
+            @Value("${auth.service.path.claims:/claims}") String claimsPath,
+            @Value("${auth.service.path.user-id:/usuario-id}") String userIdPath,
+            @Value("${auth.service.path.usuarios:/usuarios}") String usuariosPath
+    ) {
+        String baseUrl = serviceHost + basePath;
+        this.webClient = webClientBuilder.baseUrl(baseUrl).build();
+        this.timeout = Duration.ofMillis(timeoutMs);
+        this.validatePath = validatePath;
+        this.claimsPath = claimsPath;
+        this.userIdPath = userIdPath;
+        this.usuariosPath = usuariosPath;
+    }
+
+    public Boolean validateToken(String token) {
+        try {
+            return webClient.post()
+                    .uri(validatePath)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(BodyInserters.fromValue(Map.of("token", token)))
+                    .retrieve()
+                    .bodyToMono(Boolean.class)
+                    .block(timeout);
+        } catch (Exception e) {
+            log.error("[AuthClient] Error validating token: {}", e.toString());
+            return false;
+        }
+    }
+
+    public AuthUserDto getClaims(String token) {
+        try {
+            return webClient.post()
+                    .uri(claimsPath)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(BodyInserters.fromValue(Map.of("token", token)))
+                    .retrieve()
+                    .bodyToMono(AuthUserDto.class)
+                    .block(timeout);
+        } catch (Exception e) {
+            log.warn("[AuthClient] Failed to fetch claims: {}", e.toString());
+            return null;
+        }
+    }
+
+    public UUID getUserIdByEmail(String email) {
+        try {
+            String idStr = webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path(userIdPath)
+                            .queryParam("correoElectronico", email)
+                            .build())
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block(timeout);
+
+            if (idStr != null && !idStr.isBlank()) {
+                idStr = idStr.replace("\"", "").trim();
+                return UUID.fromString(idStr);
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("[AuthClient] Error fetching userId by email: {}", e.toString());
+            return null;
+        }
+    }
+
+    public List<AuthUserDto> getUsuarios(String token) {
+        try {
+            return webClient.get()
+                    .uri(usuariosPath)
+                    .header("Authorization", "Bearer " + token)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<List<AuthUserDto>>() {})
+                    .block(timeout);
+        } catch (Exception e) {
+            log.error("[AuthClient] Error fetching usuarios: {}", e.toString());
+            return Collections.emptyList();
+        }
+    }
+}

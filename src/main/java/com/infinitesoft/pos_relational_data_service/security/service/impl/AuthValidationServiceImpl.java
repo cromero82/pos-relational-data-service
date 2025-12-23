@@ -2,49 +2,30 @@ package com.infinitesoft.pos_relational_data_service.security.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.infinitesoft.pos_relational_data_service.security.client.AuthClient;
 import com.infinitesoft.pos_relational_data_service.security.dto.AuthRoleDto;
 import com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto;
 import com.infinitesoft.pos_relational_data_service.security.service.AuthValidationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.BodyInserters;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class AuthValidationServiceImpl implements AuthValidationService {
 
-    private final WebClient webClient;
-    private final String validatePath;
-    private final String claimsPath;
-    private final String userIdByEmailPath;
-    private final Duration timeout;
+    private final AuthClient authClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger log = LoggerFactory.getLogger(AuthValidationServiceImpl.class);
 
-    public AuthValidationServiceImpl(
-            WebClient.Builder webClientBuilder,
-            @Value("${auth.service.base-url:http://localhost:8081}") String baseUrl,
-            @Value("${auth.service.validate-path:/auth/validate}") String validatePath,
-            @Value("${auth.service.claims-path:/auth/claims}") String claimsPath,
-            @Value("${auth.service.user-id-path:/auth/usuario-id}") String userIdByEmailPath,
-            @Value("${auth.service.timeout-ms:5000}") long timeoutMs
-    ) {
-        this.webClient = webClientBuilder.baseUrl(baseUrl).build();
-        this.validatePath = validatePath;
-        this.claimsPath = claimsPath;
-        this.userIdByEmailPath = userIdByEmailPath;
-        this.timeout = Duration.ofMillis(timeoutMs);
+    public AuthValidationServiceImpl(AuthClient authClient) {
+        this.authClient = authClient;
     }
 
     @Override
@@ -53,37 +34,20 @@ public class AuthValidationServiceImpl implements AuthValidationService {
             return null;
         }
         try {
-            // 1) Validate token: endpoint returns only boolean true/false
-            Mono<Boolean> monoBool = webClient.post()
-                    .uri(validatePath)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(BodyInserters.fromValue(Map.of("token", token)))
-                    .retrieve()
-                    .bodyToMono(Boolean.class);
-            Boolean ok = monoBool.block(timeout);
+            // 1) Validate token
+            Boolean ok = authClient.validateToken(token);
             if (ok != null && ok) {
                 // 2) If valid, fetch claims/user info
-                try {
-                    Mono<AuthUserDto> monoUser = webClient.post()
-                            .uri(claimsPath)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .body(BodyInserters.fromValue(Map.of("token", token)))
-                            .retrieve()
-                            .bodyToMono(AuthUserDto.class);
-                    AuthUserDto user = monoUser.block(timeout);
-                    if (user != null) {
-                        return user;
-                    }
-                } catch (Exception e) {
-                    log.warn("[AuthValidation] Failed to fetch claims from {}: {}", claimsPath, e.toString());
-                    // If claims endpoint not available, fallback to parse JWT locally
+                AuthUserDto user = authClient.getClaims(token);
+                if (user != null) {
+                    return user;
                 }
                 // 3) Fallback: Build minimal user from JWT payload claims
                 return parseUserFromJwt(token);
             }
             return null;
         } catch (Exception ex) {
-            log.error("[AuthValidation] Error validating token against {}: {}", validatePath, ex.toString(), ex);
+            log.error("[AuthValidation] Error validating token: {}", ex.toString(), ex);
             return null;
         }
     }
@@ -144,25 +108,8 @@ public class AuthValidationServiceImpl implements AuthValidationService {
     }
 
     @Override
-    public java.util.UUID fetchUserIdByEmail(String email) {
+    public UUID fetchUserIdByEmail(String email) {
         if (email == null || email.isBlank()) return null;
-        try {
-            Mono<String> mono = webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path(userIdByEmailPath)
-                            .queryParam("correoElectronico", email)
-                            .build())
-                    .accept(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .bodyToMono(String.class);
-            String idStr = mono.block(timeout);
-            if (idStr == null || idStr.isBlank()) return null;
-            // Remove quotes if response is a JSON string value
-            idStr = idStr.replace("\"", "").trim();
-            return java.util.UUID.fromString(idStr);
-        } catch (Exception e) {
-            log.error("[AuthValidation] Error fetching userId by email from {}: {}", userIdByEmailPath, e.toString(), e);
-            return null;
-        }
+        return authClient.getUserIdByEmail(email);
     }
 }
