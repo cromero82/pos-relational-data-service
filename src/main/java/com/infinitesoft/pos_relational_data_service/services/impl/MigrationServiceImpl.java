@@ -7,6 +7,8 @@ import com.infinitesoft.pos_relational_data_service.services.HistorialProductoSe
 import com.infinitesoft.pos_relational_data_service.services.MigrationResult;
 import com.infinitesoft.pos_relational_data_service.services.MigrationService;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -200,7 +202,18 @@ public class MigrationServiceImpl implements MigrationService {
                             .precioCompra(precioCosto)
                             .build();
 
-                    Product saved = productService.create(p);
+                    // Use repository directly to avoid double history creation in ProductService.create
+                    // ProductService.create adds "manual creation" history, but we want to add our own eventName history
+                    if (p.getNombre() != null) {
+                        p.setNombre(p.getNombre().toUpperCase());
+                    }
+                    if (p.getBarcode() != null) {
+                        p.setBarcode(p.getBarcode().toUpperCase());
+                    }
+                    if (p.getActivate() == null) {
+                        p.setActivate(1);
+                    }
+                    Product saved = productRepository.save(p);
                     log.info("[IMPORT] Line {}: CREATED product id={} | barcode='{}' | nombre='{}' | precioVenta={} | precioCosto={}", lineNo, saved.getId(), saved.getBarcode(), saved.getNombre(), precioVenta, precioCosto);
 
                     BigDecimal historialPrecio = toSafeMoney(saved.getPrecio());
@@ -247,14 +260,131 @@ public class MigrationServiceImpl implements MigrationService {
             return MigrationResult.error("Missing eventName");
         }
 
+        String filename = file.getOriginalFilename();
+        log.info("[IMPORT] Starting importarLite | event='{}' | file='{}'", eventName, filename);
+
+        MigrationResult result;
+        // Check if file is Excel (xlsx)
+        if (filename != null && (filename.endsWith(".xlsx") || filename.endsWith(".xls"))) {
+            result = importLiteExcel(file, eventName);
+        } else {
+            // Fallback to CSV/Text processing
+            result = importLiteCsv(file, eventName);
+        }
+        
+        return result;
+    }
+
+    private MigrationResult importLiteExcel(MultipartFile file, String eventName) {
         int created = 0;
         int skipped = 0;
         int duplicates = 0;
         int errors = 0;
         List<String> messages = new ArrayList<>();
-
+        List<MigrationResult.Conflict> conflictos = new ArrayList<>();
         String filename = file.getOriginalFilename();
-        log.info("[IMPORT] Starting importarLite | event='{}' | file='{}'", eventName, filename);
+
+        try (InputStream is = file.getInputStream();
+             Workbook workbook = new XSSFWorkbook(is)) {
+
+            Sheet sheet = workbook.getSheetAt(0);
+            int lineNo = 0;
+
+            for (Row row : sheet) {
+                lineNo++;
+                if (lineNo == 1) {
+                    // Always skip the first row as it is assumed to be a header
+                    log.debug("[IMPORT] Line {}: header row skipped by default", lineNo);
+                    continue;
+                }
+                
+                if (row == null) {
+                    continue;
+                }
+
+                // Fixed 3 columns for Excel: 0=Code, 1=Desc, 2=Price
+                // Use RETURN_BLANK_AS_NULL to safely handle missing or blank cells
+                String[] cols = new String[3];
+                cols[0] = getCellValueAsString(row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL));
+                cols[1] = getCellValueAsString(row.getCell(1, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL));
+                cols[2] = getCellValueAsString(row.getCell(2, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL));
+                
+                // Trim and check for content
+                boolean hasContent = false;
+                for(int i=0; i<3; i++) {
+                    if(cols[i] != null) {
+                        cols[i] = cols[i].trim();
+                        if(!cols[i].isEmpty()) hasContent = true;
+                    } else {
+                        cols[i] = "";
+                    }
+                }
+                
+                if (!hasContent) {
+                     continue;
+                }
+                
+                // Reuse the logic for processing columns
+                ImportResult result = processLiteRow(cols, lineNo, eventName);
+                
+                if (result.status == ImportStatus.CREATED) {
+                    created++;
+                }
+                else if (result.status == ImportStatus.SKIPPED) skipped++;
+                else if (result.status == ImportStatus.DUPLICATE) duplicates++;
+                else if (result.status == ImportStatus.ERROR) {
+                    errors++;
+                    messages.add(result.message);
+                }
+                
+                if (result.conflict != null) {
+                    conflictos.add(result.conflict);
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("[IMPORT] Failed to read Excel file='{}' | event='{}'", filename, eventName, e);
+            return MigrationResult.error("Failed to read Excel: " + e.getMessage());
+        }
+
+        log.info("[IMPORT] Completed importarLite (Excel) | file='{}' | event='{}' | created={} | skipped={} | duplicates={} | errors={}", filename, eventName, created, skipped, duplicates, errors);
+        return new MigrationResult(created, skipped, duplicates, errors, messages, conflictos);
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) return "";
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getDateCellValue().toString();
+                } else {
+                    // Avoid scientific notation for barcodes
+                    double val = cell.getNumericCellValue();
+                    if (val == (long) val) {
+                        return String.format("%d", (long) val);
+                    } else {
+                        return String.valueOf(val);
+                    }
+                }
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                return cell.getCellFormula();
+            default:
+                return "";
+        }
+    }
+
+    private MigrationResult importLiteCsv(MultipartFile file, String eventName) {
+        int created = 0;
+        int skipped = 0;
+        int duplicates = 0;
+        int errors = 0;
+        List<String> messages = new ArrayList<>();
+        List<MigrationResult.Conflict> conflictos = new ArrayList<>();
+        String filename = file.getOriginalFilename();
 
         try {
             byte[] bytes = file.getBytes();
@@ -278,73 +408,30 @@ public class MigrationServiceImpl implements MigrationService {
                         continue;
                     }
 
-                    if (lineNo == 1 && looksLikeLiteHeader(raw)) {
-                        log.debug("[IMPORT] Line {}: header detected, skipped: {}", lineNo, raw);
+                    if (lineNo == 1) {
+                        // Always skip the first row as it is assumed to be a header
+                        log.debug("[IMPORT] Line {}: header row skipped by default", lineNo);
                         continue;
                     }
 
                     log.trace("[IMPORT] Line {} RAW: {}", lineNo, raw);
 
                     String[] cols = splitFlexible(raw);
+                    
+                    ImportResult result = processLiteRow(cols, lineNo, eventName);
 
-                    if (cols.length < 3) {
-                        skipped++;
-                        log.warn("[IMPORT] Line {}: not enough columns ({}), expected 3, skipped | cols={} | raw='{}'", lineNo, cols.length, Arrays.toString(cols), raw);
-                        continue;
-                    }
-
-                    String codigo = safeGet(cols, 0);
-                    String descripcion = safeGet(cols, 1);
-                    String precioVentaStr = safeGet(cols, 2);
-
-                    if (codigo == null || !codigo.matches(BARCODE_REGEX)) {
-                        skipped++;
-                        log.warn("[IMPORT] Line {}: invalid or missing barcode '{}', skipped | raw='{}'", lineNo, codigo, raw);
-                        continue;
-                    }
-
-                    Double precioVenta = parseMoneyToDouble(precioVentaStr).orElse(0.0);
-                    Double precioCosto = 0.0;
-
-                    log.debug("[IMPORT] Line {}: parsed codigo='{}' descripcion='{}' precioVenta={}", lineNo, codigo, descripcion, precioVenta);
-
-                    String normalizedBarcode = codigo.toUpperCase(Locale.ROOT);
-                    if (productRepository.findByBarcode(normalizedBarcode).isPresent()) {
-                        duplicates++;
-                        String dupMsg = "Line " + lineNo + ": duplicate barcode '" + codigo + "' – skipped";
-                        log.warn("[IMPORT] {}", dupMsg);
-                        continue;
-                    }
-
-                    try {
-                        Product p = Product.builder()
-                                .barcode(codigo)
-                                .nombre(descripcion)
-                                .precio(precioVenta)
-                                .precioCompra(precioCosto)
-                                .build();
-
-                        Product saved = productService.create(p);
-                        log.info("[IMPORT] Line {}: CREATED product id={} | barcode='{}' | nombre='{}' | precioVenta={}", lineNo, saved.getId(), saved.getBarcode(), saved.getNombre(), precioVenta);
-
-                        BigDecimal historialPrecio = toSafeMoney(saved.getPrecio());
-
-                        HistorialProducto hp = HistorialProducto.builder()
-                                .productoId(saved.getId())
-                                .evento(eventName)
-                                .precio(historialPrecio)
-                                .activo(true)
-                                .build();
-                        historialProductoService.create(hp);
-                        log.debug("[IMPORT] Line {}: HISTORIAL recorded for productoId={} event='{}' precio={}", lineNo, saved.getId(), eventName, historialPrecio);
-
+                    if (result.status == ImportStatus.CREATED) {
                         created++;
-                    } catch (Exception ex) {
+                    }
+                    else if (result.status == ImportStatus.SKIPPED) skipped++;
+                    else if (result.status == ImportStatus.DUPLICATE) duplicates++;
+                    else if (result.status == ImportStatus.ERROR) {
                         errors++;
-                        String ctx = "codigo='" + codigo + "', descripcion='" + descripcion + "', precioVenta='" + precioVentaStr + "'";
-                        String err = ex.getClass().getSimpleName() + ": " + (ex.getMessage() == null ? "(no message)" : ex.getMessage());
-                        messages.add("Line " + lineNo + ": error - " + err + " | " + ctx);
-                        log.error("[IMPORT] Line {}: ERROR {} | {}", lineNo, err, ctx, ex);
+                        messages.add(result.message);
+                    }
+                    
+                    if (result.conflict != null) {
+                        conflictos.add(result.conflict);
                     }
                 }
             }
@@ -353,8 +440,231 @@ public class MigrationServiceImpl implements MigrationService {
             return MigrationResult.error("Failed to read CSV: " + e.getMessage());
         }
 
-        log.info("[IMPORT] Completed importarLite | file='{}' | event='{}' | created={} | skipped={} | duplicates={} | errors={}", filename, eventName, created, skipped, duplicates, errors);
-        return new MigrationResult(created, skipped, duplicates, errors, messages);
+        log.info("[IMPORT] Completed importarLite (CSV) | file='{}' | event='{}' | created={} | skipped={} | duplicates={} | errors={}", filename, eventName, created, skipped, duplicates, errors);
+        return new MigrationResult(created, skipped, duplicates, errors, messages, conflictos);
+    }
+
+    private enum ImportStatus { CREATED, SKIPPED, DUPLICATE, ERROR }
+    
+    private static class ImportResult {
+        ImportStatus status;
+        String message;
+        MigrationResult.Conflict conflict;
+        
+        ImportResult(ImportStatus status, String message) {
+            this.status = status;
+            this.message = message;
+        }
+        
+        ImportResult(ImportStatus status, String message, MigrationResult.Conflict conflict) {
+            this.status = status;
+            this.message = message;
+            this.conflict = conflict;
+        }
+        
+        static ImportResult created() { return new ImportResult(ImportStatus.CREATED, null); }
+        static ImportResult skipped() { return new ImportResult(ImportStatus.SKIPPED, null); }
+        static ImportResult duplicate() { return new ImportResult(ImportStatus.DUPLICATE, null); }
+        static ImportResult duplicate(MigrationResult.Conflict conflict) { return new ImportResult(ImportStatus.DUPLICATE, null, conflict); }
+        static ImportResult error(String msg) { return new ImportResult(ImportStatus.ERROR, msg); }
+        static ImportResult conflict(MigrationResult.Conflict conflict) { return new ImportResult(ImportStatus.SKIPPED, null, conflict); }
+    }
+
+    private ImportResult processLiteRow(String[] cols, int lineNo, String eventName) {
+        String codigo = null;
+        String descripcion = null;
+        String precioVentaStr = null;
+
+        // Try to identify columns based on content
+        String col0 = safeGet(cols, 0);
+        String col1 = safeGet(cols, 1);
+        String col2 = safeGet(cols, 2);
+
+        boolean col0IsBarcode = col0 != null && col0.matches(BARCODE_REGEX);
+        boolean col1IsBarcode = col1 != null && col1.matches(BARCODE_REGEX);
+        
+        // Scenario 1: Standard (Barcode | Description | Price) or (Barcode | Price)
+        if (col0IsBarcode) {
+            codigo = col0;
+            if (cols.length == 2) {
+                // Barcode | Price
+                descripcion = "";
+                precioVentaStr = col1;
+            } else {
+                // Barcode | Description | Price
+                // If col1 is description and col2 is price
+                if (looksLikeMoney(col2)) {
+                     descripcion = col1;
+                     precioVentaStr = col2;
+                } else {
+                    // Maybe description is split or price is further down
+                    precioVentaStr = safeGet(cols, cols.length - 1);
+                    // Join middle columns for description
+                    StringBuilder descBuilder = new StringBuilder();
+                    for (int i = 1; i < cols.length - 1; i++) {
+                        if (descBuilder.length() > 0) descBuilder.append(" ");
+                        descBuilder.append(cols[i]);
+                    }
+                    descripcion = descBuilder.toString();
+                }
+            }
+        } 
+        // Scenario 2: Description | Barcode | Price (Inverted)
+        else if (col1IsBarcode) {
+             descripcion = col0;
+             codigo = col1;
+             precioVentaStr = safeGet(cols, 2);
+        }
+        // Scenario 3: Description | Price (No Barcode or Barcode in description?)
+        else {
+             // Fallback logic based on user request:
+             // "PANBLANDITO PAN BLANDITO 2500" -> PANBLANDITO (code), PAN BLANDITO (desc), 2500 (price)
+             // "ALQURIA 200ML 1000" -> ALQURIA 200ML (code), "" (desc), 1000 (price)
+             
+             // If 3 columns: Code | Desc | Price
+             if (cols.length >= 3) {
+                 codigo = col0;
+                 descripcion = col1;
+                 precioVentaStr = col2;
+                 // If col2 is not money, maybe look for money at the end
+                 if (!looksLikeMoney(precioVentaStr)) {
+                     precioVentaStr = safeGet(cols, cols.length - 1);
+                 }
+             } else if (cols.length == 2) {
+                 // Code | Price
+                 codigo = col0;
+                 descripcion = "";
+                 precioVentaStr = col1;
+             }
+        }
+
+        // Special handling for barcodes starting with "HTTPSÑ--"
+        if (codigo != null && codigo.toUpperCase(Locale.ROOT).startsWith("HTTPSÑ--")) {
+            log.debug("[IMPORT] Line {}: barcode starts with HTTPSÑ--, clearing barcode. Original='{}'", lineNo, codigo);
+            codigo = "";
+        }
+
+        if ((codigo == null || codigo.isBlank()) && (descripcion == null || descripcion.isBlank())) {
+            log.warn("[IMPORT] Line {}: missing both barcode and description, skipped | cols={}", lineNo, Arrays.toString(cols));
+            return ImportResult.skipped();
+        }
+
+        Double precioVenta = parseMoneyToDouble(precioVentaStr).orElse(0.0);
+        Double precioCosto = 0.0;
+
+        log.debug("[IMPORT] Line {}: parsed codigo='{}' descripcion='{}' precioVenta={}", lineNo, codigo, descripcion, precioVenta);
+
+        // Conflict Check 1: Same name and barcode (Self-check).
+        // Per user request, this scenario only applies if both barcode and name are non-null and not blank.
+        if (codigo != null && !codigo.isBlank() && descripcion != null && !descripcion.isBlank()) {
+            if (codigo.trim().equalsIgnoreCase(descripcion.trim())) {
+                Map<String, String> conflictDetails = new HashMap<>();
+                conflictDetails.put("nombre", descripcion);
+                
+                List<Map<String, String>> conflictList = new ArrayList<>();
+                conflictList.add(conflictDetails);
+                
+                String nombreConPrecio = descripcion + "; Precio: " + String.format("$%,.2f", precioVenta);
+                MigrationResult.Conflict conflict = new MigrationResult.Conflict("Nombre y codigo de barras iguales", nombreConPrecio, conflictList);
+                return ImportResult.conflict(conflict);
+            }
+        }
+
+        // Conflict Check 2: Same name but different barcode or price (Database check)
+        if (descripcion != null && !descripcion.isBlank()) {
+             try {
+                 org.springframework.data.domain.Page<Product> page = productService.getByName(descripcion, org.springframework.data.domain.PageRequest.of(0, 10));
+                 for (Product existing : page.getContent()) {
+                     if (existing.getNombre().equalsIgnoreCase(descripcion)) {
+                         // Found a product with the same name.
+                         // Check if barcode or price is different.
+                         boolean barcodeDiff = !Objects.equals(existing.getBarcode(), codigo);
+                         // Price check: compare doubles/bigdecimals.
+                         // existing.getPrecio() is Double.
+                         boolean priceDiff = Math.abs(existing.getPrecio() - precioVenta) > 0.01; // epsilon
+                         
+                         if (barcodeDiff || priceDiff) {
+                             List<Map<String, String>> conflictList = new ArrayList<>();
+                             
+                             if (barcodeDiff) {
+                                 Map<String, String> c = new HashMap<>();
+                                 c.put("codigo barras", existing.getBarcode());
+                                 c.put("codigo barras 2nd", codigo);
+                                 conflictList.add(c);
+                             }
+                             
+                             if (priceDiff) {
+                                 Map<String, String> c = new HashMap<>();
+                                 c.put("precio", String.format("$%,.2f", existing.getPrecio()));
+                                 c.put("precio 2nd", String.format("$%,.2f", precioVenta));
+                                 conflictList.add(c);
+                             }
+                             
+                             if (!conflictList.isEmpty()) {
+                                 MigrationResult.Conflict conflict = new MigrationResult.Conflict("2 productos con nombres iguales", descripcion, conflictList);
+                                 return ImportResult.conflict(conflict);
+                             }
+                         }
+                     }
+                 }
+             } catch (Exception e) {
+                 log.warn("Failed to check for name conflicts", e);
+             }
+        }
+
+        if (codigo != null && !codigo.isBlank()) {
+            String normalizedBarcode = codigo.toUpperCase(Locale.ROOT);
+            if (productRepository.findByBarcode(normalizedBarcode).isPresent()) {
+                String dupMsg = "Line " + lineNo + ": duplicate barcode '" + codigo + "' – skipped";
+                log.warn("[IMPORT] {}", dupMsg);
+                return ImportResult.duplicate();
+            }
+        }
+
+        try {
+            String barcodeToSave = (codigo == null || codigo.isBlank()) ? null : codigo;
+            // If description is missing, do NOT default to barcode. Leave it empty.
+            String nombre = (descripcion == null || descripcion.isBlank()) ? "" : descripcion;
+
+            Product p = Product.builder()
+                    .barcode(barcodeToSave)
+                    .nombre(nombre)
+                    .precio(precioVenta)
+                    .precioCompra(precioCosto)
+                    .build();
+
+            // Use repository directly to avoid double history creation in ProductService.create
+            // ProductService.create adds "manual creation" history, but we want to add our own eventName history
+            if (p.getNombre() != null) {
+                p.setNombre(p.getNombre().toUpperCase());
+            }
+            if (p.getBarcode() != null) {
+                p.setBarcode(p.getBarcode().toUpperCase());
+            }
+            if (p.getActivate() == null) {
+                p.setActivate(1);
+            }
+            Product saved = productRepository.save(p);
+            log.info("[IMPORT] Line {}: CREATED product id={} | barcode='{}' | nombre='{}' | precioVenta={}", lineNo, saved.getId(), saved.getBarcode(), saved.getNombre(), precioVenta);
+
+            BigDecimal historialPrecio = toSafeMoney(saved.getPrecio());
+
+            HistorialProducto hp = HistorialProducto.builder()
+                    .productoId(saved.getId())
+                    .evento(eventName)
+                    .precio(historialPrecio)
+                    .activo(true)
+                    .build();
+            historialProductoService.create(hp);
+            log.debug("[IMPORT] Line {}: HISTORIAL recorded for productoId={} event='{}' precio={}", lineNo, saved.getId(), eventName, historialPrecio);
+
+            return ImportResult.created();
+        } catch (Exception ex) {
+            String ctx = "codigo='" + codigo + "', descripcion='" + descripcion + "', precioVenta='" + precioVentaStr + "'";
+            String err = ex.getClass().getSimpleName() + ": " + (ex.getMessage() == null ? "(no message)" : ex.getMessage());
+            log.error("[IMPORT] Line {}: ERROR {} | {}", lineNo, err, ctx, ex);
+            return ImportResult.error("Line " + lineNo + ": error - " + err + " | " + ctx);
+        }
     }
 
     private static boolean looksLikeLiteHeader(String raw) {

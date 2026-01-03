@@ -34,4 +34,7 @@ public class Product {
     @Column(name = "activate")
     @Builder.Default
     private Integer activate = 1;
+
+    @Column(name = "fecha_creacion", updatable = false)
+    private LocalDateTime fechaCreacion;
 }

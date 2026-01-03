@@ -106,6 +106,13 @@
             <artifactId>hypersistence-utils-hibernate-55</artifactId>
             <version>3.7.0</version>
         </dependency>
+
+        <!-- Apache POI for Excel support -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.3</version>
+        </dependency>
     </dependencies>
 
     <build>

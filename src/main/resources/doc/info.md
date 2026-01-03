@@ -156,3 +156,67 @@ curl --location --request PUT 'http://localhost:8080/api/bitacora-usuario/{id}' 
 curl --location --request DELETE 'http://localhost:8080/api/bitacora-usuario/{id}' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
+
+# Product Endpoints
+
+## Buscar producto por código de barras
+
+```bash
+curl --location 'http://localhost:8080/products/search-by-barcode?barcode=123456789' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+# CargueProducto Endpoints
+
+## Obtener todos los registros de cargue
+
+```bash
+curl --location 'http://localhost:8080/api/cargue-productos' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Crear registro de cargue (Importar Archivo)
+
+Este endpoint procesa un archivo (Excel o CSV) y crea un registro de cargue con sus conflictos asociados.
+
+```bash
+curl --location 'http://localhost:8080/api/cargue-productos' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--form 'file=@"/path/to/your/file.xlsx"' \
+--form 'nombre="Cargue Diciembre 2025"'
+```
+
+# CargueProductoConflicto Endpoints
+
+## Obtener conflictos por ID de cargue (Obligatorio) y opcionalmente por estado resuelto
+
+```bash
+curl --location 'http://localhost:8080/api/cargue-producto-conflictos?cargueProductoId=1&unicamenteNoResueltos=true' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Crear conflicto de cargue
+
+```bash
+curl --location 'http://localhost:8080/api/cargue-producto-conflictos' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "cargueProducto": {
+        "id": 1
+    },
+    "tipoConflictoId": 1,
+    "nombreProducto": "Producto Duplicado",
+    "datosConflicto": "{\"codigoBarras\": \"123456789\", \"motivo\": \"Nombre duplicado\"}",
+    "resuelto": false
+}'
+```
+
+## Resolver conflicto
+
+Marca un conflicto como resuelto y actualiza el contador en el cargue asociado.
+
+```bash
+curl --location --request PUT 'http://localhost:8080/api/cargue-producto-conflictos/{id}/resolver' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```

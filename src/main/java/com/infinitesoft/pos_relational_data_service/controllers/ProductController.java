@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.Optional;
 
 @RestController
 @PreAuthorize("hasAnyRole('admin','cajero','invitado')")
@@ -38,6 +39,13 @@ public class ProductController {
     ) {
         Pageable pageable = PageRequest.of(page, size);
         return productService.getByName(name, pageable);
+    }
+
+    @GetMapping("/search-by-barcode")
+    public ResponseEntity<Product> searchByBarcode(@RequestParam String barcode) {
+        Optional<Product> product = productService.getByBarcode(barcode);
+        return product.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping

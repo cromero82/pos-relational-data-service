@@ -86,6 +86,14 @@ public class ProductServiceImpl implements ProductService {
         return productRepository.findActiveByNombreContaining(n, sorted);
     }
 
+    @Override
+    public Optional<Product> getByBarcode(String barcode) {
+        if (barcode == null || barcode.isBlank()) {
+            return Optional.empty();
+        }
+        return productRepository.findByBarcode(barcode.toUpperCase());
+    }
+
     private Pageable withNameAsc(Pageable pageable) {
         Sort sort = Sort.by(Sort.Order.asc("nombre").ignoreCase());
         return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
