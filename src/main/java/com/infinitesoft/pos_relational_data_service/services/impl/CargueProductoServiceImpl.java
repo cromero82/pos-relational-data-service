@@ -82,8 +82,10 @@ public class CargueProductoServiceImpl implements CargueProductoService {
                     conflicto.setTipoConflicto(TipoConflicto.IGUAL_NOMBRE_Y_CODIGO_BARRAS);
                 } else if ("2 productos con nombres iguales".equalsIgnoreCase(c.getReferencia())) {
                     conflicto.setTipoConflicto(TipoConflicto.DOS_PRODUCTOS_NOMBRES_IGUALES);
+                } else if ("No tiene precio".equalsIgnoreCase(c.getReferencia())) {
+                    conflicto.setTipoConflicto(TipoConflicto.NO_TIENE_PRECIO);
                 } else {
-                    // Default or fallback if needed, though enum only has 2 values currently
+                    // Default or fallback if needed
                     conflicto.setTipoConflicto(TipoConflicto.DOS_PRODUCTOS_NOMBRES_IGUALES);
                 }
 

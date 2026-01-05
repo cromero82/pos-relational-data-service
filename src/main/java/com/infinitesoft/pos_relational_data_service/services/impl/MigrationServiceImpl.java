@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -554,6 +555,19 @@ public class MigrationServiceImpl implements MigrationService {
 
         log.debug("[IMPORT] Line {}: parsed codigo='{}' descripcion='{}' precioVenta={}", lineNo, codigo, descripcion, precioVenta);
 
+        // Conflict Check 0: No price (Price is zero)
+        if (precioVenta == 0.0) {
+            Map<String, String> conflictDetails = new HashMap<>();
+            conflictDetails.put("nombre", descripcion);
+            conflictDetails.put("codigo", codigo);
+            
+            List<Map<String, String>> conflictList = new ArrayList<>();
+            conflictList.add(conflictDetails);
+            
+            MigrationResult.Conflict conflict = new MigrationResult.Conflict("No tiene precio", descripcion, conflictList);
+            return ImportResult.conflict(conflict);
+        }
+
         // Conflict Check 1: Same name and barcode (Self-check).
         // Per user request, this scenario only applies if both barcode and name are non-null and not blank.
         if (codigo != null && !codigo.isBlank() && descripcion != null && !descripcion.isBlank()) {
@@ -631,6 +645,7 @@ public class MigrationServiceImpl implements MigrationService {
                     .nombre(nombre)
                     .precio(precioVenta)
                     .precioCompra(precioCosto)
+                    .fechaCreacion(LocalDateTime.now())
                     .build();
 
             // Use repository directly to avoid double history creation in ProductService.create
