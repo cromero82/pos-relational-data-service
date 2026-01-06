@@ -21,6 +21,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
@@ -124,6 +125,16 @@ public class TokenAuthFilter extends OncePerRequestFilter {
             return;
         }
 
+        // Fetch user ID if missing
+        if (user.getId() == null && user.getCorreoElectronico() != null) {
+            try {
+                UUID userId = authValidationService.fetchUserIdByEmail(user.getCorreoElectronico());
+                user.setId(userId);
+            } catch (Exception e) {
+                log.warn("[AuthFilter] Could not fetch user ID for email {}: {}", user.getCorreoElectronico(), e.getMessage());
+            }
+        }
+
         List<GrantedAuthority> authorities = Objects.requireNonNullElse(user.getRoles(), List.<AuthRoleDto>of())
                 .stream()
                 .map(AuthRoleDto::getSigla)
@@ -134,7 +145,7 @@ public class TokenAuthFilter extends OncePerRequestFilter {
                 .collect(Collectors.toList());
 
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                user.getCorreoElectronico() != null ? user.getCorreoElectronico() : user.getNombre(),
+                user, // Principal is now the full AuthUserDto
                 null,
                 authorities
         );

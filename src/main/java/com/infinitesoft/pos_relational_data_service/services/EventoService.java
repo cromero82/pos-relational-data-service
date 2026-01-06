@@ -7,6 +7,7 @@ import java.util.Optional;
 public interface EventoService {
     List<Evento> findAll();
     Optional<Evento> findById(Integer id);
+    Optional<Evento> findBySigla(String sigla);
     Evento save(Evento evento);
     void deleteById(Integer id);
 }

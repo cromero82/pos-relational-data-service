@@ -1,20 +1,30 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.infinitesoft.pos_relational_data_service.entities.BitacoraUsuario;
 import com.infinitesoft.pos_relational_data_service.entities.CargueProducto;
 import com.infinitesoft.pos_relational_data_service.entities.CargueProductoConflicto;
+import com.infinitesoft.pos_relational_data_service.entities.Evento;
 import com.infinitesoft.pos_relational_data_service.entities.TipoConflicto;
 import com.infinitesoft.pos_relational_data_service.repositories.CargueProductoRepository;
+import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
+import com.infinitesoft.pos_relational_data_service.services.BitacoraUsuarioService;
 import com.infinitesoft.pos_relational_data_service.services.CargueProductoConflictoService;
 import com.infinitesoft.pos_relational_data_service.services.CargueProductoService;
+import com.infinitesoft.pos_relational_data_service.services.EventoService;
 import com.infinitesoft.pos_relational_data_service.services.MigrationResult;
 import com.infinitesoft.pos_relational_data_service.services.MigrationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class CargueProductoServiceImpl implements CargueProductoService {
@@ -28,7 +38,20 @@ public class CargueProductoServiceImpl implements CargueProductoService {
     @Autowired
     private CargueProductoConflictoService conflictoService;
 
+    @Autowired
+    private BitacoraUsuarioService bitacoraUsuarioService;
+
+    @Autowired
+    private EventoService eventoService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @PostConstruct
+    public void init() {
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        objectMapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
+    }
 
     @Override
     public List<CargueProducto> getAll() {
@@ -98,6 +121,25 @@ public class CargueProductoServiceImpl implements CargueProductoService {
 
                 conflictoService.create(conflicto);
             }
+        }
+
+        // 5. Register event in bitacora
+        try {
+            UUID userId = SecurityContextHelper.getUserId();
+            Optional<Evento> eventoOpt = eventoService.findBySigla("IMPORT_PROD");
+
+            if (eventoOpt.isPresent()) {
+                BitacoraUsuario bitacora = new BitacoraUsuario();
+                bitacora.setUserId(userId);
+                bitacora.setEventoId(eventoOpt.get().getId());
+                bitacora.setValorDespues(objectMapper.writeValueAsString(cargue));
+                bitacoraUsuarioService.save(bitacora);
+            } else {
+                // Handle case where event is not found, maybe log a warning
+            }
+        } catch (Exception e) {
+            // Log error during bitacora creation
+            e.printStackTrace();
         }
 
         return cargue;

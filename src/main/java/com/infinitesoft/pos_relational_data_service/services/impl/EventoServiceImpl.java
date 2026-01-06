@@ -30,6 +30,11 @@ public class EventoServiceImpl implements EventoService {
     }
 
     @Override
+    public Optional<Evento> findBySigla(String sigla) {
+        return eventoRepository.findBySigla(sigla);
+    }
+
+    @Override
     public Evento save(Evento evento) {
         return eventoRepository.save(evento);
     }
