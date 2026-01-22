@@ -1,11 +1,13 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.dto.BitacoraUsuarioDto;
+import com.infinitesoft.pos_relational_data_service.dto.BitacoraUsuarioRequest;
 import com.infinitesoft.pos_relational_data_service.entities.BitacoraUsuario;
 import com.infinitesoft.pos_relational_data_service.entities.Evento;
 import com.infinitesoft.pos_relational_data_service.repositories.BitacoraUsuarioRepository;
 import com.infinitesoft.pos_relational_data_service.security.client.AuthClient;
 import com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto;
+import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.BitacoraUsuarioService;
 import com.infinitesoft.pos_relational_data_service.services.EventoService;
 import org.slf4j.Logger;
@@ -52,6 +54,24 @@ public class BitacoraUsuarioServiceImpl implements BitacoraUsuarioService {
     @Override
     public BitacoraUsuario save(BitacoraUsuario bitacoraUsuario) {
         logger.info("Iniciando servicio BitacoraUsuarioService: save");
+        return bitacoraUsuarioRepository.save(bitacoraUsuario);
+    }
+
+    @Override
+    public BitacoraUsuario save(BitacoraUsuarioRequest request) {
+        logger.info("Iniciando servicio BitacoraUsuarioService: save con request");
+        BitacoraUsuario bitacoraUsuario = new BitacoraUsuario();
+        bitacoraUsuario.setUserId(SecurityContextHelper.getUserId());
+        bitacoraUsuario.setValorAntes(request.getValorAntes());
+        bitacoraUsuario.setValorDespues(request.getValorDespues());
+
+        if (request.getEvento() != null && !request.getEvento().isEmpty()) {
+            Optional<Evento> evento = eventoService.findBySigla(request.getEvento());
+            evento.ifPresent(e -> bitacoraUsuario.setEventoId(e.getId()));
+        } else {
+            bitacoraUsuario.setEventoId(request.getEventoId());
+        }
+
         return bitacoraUsuarioRepository.save(bitacoraUsuario);
     }
 

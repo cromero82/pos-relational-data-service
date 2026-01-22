@@ -129,7 +129,19 @@ curl --location 'http://localhost:8080/api/bitacora-usuario' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE' \
 --data '{
-    "userId": "123e4567-e89b-12d3-a456-426614174000",
+    "evento": "SIGLA_EVENTO",
+    "valorAntes": "{\"campo\": \"valor_anterior\"}",
+    "valorDespues": "{\"campo\": \"valor_nuevo\"}"
+}'
+```
+
+O usando `eventoId` directamente:
+
+```bash
+curl --location 'http://localhost:8080/api/bitacora-usuario' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
     "eventoId": 1,
     "valorAntes": "{\"campo\": \"valor_anterior\"}",
     "valorDespues": "{\"campo\": \"valor_nuevo\"}"

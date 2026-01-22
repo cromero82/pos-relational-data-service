@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
 import com.infinitesoft.pos_relational_data_service.dto.BitacoraUsuarioDto;
+import com.infinitesoft.pos_relational_data_service.dto.BitacoraUsuarioRequest;
 import com.infinitesoft.pos_relational_data_service.entities.BitacoraUsuario;
 import com.infinitesoft.pos_relational_data_service.services.BitacoraUsuarioService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,8 +58,8 @@ public class BitacoraUsuarioController {
     }
 
     @PostMapping
-    public ResponseEntity<BitacoraUsuario> create(@RequestBody BitacoraUsuario bitacoraUsuario) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(bitacoraUsuarioService.save(bitacoraUsuario));
+    public ResponseEntity<BitacoraUsuario> create(@RequestBody BitacoraUsuarioRequest bitacoraUsuarioRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(bitacoraUsuarioService.save(bitacoraUsuarioRequest));
     }
 
     @PutMapping("/{id}")
