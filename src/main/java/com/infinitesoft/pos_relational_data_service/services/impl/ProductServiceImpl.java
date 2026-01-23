@@ -1,9 +1,13 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infinitesoft.pos_relational_data_service.entities.HistorialProducto;
 import com.infinitesoft.pos_relational_data_service.entities.Product;
+import com.infinitesoft.pos_relational_data_service.entities.enums.BitacoraEvento;
+import com.infinitesoft.pos_relational_data_service.dto.BitacoraUsuarioRequest;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialProductoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
+import com.infinitesoft.pos_relational_data_service.services.BitacoraUsuarioService;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -25,6 +29,10 @@ public class ProductServiceImpl implements ProductService {
     private ProductRepository productRepository;
     @Autowired
     private HistorialProductoRepository historialProductoRepository;
+    @Autowired
+    private BitacoraUsuarioService bitacoraUsuarioService;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Override
     public Page<Product> getAll(String barcodeOrName, Pageable pageable) {
@@ -122,10 +130,22 @@ public class ProductServiceImpl implements ProductService {
                 .activo(true)
                 .build();
         historialProductoRepository.save(historial);
+
+        // Registrar en bitácora de usuario
+        try {
+            BitacoraUsuarioRequest bitacoraRequest = new BitacoraUsuarioRequest();
+            bitacoraRequest.setEvento(BitacoraEvento.REG_PROD.getSigla());
+            bitacoraRequest.setValorDespues(objectMapper.writeValueAsString(saved));
+            bitacoraUsuarioService.save(bitacoraRequest);
+        } catch (Exception e) {
+            // No bloqueamos la creación del producto si falla el registro en bitácora
+        }
+
         return saved;
     }
 
     @Override
+    @Transactional
     public Product update(Long id, Product product) {
         if (id == null) {
             return null;
@@ -135,6 +155,14 @@ public class ProductServiceImpl implements ProductService {
             return null;
         }
         Product existing = existingOpt.get();
+
+        String valorAntes = null;
+        try {
+            valorAntes = objectMapper.writeValueAsString(existing);
+        } catch (Exception e) {
+            // Error serializando el estado anterior
+        }
+
         // Full replace (PUT semantics), but keep primary key (id) from path
         if (product.getBarcode() != null) {
             existing.setBarcode(product.getBarcode().toUpperCase());
@@ -147,11 +175,97 @@ public class ProductServiceImpl implements ProductService {
             existing.setNombre(null);
         }
         existing.setPrecio(product.getPrecio());
+        existing.setPrecioCompra(product.getPrecioCompra());
         // Preserve activate flag unless explicitly provided
         if (product.getActivate() != null) {
             existing.setActivate(product.getActivate());
         }
-        return productRepository.save(existing);
+        Product saved = productRepository.save(existing);
+
+        // Registrar en bitácora de usuario
+        try {
+            BitacoraUsuarioRequest bitacoraRequest = new BitacoraUsuarioRequest();
+            bitacoraRequest.setEvento(BitacoraEvento.MOD_PROD.getSigla());
+            bitacoraRequest.setValorAntes(valorAntes);
+            bitacoraRequest.setValorDespues(objectMapper.writeValueAsString(saved));
+            bitacoraUsuarioService.save(bitacoraRequest);
+        } catch (Exception e) {
+            // No bloqueamos la actualización del producto si falla el registro en bitácora
+        }
+
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public Product deactivate(Long id) {
+        if (id == null) {
+            return null;
+        }
+        Optional<Product> existingOpt = productRepository.findById(id);
+        if (existingOpt.isEmpty()) {
+            return null;
+        }
+        Product existing = existingOpt.get();
+
+        String valorAntes = null;
+        try {
+            valorAntes = objectMapper.writeValueAsString(existing);
+        } catch (Exception e) {
+            // Error serializando el estado anterior
+        }
+
+        existing.setActivate(0);
+        Product saved = productRepository.save(existing);
+
+        // Registrar en bitácora de usuario
+        try {
+            BitacoraUsuarioRequest bitacoraRequest = new BitacoraUsuarioRequest();
+            bitacoraRequest.setEvento(BitacoraEvento.DESHAB_PROD.getSigla());
+            bitacoraRequest.setValorAntes(valorAntes);
+            bitacoraRequest.setValorDespues(objectMapper.writeValueAsString(saved));
+            bitacoraUsuarioService.save(bitacoraRequest);
+        } catch (Exception e) {
+            // No bloqueamos si falla el registro en bitácora
+        }
+
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public Product activate(Long id) {
+        if (id == null) {
+            return null;
+        }
+        Optional<Product> existingOpt = productRepository.findById(id);
+        if (existingOpt.isEmpty()) {
+            return null;
+        }
+        Product existing = existingOpt.get();
+
+        String valorAntes = null;
+        try {
+            valorAntes = objectMapper.writeValueAsString(existing);
+        } catch (Exception e) {
+            // Error serializando el estado anterior
+        }
+
+        existing.setActivate(1);
+        Product saved = productRepository.save(existing);
+
+        // Registrar en bitácora de usuario
+        try {
+            BitacoraUsuarioRequest bitacoraRequest = new BitacoraUsuarioRequest();
+            bitacoraRequest.setEvento(BitacoraEvento.HAB_PROD.getSigla());
+            bitacoraRequest.setValorAntes(valorAntes);
+            bitacoraRequest.setValorDespues(objectMapper.writeValueAsString(saved));
+            bitacoraUsuarioService.save(bitacoraRequest);
+        } catch (Exception e) {
+            // No bloqueamos si falla el registro en bitácora
+        }
+
+        return saved;
     }
 
     @Override

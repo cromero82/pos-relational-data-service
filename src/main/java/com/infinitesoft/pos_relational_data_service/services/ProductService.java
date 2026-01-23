@@ -11,5 +11,7 @@ public interface ProductService {
     Optional<Product> getByBarcode(String barcode);
     Product create(Product product);
     Product update(Long id, Product product);
+    Product deactivate(Long id);
+    Product activate(Long id);
     boolean delete(Long id);
 }

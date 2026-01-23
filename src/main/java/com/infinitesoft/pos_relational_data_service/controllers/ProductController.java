@@ -67,6 +67,24 @@ public class ProductController {
         return ResponseEntity.ok(updated);
     }
 
+    @PatchMapping("/{id}/deactivate")
+    public ResponseEntity<Product> deactivateProduct(@PathVariable Long id) {
+        Product deactivated = productService.deactivate(id);
+        if (deactivated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(deactivated);
+    }
+
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<Product> activateProduct(@PathVariable Long id) {
+        Product activated = productService.activate(id);
+        if (activated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(activated);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         boolean deleted = productService.delete(id);

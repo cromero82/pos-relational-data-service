@@ -171,6 +171,56 @@ curl --location --request DELETE 'http://localhost:8080/api/bitacora-usuario/{id
 
 # Product Endpoints
 
+## Crear producto
+
+```bash
+curl --location 'http://localhost:8080/products' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "barcode": "123456789",
+    "nombre": "Producto Ejemplo",
+    "precio": 100.0,
+    "precioCompra": 80.0
+}'
+```
+
+*Nota: La creación de un producto genera automáticamente un registro en la bitácora de usuario con la sigla `REG_PROD`.*
+
+## Actualizar producto
+
+```bash
+curl --location --request PUT 'http://localhost:8080/products/{id}' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "barcode": "123456789-MOD",
+    "nombre": "Producto Ejemplo Modificado",
+    "precio": 110.0,
+    "precioCompra": 85.0
+}'
+```
+
+*Nota: La actualización de un producto genera automáticamente un registro en la bitácora de usuario con la sigla `MOD_PROD`, guardando el estado anterior y el nuevo.*
+
+## Deshabilitar producto
+
+```bash
+curl --location --request PATCH 'http://localhost:8080/products/{id}/deactivate' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+*Nota: Esta operación cambia el estado `activate` a 0 y genera automáticamente un registro en la bitácora de usuario con la sigla `DESHAB_PROD`.*
+
+## Habilitar producto
+
+```bash
+curl --location --request PATCH 'http://localhost:8080/products/{id}/activate' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+*Nota: Esta operación cambia el estado `activate` a 1 y genera automáticamente un registro en la bitácora de usuario con la sigla `HAB_PROD`.*
+
 ## Buscar producto por código de barras
 
 ```bash
