@@ -122,6 +122,23 @@ curl --location 'http://localhost:8080/api/bitacora-usuario/search?userId=123e45
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
 
+# HistorialRecibo Endpoints
+
+## Búsqueda paginada y con filtros
+
+### Búsqueda por `sesionId`
+Filtra exclusivamente por `sesionId`. Si se proporciona, se ignoran los parámetros de paginación.
+```bash
+curl --location 'http://localhost:8080/historial-recibos/search?sesionId=123' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+### Búsqueda por `fecha` y `estadoId` (Paginada)
+```bash
+curl --location 'http://localhost:8080/historial-recibos/search?fecha=2025-12-20&estadoId=1&page=0&size=10' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
 ## Crear bitácora
 
 ```bash

@@ -17,5 +17,6 @@ public interface HistorialReciboService {
     boolean delete(Long id);
     BigDecimal getTotalByDate(String fecha);
     Page<HistorialRecibo> search(String fecha, Long estadoId, Pageable pageable);
+    Page<HistorialRecibo> search(String fecha, Long estadoId, Long sesionId, Pageable pageable);
     void moveToEdition(Long historialReciboId, Long sesionId);
 }

@@ -75,7 +75,8 @@ public class HistorialReciboController {
     @GetMapping("/search")
     public Page<HistorialRecibo> search(@RequestParam(value = "fecha", required = false) String fecha,
                                         @RequestParam(defaultValue = "0") Long estadoId,
+                                        @RequestParam(value = "sesionId", required = false) Long sesionId,
                                         @PageableDefault(sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable pageable) {
-        return service.search(fecha, estadoId, pageable);
+        return service.search(fecha, estadoId, sesionId, pageable);
     }
 }

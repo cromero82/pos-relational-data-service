@@ -163,8 +163,42 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Override
     public Page<HistorialRecibo> search(String fecha, Long estadoId, Pageable pageable) {
+        return search(fecha, estadoId, 0L, pageable);
+    }
+
+    @Override
+    public Page<HistorialRecibo> search(String fecha, Long estadoId, Long sesionId, Pageable pageable) {
         boolean hasFecha = fecha != null && !fecha.isBlank();
         boolean hasEstado = estadoId != null && estadoId != 0;
+        boolean hasSesion = sesionId != null && sesionId > 0;
+
+        if (hasSesion) {
+            List<HistorialRecibo> results;
+            if (hasFecha && hasEstado) {
+                try {
+                    LocalDate date = LocalDate.parse(fecha, DATE_FMT);
+                    LocalDateTime startOfDay = date.atStartOfDay();
+                    LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
+                    results = repository.findBySesionIdAndFechaCreacionBetweenAndEstadoId(sesionId, startOfDay, endOfDay, estadoId);
+                } catch (Exception e) {
+                    results = List.of();
+                }
+            } else if (hasFecha) {
+                try {
+                    LocalDate date = LocalDate.parse(fecha, DATE_FMT);
+                    LocalDateTime startOfDay = date.atStartOfDay();
+                    LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
+                    results = repository.findBySesionIdAndFechaCreacionBetween(sesionId, startOfDay, endOfDay);
+                } catch (Exception e) {
+                    results = List.of();
+                }
+            } else if (hasEstado) {
+                results = repository.findBySesionIdAndEstadoId(sesionId, estadoId);
+            } else {
+                results = repository.findBySesionId(sesionId);
+            }
+            return new org.springframework.data.domain.PageImpl<>(results);
+        }
 
         if (hasFecha && hasEstado) {
             try {

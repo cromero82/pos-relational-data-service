@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Repository
 public interface HistorialReciboRepository extends JpaRepository<HistorialRecibo, Long> {
@@ -21,4 +22,12 @@ public interface HistorialReciboRepository extends JpaRepository<HistorialRecibo
     Page<HistorialRecibo> findByEstadoId(Long estadoId, Pageable pageable);
 
     Page<HistorialRecibo> findByFechaCreacionBetweenAndEstadoId(LocalDateTime start, LocalDateTime end, Long estadoId, Pageable pageable);
+    
+    List<HistorialRecibo> findBySesionId(Long sesionId);
+
+    List<HistorialRecibo> findBySesionIdAndEstadoId(Long sesionId, Long estadoId);
+
+    List<HistorialRecibo> findBySesionIdAndFechaCreacionBetween(Long sesionId, LocalDateTime start, LocalDateTime end);
+
+    List<HistorialRecibo> findBySesionIdAndFechaCreacionBetweenAndEstadoId(Long sesionId, LocalDateTime start, LocalDateTime end, Long estadoId);
 }
