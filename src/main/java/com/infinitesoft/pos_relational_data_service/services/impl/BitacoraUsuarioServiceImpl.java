@@ -64,6 +64,7 @@ public class BitacoraUsuarioServiceImpl implements BitacoraUsuarioService {
         bitacoraUsuario.setUserId(SecurityContextHelper.getUserId());
         bitacoraUsuario.setValorAntes(request.getValorAntes());
         bitacoraUsuario.setValorDespues(request.getValorDespues());
+        bitacoraUsuario.setReferenciaId(request.getReferenciaId());
 
         if (request.getEvento() != null && !request.getEvento().isEmpty()) {
             Optional<Evento> evento = eventoService.findBySigla(request.getEvento());
@@ -115,6 +116,7 @@ public class BitacoraUsuarioServiceImpl implements BitacoraUsuarioService {
             dto.setUserId(entity.getUserId());
             dto.setValorAntes(entity.getValorAntes());
             dto.setValorDespues(entity.getValorDespues());
+            dto.setReferenciaId(entity.getReferenciaId());
             dto.setFechaCreacion(entity.getFechaCreacion());
             
             if (entity.getUserId() != null) {

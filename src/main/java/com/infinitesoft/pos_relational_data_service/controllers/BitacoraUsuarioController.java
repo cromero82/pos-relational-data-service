@@ -68,6 +68,7 @@ public class BitacoraUsuarioController {
                 .map(existingBitacora -> {
                     existingBitacora.setUserId(bitacoraUsuario.getUserId());
                     existingBitacora.setEventoId(bitacoraUsuario.getEventoId());
+                    existingBitacora.setReferenciaId(bitacoraUsuario.getReferenciaId());
                     existingBitacora.setValorAntes(bitacoraUsuario.getValorAntes());
                     existingBitacora.setValorDespues(bitacoraUsuario.getValorDespues());
                     return ResponseEntity.ok(bitacoraUsuarioService.save(existingBitacora));

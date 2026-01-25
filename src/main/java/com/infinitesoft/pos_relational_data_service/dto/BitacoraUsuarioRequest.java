@@ -9,4 +9,5 @@ public class BitacoraUsuarioRequest {
     private String evento;
     private String valorAntes;
     private String valorDespues;
+    private Integer referenciaId;
 }

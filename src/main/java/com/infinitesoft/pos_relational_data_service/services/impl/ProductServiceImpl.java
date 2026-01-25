@@ -38,7 +38,7 @@ public class ProductServiceImpl implements ProductService {
     public Page<Product> getAll(String barcodeOrName, Pageable pageable) {
         Pageable sorted = withNameAsc(pageable);
         if (barcodeOrName == null || barcodeOrName.isBlank()) {
-            return productRepository.findAllActive(sorted);
+            return productRepository.findAll(sorted);
         }
 
         String query = barcodeOrName.toUpperCase().trim();

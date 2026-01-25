@@ -14,6 +14,7 @@ public class BitacoraUsuarioDto {
     private Evento evento;
     private String valorAntes;
     private String valorDespues;
+    private Integer referenciaId;
     private LocalDateTime fechaCreacion;
     private AuthUserDto usuario;
 }

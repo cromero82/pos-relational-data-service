@@ -130,6 +130,7 @@ curl --location 'http://localhost:8080/api/bitacora-usuario' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE' \
 --data '{
     "evento": "SIGLA_EVENTO",
+    "referenciaId": 123,
     "valorAntes": "{\"campo\": \"valor_anterior\"}",
     "valorDespues": "{\"campo\": \"valor_nuevo\"}"
 }'
@@ -143,6 +144,7 @@ curl --location 'http://localhost:8080/api/bitacora-usuario' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE' \
 --data '{
     "eventoId": 1,
+    "referenciaId": 123,
     "valorAntes": "{\"campo\": \"valor_anterior\"}",
     "valorDespues": "{\"campo\": \"valor_nuevo\"}"
 }'

@@ -34,6 +34,9 @@ public class BitacoraUsuario {
     @Column(name = "valor_despues", columnDefinition = "jsonb")
     private String valorDespues;
 
+    @Column(name = "referencia_id")
+    private Integer referenciaId;
+
     @CreationTimestamp
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
