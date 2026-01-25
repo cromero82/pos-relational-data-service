@@ -76,10 +76,32 @@ public class SesionServiceImpl implements SesionService {
 
     @Override
     public SesionDto findById(Long id, HttpServletRequest request) {
-        UUID userId = resolveUserIdFromToken(TokenUtils.extractToken(request));
-        if (id == null || userId == null) return null;
-        return repository.findByIdAndUserIdAndEsActivoTrue(id, userId).map(this::toDto).orElse(null);
+        if (id == null ) return null;
+        return repository.findById(id).map(this::toDto).orElse(null);
     }
+
+    @Override
+    public AuthUserDto findUserInfoBySesionId(Long sesionId, HttpServletRequest request) {
+        org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SesionServiceImpl.class);
+        logger.info("[SesionService] Iniciando búsqueda de usuario para sesión id={}", sesionId);
+
+        if (sesionId == null) return null;
+        Optional<Sesion> sesionOpt = repository.findById(sesionId);
+        if (sesionOpt.isEmpty()) {
+            logger.warn("[SesionService] No se encontró la sesión con id={}", sesionId);
+            return null;
+        }
+
+        UUID userId = sesionOpt.get().getUserId();
+        if (userId == null) {
+            logger.warn("[SesionService] La sesión id={} no tiene un userId asociado", sesionId);
+            return null;
+        }
+
+        return authValidationService.fetchUserInfoById(userId);
+    }
+
+
 
     // Legacy overload (internal usage where userId context is not provided)
     @Override

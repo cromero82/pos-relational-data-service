@@ -188,6 +188,29 @@ curl --location --request DELETE 'http://localhost:8080/api/bitacora-usuario/{id
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
 
+# Sesion Endpoints
+
+## Obtener todas las sesiones activas del usuario
+
+```bash
+curl --location 'http://localhost:8080/sesiones' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Obtener todas las sesiones (activas e inactivas) del usuario
+
+```bash
+curl --location 'http://localhost:8080/sesiones/usuario/todas' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Obtener información del usuario asociado a una sesión
+
+```bash
+curl --location 'http://localhost:8080/sesiones/{id}/usuario' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
 # Product Endpoints
 
 ## Crear producto

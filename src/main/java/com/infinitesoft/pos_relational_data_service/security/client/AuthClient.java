@@ -28,6 +28,7 @@ public class AuthClient {
     private final String claimsPath;
     private final String userIdPath;
     private final String usuariosPath;
+    private final String usuarioPath;
 
     public AuthClient(
             WebClient.Builder webClientBuilder,
@@ -37,7 +38,8 @@ public class AuthClient {
             @Value("${auth.service.path.validate:/validate}") String validatePath,
             @Value("${auth.service.path.claims:/claims}") String claimsPath,
             @Value("${auth.service.path.user-id:/usuario-id}") String userIdPath,
-            @Value("${auth.service.path.usuarios:/usuarios}") String usuariosPath
+            @Value("${auth.service.path.usuarios:/usuarios}") String usuariosPath,
+            @Value("${auth.service.path.usuario:/usuario}") String usuarioPath
     ) {
         String baseUrl = serviceHost + basePath;
         this.webClient = webClientBuilder.baseUrl(baseUrl).build();
@@ -46,6 +48,7 @@ public class AuthClient {
         this.claimsPath = claimsPath;
         this.userIdPath = userIdPath;
         this.usuariosPath = usuariosPath;
+        this.usuarioPath = usuarioPath;
     }
 
     public Boolean validateToken(String token) {
@@ -113,6 +116,20 @@ public class AuthClient {
         } catch (Exception e) {
             log.error("[AuthClient] Error fetching usuarios: {}", e.toString());
             return Collections.emptyList();
+        }
+    }
+
+    public AuthUserDto getUsuarioById(UUID userId) {
+        try {
+            return webClient.get()
+                    .uri(usuarioPath + "/" + userId.toString())
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .bodyToMono(AuthUserDto.class)
+                    .block(timeout);
+        } catch (Exception e) {
+            log.error("[AuthClient] Error fetching usuario by id {}: {}", userId, e.toString());
+            return null;
         }
     }
 }

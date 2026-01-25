@@ -51,6 +51,15 @@ public class SesionController {
         return ResponseEntity.ok(found);
     }
 
+    @GetMapping("/{id}/usuario")
+    public ResponseEntity<com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto> findUserInfoBySesionId(@PathVariable Long id, HttpServletRequest request) {
+        com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto user = service.findUserInfoBySesionId(id, request);
+        if (user == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(user);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<SesionDto> update(@PathVariable Long id, @RequestBody SesionDto sesionDto, HttpServletRequest request) {
         SesionDto updated = service.update(id, sesionDto, request);

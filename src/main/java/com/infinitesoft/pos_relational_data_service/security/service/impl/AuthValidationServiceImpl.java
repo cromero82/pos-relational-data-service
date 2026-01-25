@@ -112,4 +112,10 @@ public class AuthValidationServiceImpl implements AuthValidationService {
         if (email == null || email.isBlank()) return null;
         return authClient.getUserIdByEmail(email);
     }
+
+    @Override
+    public AuthUserDto fetchUserInfoById(UUID userId) {
+        if (userId == null) return null;
+        return authClient.getUsuarioById(userId);
+    }
 }

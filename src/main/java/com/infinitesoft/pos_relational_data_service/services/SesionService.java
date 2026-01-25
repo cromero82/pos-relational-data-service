@@ -14,6 +14,7 @@ public interface SesionService {
     // Nuevo: obtener todas las sesiones del usuario (activas e inactivas)
     List<SesionDto> findAllByUserAllStates(HttpServletRequest request);
     SesionDto findById(Long id, HttpServletRequest request);
+    com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto findUserInfoBySesionId(Long sesionId, HttpServletRequest request);
     SesionDto update(Long id, SesionDto sesionDto, HttpServletRequest request);
     boolean delete(Long id, HttpServletRequest request);
 
