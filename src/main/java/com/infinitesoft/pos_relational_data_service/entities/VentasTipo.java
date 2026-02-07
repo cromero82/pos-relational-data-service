@@ -10,8 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "ventas_tipo",
-       uniqueConstraints = {@UniqueConstraint(name = "uk_ventas_tipo_metodo_fecha", columnNames = {"metodo_pago_id", "fecha"})})
+@Table(name = "ventas_tipo")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,9 +23,12 @@ public class VentasTipo {
     @Column(name = "metodo_pago_id")
     private Long metodoPagoId;
 
-    @Column(name = "fecha", nullable = false)
-    private LocalDate fecha;
-
     @Column(name = "total", nullable = false, precision = 10, scale = 2)
     private BigDecimal total;
+
+    @Column(name = "total_sistema", precision = 10, scale = 2)
+    private BigDecimal totalSistema;
+
+    @Column(name = "corte_venta_id")
+    private Long corteVentaId;
 }

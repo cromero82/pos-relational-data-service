@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface HistorialReciboRepository extends JpaRepository<HistorialRecibo, Long> {
@@ -30,4 +31,24 @@ public interface HistorialReciboRepository extends JpaRepository<HistorialRecibo
     List<HistorialRecibo> findBySesionIdAndFechaCreacionBetween(Long sesionId, LocalDateTime start, LocalDateTime end);
 
     List<HistorialRecibo> findBySesionIdAndFechaCreacionBetweenAndEstadoId(Long sesionId, LocalDateTime start, LocalDateTime end, Long estadoId);
+
+    @Query("SELECT h FROM HistorialRecibo h WHERE h.fechaCreacion >= :fecha ORDER BY h.id ASC")
+    List<HistorialRecibo> findAllPosteriorAFecha(LocalDateTime fecha);
+
+    Optional<HistorialRecibo> findFirstByOrderByFechaCreacionAsc();
+
+    Optional<HistorialRecibo> findFirstByOrderByFechaCreacionDesc();
+
+    Optional<HistorialRecibo> findFirstByIdGreaterThanOrderByIdAsc(Long id);
+
+    @Query("SELECT h.metodoPagoId as metodoPagoId, SUM(h.total) as totalSistema FROM HistorialRecibo h " +
+           "WHERE h.fechaCreacion >= :start AND h.fechaCreacion <= :end " +
+           "GROUP BY h.metodoPagoId")
+    List<Object[]> findResumenVentasPorMetodoPago(LocalDateTime start, LocalDateTime end);
+
+    @Query("SELECT MAX(h.id) FROM HistorialRecibo h WHERE h.fechaCreacion >= :start AND h.fechaCreacion <= :end")
+    Optional<Long> findMaxIdByFechaCreacionBetween(LocalDateTime start, LocalDateTime end);
+
+    @Query("SELECT MAX(h.id) FROM HistorialRecibo h WHERE h.fechaCreacion <= :fecha")
+    Optional<Long> findMaxIdByFechaCreacionLessThanEqual(LocalDateTime fecha);
 }

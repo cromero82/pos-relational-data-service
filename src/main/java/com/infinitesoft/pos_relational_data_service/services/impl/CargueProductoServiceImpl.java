@@ -16,6 +16,7 @@ import com.infinitesoft.pos_relational_data_service.services.CargueProductoServi
 import com.infinitesoft.pos_relational_data_service.services.EventoService;
 import com.infinitesoft.pos_relational_data_service.services.MigrationResult;
 import com.infinitesoft.pos_relational_data_service.services.MigrationService;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -61,7 +62,7 @@ public class CargueProductoServiceImpl implements CargueProductoService {
     @Override
     public CargueProducto create(CargueProducto cargueProducto) {
         if (cargueProducto.getFechaCreacion() == null) {
-            cargueProducto.setFechaCreacion(LocalDateTime.now());
+            cargueProducto.setFechaCreacion(DateUtils.obtenerFechaSistema());
         }
         return repository.save(cargueProducto);
     }
@@ -71,7 +72,7 @@ public class CargueProductoServiceImpl implements CargueProductoService {
         // 1. Create initial cargue record
         CargueProducto cargue = new CargueProducto();
         cargue.setNombre(nombreCargue);
-        cargue.setFechaCreacion(LocalDateTime.now());
+        cargue.setFechaCreacion(DateUtils.obtenerFechaSistema());
         cargue.setTotalMigrados(0);
         cargue.setTotalConflictos(0);
         cargue.setTotalConflictosResultos(0);

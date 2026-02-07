@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import javax.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -37,4 +38,14 @@ public class Product {
 
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
+
+    @PrePersist
+    protected void onPrePersist() {
+        if (fechaCreacion == null) {
+            fechaCreacion = DateUtils.obtenerFechaSistema();
+        }
+        if (fechaUltimaActualizacionPrecio == null) {
+            fechaUltimaActualizacionPrecio = DateUtils.obtenerFechaSistema();
+        }
+    }
 }

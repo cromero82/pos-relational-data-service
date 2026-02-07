@@ -6,10 +6,10 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface VentasTipoRepository extends JpaRepository<VentasTipo, Long> {
-    boolean existsByMetodoPagoIdAndFecha(Long metodoPagoId, LocalDate fecha);
-    List<VentasTipo> findByFechaOrderByFechaDesc(LocalDate fecha);
-    List<VentasTipo> findByFechaBetweenOrderByFechaDesc(LocalDate fechaInicio, LocalDate fechaFin);
+    Optional<VentasTipo> findFirstByOrderByIdDesc();
+    List<VentasTipo> findByIdGreaterThanEqual(Long id);
 }

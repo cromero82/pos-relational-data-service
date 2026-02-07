@@ -57,16 +57,4 @@ public class VentasTipoController {
         }
         return ResponseEntity.noContent().build();
     }
-
-    @GetMapping("/by-fecha")
-    public List<VentasTipo> findByFecha(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
-        return service.findByFechaOrderByFechaDesc(fecha);
-    }
-
-    @GetMapping("/by-fecha-range")
-    public List<VentasTipo> findByFechaBetween(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
-        return service.findByFechaBetweenOrderByFechaDesc(fechaInicio, fechaFin);
-    }
 }

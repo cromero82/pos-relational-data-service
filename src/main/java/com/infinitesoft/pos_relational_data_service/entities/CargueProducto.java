@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import javax.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -31,4 +32,11 @@ public class CargueProducto {
 
     @Column(name = "mensajes_error", columnDefinition = "TEXT")
     private String mensajesError;
+
+    @PrePersist
+    protected void onPrePersist() {
+        if (fechaCreacion == null) {
+            fechaCreacion = DateUtils.obtenerFechaSistema();
+        }
+    }
 }

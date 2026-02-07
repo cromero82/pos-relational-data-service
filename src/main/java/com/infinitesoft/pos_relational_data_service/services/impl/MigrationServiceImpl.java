@@ -7,6 +7,7 @@ import com.infinitesoft.pos_relational_data_service.services.HistorialProductoSe
 import com.infinitesoft.pos_relational_data_service.services.MigrationResult;
 import com.infinitesoft.pos_relational_data_service.services.MigrationService;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
@@ -645,7 +646,7 @@ public class MigrationServiceImpl implements MigrationService {
                     .nombre(nombre)
                     .precio(precioVenta)
                     .precioCompra(precioCosto)
-                    .fechaCreacion(LocalDateTime.now())
+                    .fechaCreacion(DateUtils.obtenerFechaSistema())
                     .build();
 
             // Use repository directly to avoid double history creation in ProductService.create

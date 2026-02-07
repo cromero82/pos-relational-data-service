@@ -2,9 +2,9 @@ package com.infinitesoft.pos_relational_data_service.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import javax.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -28,7 +28,6 @@ public class HistorialRecibo {
     @JsonIgnore
     private Client cliente;
 
-    @CreationTimestamp
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
 
@@ -45,4 +44,11 @@ public class HistorialRecibo {
 
     @Column(name = "total", nullable = false, precision = 10, scale = 2)
     private BigDecimal total;
+
+    @PrePersist
+    protected void onPrePersist() {
+        if (fechaCreacion == null) {
+            fechaCreacion = DateUtils.obtenerFechaSistema();
+        }
+    }
 }

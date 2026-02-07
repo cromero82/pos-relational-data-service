@@ -1,9 +1,9 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import javax.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,9 +33,15 @@ public class HistorialProducto {
     @Column(precision = 10, scale = 2)
     private BigDecimal precio;
 
-    @CreationTimestamp
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
 
     private Boolean activo;
+
+    @PrePersist
+    protected void onPrePersist() {
+        if (fechaCreacion == null) {
+            fechaCreacion = DateUtils.obtenerFechaSistema();
+        }
+    }
 }

@@ -13,6 +13,7 @@ import com.infinitesoft.pos_relational_data_service.services.TicketReciboService
 import com.infinitesoft.pos_relational_data_service.services.ReciboService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
 import com.infinitesoft.pos_relational_data_service.entities.TicketRecibo;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -54,7 +55,7 @@ public class SesionServiceImpl implements SesionService {
         // Set defaults on create
         sesion.setEsActivo(Boolean.TRUE);
         if (sesion.getFechaInicio() == null) {
-            sesion.setFechaInicio(LocalDateTime.now());
+            sesion.setFechaInicio(DateUtils.obtenerFechaSistema());
         }
         Sesion saved = repository.save(sesion);
         return toDto(saved);
@@ -176,7 +177,7 @@ public class SesionServiceImpl implements SesionService {
         // Soft delete session at the end
         Sesion s = existing.get();
         s.setEsActivo(Boolean.FALSE);
-        s.setFechaFin(LocalDateTime.now());
+        s.setFechaFin(DateUtils.obtenerFechaSistema());
         repository.save(s);
         return true;
     }

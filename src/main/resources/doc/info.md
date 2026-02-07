@@ -324,3 +324,180 @@ Marca un conflicto como resuelto y actualiza el contador en el cargue asociado.
 curl --location --request PUT 'http://localhost:8080/api/cargue-producto-conflictos/{id}/resolver' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
+
+# VentasTipo Endpoints
+
+## Obtener todas las ventas por tipo
+
+```bash
+curl --location --request GET 'http://localhost:8080/ventas-tipo' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Obtener ventas por ID
+
+```bash
+curl --location --request GET 'http://localhost:8080/ventas-tipo/{id}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Crear venta por tipo
+
+```bash
+curl --location --request POST 'http://localhost:8080/ventas-tipo' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "metodoPagoId": 1,
+    "total": 1500.50,
+    "totalSistema": 1450.00,
+    "corteVentaId": 10
+}'
+```
+
+## Actualizar venta por tipo
+
+```bash
+curl --location --request PUT 'http://localhost:8080/ventas-tipo/{id}' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "metodoPagoId": 1,
+    "total": 1600.00,
+    "totalSistema": 1550.00,
+    "corteVentaId": 11
+}'
+```
+
+## Eliminar venta por tipo
+
+```bash
+curl --location --request DELETE 'http://localhost:8080/ventas-tipo/{id}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+# CorteVenta Endpoints
+
+## Obtener todos los cortes de venta
+
+```bash
+curl --location --request GET 'http://localhost:8080/corte-venta' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Obtener corte de venta por ID
+
+```bash
+curl --location --request GET 'http://localhost:8080/corte-venta/{id}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Crear corte de venta
+
+```bash
+curl --location --request POST 'http://localhost:8080/corte-venta' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "usuarioId": "123e4567-e89b-12d3-a456-426614174000",
+    "fechaIni": "2026-01-27T08:00:00",
+    "fechaFin": "2026-01-27T17:00:00",
+    "ultimoHistorialReciboId": 101,
+    "total": 5000.00,
+    "totalSistema": 4950.00,
+    "ultimoCorte": true,
+    "actual": true,
+    "ventasTipo": [
+        {
+            "metodoPagoId": 1,
+            "total": 2500.00,
+            "totalSistema": 2450.00
+        },
+        {
+            "metodoPagoId": 2,
+            "total": 2500.00,
+            "totalSistema": 2500.00
+        }
+    ]
+}'
+```
+
+*Nota: Si `ultimoCorte` y `actual` son `true`, `fechaIni`, `fechaFin` y `totalSistema` (tanto del corte como de los detalles) se calcularán automáticamente basados en el historial de recibos.*
+
+## Actualizar corte de venta
+
+```bash
+curl --location --request PUT 'http://localhost:8080/corte-venta/{id}' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "usuarioId": "123e4567-e89b-12d3-a456-426614174000",
+    "fechaIni": "2026-01-27T08:00:00",
+    "fechaFin": "2026-01-27T18:00:00",
+    "ultimoHistorialReciboId": 101,
+    "total": 5100.00,
+    "totalSistema": 5050.00,
+    "ventasTipo": [
+        {
+            "id": 1,
+            "metodoPagoId": 1,
+            "total": 2600.00,
+            "totalSistema": 2550.00
+        }
+    ]
+}'
+```
+
+## Eliminar corte de venta
+
+```bash
+curl --location --request DELETE 'http://localhost:8080/corte-venta/{id}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Consultar rango de corte
+
+```bash
+curl --location --request GET 'http://localhost:8080/corte-venta/consultar-rango?fechaIni=2026-01-31T08:00:00&fechaFin=2026-01-31T18:00:00&ultimoCorte=true&actual=true' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Buscar cortes por rango de fechas
+
+```bash
+curl --location --request GET 'http://localhost:8080/corte-venta/search?fechaIni=2026-01-01T00:00:00&fechaFin=2026-01-31T23:59:59' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+# Mantenimiento de Base de Datos
+
+## Truncar milisegundos en fechas existentes (PostgreSQL)
+
+Para asegurar la consistencia con el nuevo sistema que omite milisegundos, se recomienda ejecutar la siguiente instrucción SQL para truncar los valores existentes en las tablas principales:
+
+```sql
+-- Truncar milisegundos en historial_recibo
+UPDATE historial_recibo SET fecha_creacion = date_trunc('second', fecha_creacion);
+
+-- Truncar milisegundos en corte_venta
+UPDATE corte_venta SET 
+    fecha_creacion = date_trunc('second', fecha_creacion),
+    fecha_ini = date_trunc('second', fecha_ini),
+    fecha_fin = date_trunc('second', fecha_fin);
+
+-- Truncar milisegundos en bitacora_usuario
+UPDATE bitacora_usuario SET fecha_creacion = date_trunc('second', fecha_creacion);
+
+-- Truncar milisegundos en producto
+UPDATE producto SET 
+    fecha_creacion = date_trunc('second', fecha_creacion),
+    fecha_actualizacion_precio = date_trunc('second', fecha_actualizacion_precio);
+
+-- Truncar milisegundos en cargue_productos
+UPDATE cargue_productos SET fecha_creacion = date_trunc('second', fecha_creacion);
+
+-- Truncar milisegundos en sesion
+UPDATE sesion SET 
+    fecha_inicio = date_trunc('second', fecha_inicio),
+    fecha_fin = date_trunc('second', fecha_fin);
+```

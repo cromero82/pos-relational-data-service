@@ -9,6 +9,7 @@ import com.infinitesoft.pos_relational_data_service.services.MigracionProductoCo
 import com.infinitesoft.pos_relational_data_service.services.MigracionProductoService;
 import com.infinitesoft.pos_relational_data_service.services.MigrationResult;
 import com.infinitesoft.pos_relational_data_service.services.MigrationService;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,7 +39,7 @@ public class MigracionProductoServiceImpl implements MigracionProductoService {
     @Override
     public MigracionProducto create(MigracionProducto migracionProducto) {
         if (migracionProducto.getFechaCreacion() == null) {
-            migracionProducto.setFechaCreacion(LocalDateTime.now());
+            migracionProducto.setFechaCreacion(DateUtils.obtenerFechaSistema());
         }
         return repository.save(migracionProducto);
     }
@@ -48,7 +49,7 @@ public class MigracionProductoServiceImpl implements MigracionProductoService {
         // 1. Create initial migration record
         MigracionProducto migracion = new MigracionProducto();
         migracion.setNombre(nombreMigracion);
-        migracion.setFechaCreacion(LocalDateTime.now());
+        migracion.setFechaCreacion(DateUtils.obtenerFechaSistema());
         migracion.setTotalMigrados(0);
         migracion.setTotalConflictos(0);
         migracion.setTotalConflictosResultos(0);

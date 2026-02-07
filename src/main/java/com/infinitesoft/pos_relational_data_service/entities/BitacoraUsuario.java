@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.Type;
@@ -37,7 +38,13 @@ public class BitacoraUsuario {
     @Column(name = "referencia_id")
     private Integer referenciaId;
 
-    @CreationTimestamp
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
+
+    @PrePersist
+    protected void onPrePersist() {
+        if (fechaCreacion == null) {
+            fechaCreacion = DateUtils.obtenerFechaSistema();
+        }
+    }
 }

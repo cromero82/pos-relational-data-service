@@ -7,6 +7,7 @@ import com.infinitesoft.pos_relational_data_service.repositories.HistorialRecibo
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketRepository;
 import com.infinitesoft.pos_relational_data_service.services.*;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
@@ -279,7 +280,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         }
 
         // 4. Create Ticket
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = DateUtils.obtenerFechaSistema();
         String ticketName;
         DateTimeFormatter formatter;
         if (now.toLocalDate().equals(LocalDate.now())) {

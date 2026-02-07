@@ -1,11 +1,11 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import javax.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,7 +30,6 @@ public class EdicionRecibo {
     @Column(name = "cliente_id", nullable = false)
     private Long clienteId;
 
-    @CreationTimestamp
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
 
@@ -45,4 +44,11 @@ public class EdicionRecibo {
 
     @Column(name = "total", nullable = false, precision = 10, scale = 2)
     private BigDecimal total;
+
+    @PrePersist
+    protected void onPrePersist() {
+        if (fechaCreacion == null) {
+            fechaCreacion = DateUtils.obtenerFechaSistema();
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import javax.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -36,4 +37,11 @@ public class Sesion {
 
     @Column(name = "es_activo")
     private Boolean esActivo;
+
+    @PrePersist
+    protected void onPrePersist() {
+        if (fechaInicio == null) {
+            fechaInicio = DateUtils.obtenerFechaSistema();
+        }
+    }
 }

@@ -11,6 +11,4 @@ public interface VentasTipoService {
     VentasTipo findById(Long id);
     VentasTipo update(Long id, VentasTipo ventasTipo);
     boolean delete(Long id);
-    List<VentasTipo> findByFechaOrderByFechaDesc(LocalDate fecha);
-    List<VentasTipo> findByFechaBetweenOrderByFechaDesc(LocalDate fechaInicio, LocalDate fechaFin);
 }

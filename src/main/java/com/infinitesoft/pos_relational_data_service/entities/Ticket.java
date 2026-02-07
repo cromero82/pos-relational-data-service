@@ -1,9 +1,9 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import javax.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -30,7 +30,13 @@ public class Ticket {
 
     private String nombre;
 
-    @CreationTimestamp
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
+
+    @PrePersist
+    protected void onPrePersist() {
+        if (fechaCreacion == null) {
+            fechaCreacion = DateUtils.obtenerFechaSistema();
+        }
+    }
 }
