@@ -49,6 +49,7 @@ public class EdicionReciboServiceImpl implements EdicionReciboService {
         existing.setMetodoPagoId(edicionRecibo.getMetodoPagoId());
         existing.setSesionId(edicionRecibo.getSesionId());
         existing.setTotal(edicionRecibo.getTotal());
+        existing.setMontoRecibido(edicionRecibo.getMontoRecibido());
         return repository.save(existing);
     }
 

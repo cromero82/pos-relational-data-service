@@ -138,6 +138,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
             existing.setSesionId(historialRecibo.getSesionId());
         }
         existing.setTotal(historialRecibo.getTotal());
+        existing.setMontoRecibido(historialRecibo.getMontoRecibido());
         return repository.save(existing);
     }
 
@@ -242,6 +243,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                 .metodoPagoId(historial.getMetodoPagoId())
                 .sesionId(sesionId)
                 .total(historial.getTotal())
+                .montoRecibido(historial.getMontoRecibido())
                 .build();
         Recibo reciboGuardado = reciboService.saveAndFlush(nuevoRecibo);
 
@@ -254,6 +256,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                 .metodoPagoId(historial.getMetodoPagoId())
                 .sesionId(historial.getSesionId())
                 .total(historial.getTotal())
+                .montoRecibido(historial.getMontoRecibido())
                 .build();
         EdicionRecibo edicionReciboGuardado = edicionReciboService.create(edicionRecibo);
 

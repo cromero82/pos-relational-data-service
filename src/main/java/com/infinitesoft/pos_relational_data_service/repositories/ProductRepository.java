@@ -22,6 +22,9 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     @Query("select p from Product p where p.activate <> 0 and (upper(p.barcode) like concat('%', :q, '%') or upper(p.nombre) like concat('%', :q, '%'))")
     Page<Product> searchActiveByBarcodeOrNombreContaining(@Param("q") String q, Pageable pageable);
 
+    @Query("select p from Product p where upper(p.barcode) like concat('%', :q, '%') or upper(p.nombre) like concat('%', :q, '%')")
+    Page<Product> searchAllByBarcodeOrNombreContaining(@Param("q") String q, Pageable pageable);
+
     @Query("select p from Product p where p.activate <> 0 and upper(p.nombre) like concat('%', :name, '%')")
     Page<Product> findActiveByNombreContaining(@Param("name") String name, Pageable pageable);
 

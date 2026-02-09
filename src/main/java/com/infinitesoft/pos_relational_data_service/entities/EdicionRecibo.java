@@ -45,6 +45,9 @@ public class EdicionRecibo {
     @Column(name = "total", nullable = false, precision = 10, scale = 2)
     private BigDecimal total;
 
+    @Column(name = "monto_recibido", nullable = false, precision = 10, scale = 2)
+    private BigDecimal montoRecibido;
+
     @PrePersist
     protected void onPrePersist() {
         if (fechaCreacion == null) {

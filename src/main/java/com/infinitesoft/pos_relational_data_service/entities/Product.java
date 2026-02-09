@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
 import com.infinitesoft.pos_relational_data_service.util.DateUtils;
+import com.infinitesoft.pos_relational_data_service.util.StringUtils;
 import javax.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -47,5 +48,11 @@ public class Product {
         if (fechaUltimaActualizacionPrecio == null) {
             fechaUltimaActualizacionPrecio = DateUtils.obtenerFechaSistema();
         }
+        StringUtils.convertStringsToUpperCase(this);
+    }
+
+    @PreUpdate
+    protected void onPreUpdate() {
+        StringUtils.convertStringsToUpperCase(this);
     }
 }

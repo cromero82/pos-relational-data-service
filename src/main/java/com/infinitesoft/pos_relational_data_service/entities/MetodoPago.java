@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
+import com.infinitesoft.pos_relational_data_service.util.StringUtils;
 import javax.persistence.*;
 import lombok.*;
 
@@ -28,4 +29,10 @@ public class MetodoPago {
 
     @Column(name = "color", length = 20)
     private String color;
+
+    @PrePersist
+    @PreUpdate
+    protected void onPrePersistUpdate() {
+        StringUtils.convertStringsToUpperCase(this);
+    }
 }

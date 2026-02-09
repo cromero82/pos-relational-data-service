@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
+import com.infinitesoft.pos_relational_data_service.util.StringUtils;
 import javax.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,4 +21,10 @@ public class EstadoRecibo {
 
     @Column(name = "sigla")
     private String sigla;
+
+    @PrePersist
+    @PreUpdate
+    protected void onPrePersistUpdate() {
+        StringUtils.convertStringsToUpperCase(this);
+    }
 }

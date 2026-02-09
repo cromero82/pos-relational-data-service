@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
+import com.infinitesoft.pos_relational_data_service.dto.ReciboDto;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
@@ -40,7 +41,16 @@ public class ReciboServiceImpl implements ReciboService {
     private TicketService ticketService;
 
     @Override
-    public Recibo create(Recibo recibo) {
+    public Recibo create(ReciboDto dto) {
+        Recibo recibo = Recibo.builder()
+                .clienteId(dto.getClienteId())
+                .estadoId(dto.getEstadoId())
+                .metodoPagoId(dto.getMetodoPagoId())
+                .sesionId(dto.getSesionId())
+                .total(dto.getTotal())
+                .montoRecibido(dto.getMontoRecibido())
+                .build();
+
         // Default estado to PENDIENTE_PAGO when not provided
         if (recibo.getEstadoId() == null) {
             recibo.setEstadoId(ReciboEstado.PENDIENTE_PAGO.getId());
@@ -67,21 +77,22 @@ public class ReciboServiceImpl implements ReciboService {
 
     @Override
     @Transactional
-    public Recibo update(Long id, Recibo recibo) {
+    public Recibo update(Long id, ReciboDto dto) {
         if (id == null) return null;
         Optional<Recibo> existingOpt = reciboRepository.findById(id);
         if (existingOpt.isEmpty()) return null;
 
         Recibo existing = existingOpt.get();
         // Update mutable fields, keep id and fechaCreacion
-        existing.setClienteId(recibo.getClienteId());
-        existing.setEstadoId(recibo.getEstadoId());
-        existing.setMetodoPagoId(recibo.getMetodoPagoId());
+        existing.setClienteId(dto.getClienteId());
+        existing.setEstadoId(dto.getEstadoId());
+        existing.setMetodoPagoId(dto.getMetodoPagoId());
         // Preserve existing sesionId if not provided in the update payload
-        if (recibo.getSesionId() != null) {
-            existing.setSesionId(recibo.getSesionId());
+        if (dto.getSesionId() != null) {
+            existing.setSesionId(dto.getSesionId());
         }
-        existing.setTotal(recibo.getTotal());
+        existing.setTotal(dto.getTotal());
+        existing.setMontoRecibido(dto.getMontoRecibido());
 
         // Determine target estado
         ReciboEstado targetEstado = ReciboEstado.fromId(existing.getEstadoId());
@@ -93,6 +104,7 @@ public class ReciboServiceImpl implements ReciboService {
                     .metodoPagoId(existing.getMetodoPagoId())
                     .sesionId(existing.getSesionId())
                     .total(existing.getTotal())
+                    .montoRecibido(existing.getMontoRecibido())
                     .build();
             HistorialRecibo savedHist = historialReciboService.create(hist);
 

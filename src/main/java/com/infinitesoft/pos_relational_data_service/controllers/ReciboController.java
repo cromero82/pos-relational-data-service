@@ -27,8 +27,8 @@ public class ReciboController {
     private ClientService clientService;
 
     @PostMapping
-    public ResponseEntity<Recibo> create(@RequestBody Recibo recibo) {
-        Recibo saved = reciboService.create(recibo);
+    public ResponseEntity<Recibo> create(@RequestBody ReciboDto reciboDto) {
+        Recibo saved = reciboService.create(reciboDto);
         URI location = URI.create("/recibos/" + saved.getId());
         return ResponseEntity.created(location).body(saved);
     }
@@ -65,13 +65,14 @@ public class ReciboController {
                 .metodoPagoId(found.getMetodoPagoId())
                 .sesionId(found.getSesionId())
                 .total(found.getTotal())
+                .montoRecibido(found.getMontoRecibido())
                 .build();
         return ResponseEntity.ok(dto);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Recibo> update(@PathVariable Long id, @RequestBody Recibo recibo) {
-        Recibo updated = reciboService.update(id, recibo);
+    public ResponseEntity<Recibo> update(@PathVariable Long id, @RequestBody ReciboDto reciboDto) {
+        Recibo updated = reciboService.update(id, reciboDto);
         return ResponseEntity.ok(updated);
     }
 

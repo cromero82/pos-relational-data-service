@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
+import com.infinitesoft.pos_relational_data_service.util.StringUtils;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import javax.persistence.*;
 import lombok.*;
@@ -19,4 +20,10 @@ public class Client {
     private String nombre;   // DB default 'anonimo'
     private String telefono;
     private String documento;
+
+    @PrePersist
+    @PreUpdate
+    protected void onPrePersistUpdate() {
+        StringUtils.convertStringsToUpperCase(this);
+    }
 }

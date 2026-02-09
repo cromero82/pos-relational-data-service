@@ -139,6 +139,121 @@ curl --location 'http://localhost:8080/historial-recibos/search?fecha=2025-12-20
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
 
+## Crear historial de recibo
+```bash
+curl --location 'http://localhost:8080/historial-recibos' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "clienteId": 1,
+    "estadoId": 2,
+    "metodoPagoId": 1,
+    "sesionId": 10,
+    "total": 150.50,
+    "montoRecibido": 200.00
+}'
+```
+
+## Crear historial de recibo rápido (Estado PAGADO)
+```bash
+curl --location 'http://localhost:8080/historial-recibos/addquickRecibo' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "clienteId": 1,
+    "metodoPagoId": 1,
+    "sesionId": 10,
+    "total": 150.50,
+    "montoRecibido": 150.50
+}'
+```
+
+## Actualizar historial de recibo
+```bash
+curl --location --request PUT 'http://localhost:8080/historial-recibos/{id}?sesionId=10' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "clienteId": 1,
+    "estadoId": 2,
+    "metodoPagoId": 1,
+    "total": 150.50,
+    "montoRecibido": 200.00
+}'
+```
+
+# Recibo Endpoints
+
+## Crear recibo
+```bash
+curl --location 'http://localhost:8080/recibos' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "clienteId": 1,
+    "estadoId": 1,
+    "metodoPagoId": 1,
+    "sesionId": 10,
+    "total": 100.00,
+    "montoRecibido": 100.00
+}'
+```
+
+## Obtener recibo por ID
+```bash
+curl --location 'http://localhost:8080/recibos/{id}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Actualizar recibo
+```bash
+curl --location --request PUT 'http://localhost:8080/recibos/{id}' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "clienteId": 1,
+    "estadoId": 2,
+    "metodoPagoId": 1,
+    "total": 100.00,
+    "montoRecibido": 100.00
+}'
+```
+
+# EdicionRecibo Endpoints
+
+## Crear edición de recibo
+```bash
+curl --location 'http://localhost:8080/edicion-recibos' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "reciboId": 5,
+    "historialReciboId": 3,
+    "clienteId": 1,
+    "estadoId": 1,
+    "metodoPagoId": 1,
+    "sesionId": 10,
+    "total": 120.00,
+    "montoRecibido": 120.00
+}'
+```
+
+## Actualizar edición de recibo
+```bash
+curl --location --request PUT 'http://localhost:8080/edicion-recibos/{id}' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "reciboId": 5,
+    "clienteId": 1,
+    "estadoId": 1,
+    "metodoPagoId": 1,
+    "sesionId": 10,
+    "total": 130.00,
+    "montoRecibido": 150.00
+}'
+```
+
 ## Crear bitácora
 
 ```bash
@@ -267,6 +382,15 @@ curl --location --request PATCH 'http://localhost:8080/products/{id}/activate' \
 
 ```bash
 curl --location 'http://localhost:8080/products/search-by-barcode?barcode=123456789' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Búsqueda paginada de productos (por nombre o código de barras)
+
+Búsqueda inteligente que incluye productos activos e inactivos, maneja unión de palabras y términos desordenados.
+
+```bash
+curl --location 'http://localhost:8080/products/search?query=CERVEZA&page=0&size=10' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
 

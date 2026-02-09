@@ -5,6 +5,7 @@ import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.entities.Sesion;
 import com.infinitesoft.pos_relational_data_service.entities.TicketRecibo;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboDto;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
 import com.infinitesoft.pos_relational_data_service.services.ClientService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboService;
@@ -106,12 +107,13 @@ public class TicketReciboServiceImpl implements TicketReciboService {
         }
         Long clienteId = anonimo.getId();
         // Create a minimal Recibo using defaults and the ANONIMO client
-        Recibo nuevoRecibo = Recibo.builder()
+        ReciboDto nuevoRecibo = ReciboDto.builder()
                 .clienteId(clienteId)
                 .estadoId(ReciboEstado.PENDIENTE_PAGO.getId())
                 .metodoPagoId(null)
                 .sesionId(sessionId)
                 .total(BigDecimal.ZERO)
+                .montoRecibido(BigDecimal.ZERO)
                 .build();
         Recibo savedRecibo = reciboService.create(nuevoRecibo);
 

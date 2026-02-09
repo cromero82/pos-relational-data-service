@@ -26,4 +26,6 @@ public class ReciboDto {
     private Long sesionId;
 
     private BigDecimal total;
+
+    private BigDecimal montoRecibido;
 }

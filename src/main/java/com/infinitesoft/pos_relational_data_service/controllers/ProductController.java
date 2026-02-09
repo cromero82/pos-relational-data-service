@@ -41,6 +41,16 @@ public class ProductController {
         return productService.getByName(name, pageable);
     }
 
+    @GetMapping("/search")
+    public Page<Product> search(
+            @RequestParam(name = "query") String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        return productService.busquedaSmart(query, pageable);
+    }
+
     @GetMapping("/search-by-barcode")
     public ResponseEntity<Product> searchByBarcode(@RequestParam String barcode) {
         Optional<Product> product = productService.getByBarcode(barcode);
