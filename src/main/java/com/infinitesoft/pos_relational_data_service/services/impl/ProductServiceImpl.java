@@ -250,6 +250,11 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public List<Product> findAll() {
+        return productRepository.findAll();
+    }
+
+    @Override
     @Transactional
     public Product create(Product product) {
         // Normalize fields safely (allow null barcode/nombre)

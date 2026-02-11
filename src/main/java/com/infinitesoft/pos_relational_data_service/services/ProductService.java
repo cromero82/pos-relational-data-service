@@ -11,6 +11,7 @@ public interface ProductService {
     Page<Product> busquedaSmart(String query, Pageable pageable);
     Page<Product> getByName(String name, Pageable pageable);
     Optional<Product> getByBarcode(String barcode);
+    java.util.List<Product> findAll();
     Product create(Product product);
     Product update(Long id, Product product);
     Product deactivate(Long id);

@@ -625,3 +625,27 @@ UPDATE sesion SET
     fecha_inicio = date_trunc('second', fecha_inicio),
     fecha_fin = date_trunc('second', fecha_fin);
 ```
+
+# Copias de Seguridad Endpoints
+
+## Generar Backup Excel
+
+Este endpoint genera un archivo Excel con todas las tablas principales de la base de datos (Productos, Historiales, Cortes de Venta, Bitácora, etc.) y la lista de usuarios.
+
+```bash
+curl --location 'http://localhost:8088/copias-seguridad/generar-backup' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+*Nota: Este es un proceso asíncrono que puede tardar varios segundos. El servidor tiene un timeout extendido de 30 segundos para esta operación. Solo los usuarios con el rol `admin` están autorizados para realizar esta acción.*
+
+## Exportar Backup a Correo
+
+Genera un backup en Excel y lo envía automáticamente al correo electrónico del usuario que realiza la petición (extraído del token).
+
+```bash
+curl --location 'http://localhost:8088/copias-seguridad/exportar-a-correo' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+*Nota: Al igual que la generación de backup, este proceso es asíncrono y requiere privilegios de `admin`.*

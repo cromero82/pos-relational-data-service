@@ -5,6 +5,17 @@ import java.lang.reflect.Field;
 public class StringUtils {
 
     /**
+     * Limpia un texto reemplazando comillas y apóstrofes por símbolos similares pero más compatibles.
+     * @param text El texto a limpiar.
+     * @return El texto limpio.
+     */
+    public static String cleanForExcel(String text) {
+        if (text == null) return "";
+        return text.replace("'", "´")
+                   .replace("\"", "''");
+    }
+
+    /**
      * Convierte todos los campos de tipo String de un objeto a mayúsculas.
      * @param object El objeto cuyos campos String se convertirán.
      */
