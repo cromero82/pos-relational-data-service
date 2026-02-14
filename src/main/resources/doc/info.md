@@ -593,6 +593,56 @@ curl --location --request GET 'http://localhost:8080/corte-venta/search?fechaIni
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
 
+# Ticket Endpoints
+
+## Crear ticket
+El campo `orden` se calcula automáticamente si se proporciona `sessionId` (max + 1).
+
+```bash
+curl --location 'http://localhost:8080/tickets' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "sessionId": 61,
+    "nombre": "Nuevo Ticket"
+}'
+```
+
+## Obtener tickets por sesión (Ordenados por `orden` ASC)
+
+```bash
+curl --location 'http://localhost:8080/tickets/session/{sessionId}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Actualización masiva de tickets (Reordenamiento)
+
+```bash
+curl --location --request PUT 'http://localhost:8080/tickets' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '[
+    {
+        "id": 80,
+        "sessionId": 61,
+        "nombre": "Ticket 1",
+        "orden": 2
+    },
+    {
+        "id": 94,
+        "sessionId": 61,
+        "nombre": "Ticket 2",
+        "orden": 3
+    },
+    {
+        "id": 95,
+        "sessionId": 61,
+        "nombre": "Ticket 3",
+        "orden": 1
+    }
+]'
+```
+
 # Mantenimiento de Base de Datos
 
 ## Truncar milisegundos en fechas existentes (PostgreSQL)

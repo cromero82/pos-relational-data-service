@@ -29,6 +29,10 @@ public class Ticket {
     private Sesion sesion;
 
     private String nombre;
+    
+    @Column(name = "orden", nullable = false)
+    @Builder.Default
+    private Long orden = 1L;
 
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;

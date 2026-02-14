@@ -10,5 +10,6 @@ public interface TicketService {
     Ticket findById(Long id);
     List<Ticket> findBySessionId(Long sessionId);
     Ticket update(Long id, Ticket ticket);
+    List<Ticket> updateAll(List<Ticket> tickets);
     boolean delete(Long id);
 }

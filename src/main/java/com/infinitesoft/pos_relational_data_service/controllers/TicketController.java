@@ -64,6 +64,12 @@ public class TicketController {
         return ResponseEntity.ok(updated);
     }
 
+    @PutMapping
+    public ResponseEntity<List<Ticket>> updateAll(@RequestBody List<Ticket> tickets) {
+        List<Ticket> updated = ticketService.updateAll(tickets);
+        return ResponseEntity.ok(updated);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         // Ensure ticket exists before attempting cascading deletions
