@@ -49,9 +49,11 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
     private ReciboDetalleService reciboDetalleService;
 
     @Autowired
+    @Lazy
     private TicketService ticketService;
 
     @Autowired
+    @Lazy
     private TicketReciboService ticketReciboService;
 
     @Autowired

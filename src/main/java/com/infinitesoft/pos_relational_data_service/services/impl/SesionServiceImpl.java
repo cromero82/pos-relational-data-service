@@ -12,8 +12,11 @@ import com.infinitesoft.pos_relational_data_service.services.TicketService;
 import com.infinitesoft.pos_relational_data_service.services.TicketReciboService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
+import com.infinitesoft.pos_relational_data_service.services.ClientService;
 import com.infinitesoft.pos_relational_data_service.entities.TicketRecibo;
+import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.util.DateUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -44,6 +47,12 @@ public class SesionServiceImpl implements SesionService {
 
     @Autowired
     private ReciboDetalleService reciboDetalleService;
+
+    @Autowired
+    private ClientService clientService;
+
+    @Value("${app.id-usuario-anonimo:1}")
+    private Long idUsuarioAnonimo;
 
     @Override
     public SesionDto create(SesionDto sesionDto, HttpServletRequest request) {
@@ -148,30 +157,45 @@ public class SesionServiceImpl implements SesionService {
             for (Ticket t : tickets) {
                 if (t == null || t.getId() == null) continue;
                 List<TicketRecibo> ticketsRecibo = ticketReciboService.findByTicketId(t.getId());
-                if (ticketsRecibo != null) {
+                boolean allowedToDelete = false;
+                if (ticketsRecibo != null && !ticketsRecibo.isEmpty()) {
                     for (TicketRecibo tr : ticketsRecibo) {
-                        if (tr != null && tr.getId() != null) {
-                            // Delete recibo_detalle and recibo, then the link
-                            Long reciboId = tr.getReciboId();
-                            if (reciboId != null) {
-                                try {
-                                    reciboDetalleService.deleteByReciboId(reciboId);
-                                } catch (Exception e) {
-                                    org.slf4j.LoggerFactory.getLogger(SesionServiceImpl.class)
-                                            .error("[SesionDelete] Error deleting recibo_detalle for reciboId={}: {}", reciboId, e.toString(), e);
-                                }
-                                try {
-                                    reciboService.delete(reciboId);
-                                } catch (Exception e) {
-                                    org.slf4j.LoggerFactory.getLogger(SesionServiceImpl.class)
-                                            .error("[SesionDelete] Error deleting recibo reciboId={}: {}", reciboId, e.toString(), e);
-                                }
+                        if (tr != null && tr.getReciboId() != null) {
+                            Recibo recibo = reciboService.findById(tr.getReciboId());
+                            if (recibo != null && recibo.getClienteId() != null && recibo.getClienteId().equals(idUsuarioAnonimo)) {
+                                allowedToDelete = true;
+                                break;
                             }
-                            ticketReciboService.delete(tr.getId());
                         }
                     }
                 }
-                ticketService.delete(t.getId());
+
+                if (allowedToDelete) {
+                    if (ticketsRecibo != null) {
+                        for (TicketRecibo tr : ticketsRecibo) {
+                            if (tr != null && tr.getId() != null) {
+                                // Delete recibo_detalle and recibo, then the link
+                                Long reciboId = tr.getReciboId();
+                                if (reciboId != null) {
+                                    try {
+                                        reciboDetalleService.deleteByReciboId(reciboId);
+                                    } catch (Exception e) {
+                                        org.slf4j.LoggerFactory.getLogger(SesionServiceImpl.class)
+                                                .error("[SesionDelete] Error deleting recibo_detalle for reciboId={}: {}", reciboId, e.toString(), e);
+                                    }
+                                    try {
+                                        reciboService.delete(reciboId);
+                                    } catch (Exception e) {
+                                        org.slf4j.LoggerFactory.getLogger(SesionServiceImpl.class)
+                                                .error("[SesionDelete] Error deleting recibo reciboId={}: {}", reciboId, e.toString(), e);
+                                    }
+                                }
+                                ticketReciboService.delete(tr.getId());
+                            }
+                        }
+                    }
+                    ticketService.delete(t.getId());
+                }
             }
         }
         // Soft delete session at the end

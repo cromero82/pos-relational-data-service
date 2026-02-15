@@ -1,5 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
+import com.infinitesoft.pos_relational_data_service.dto.TicketDto;
+import com.infinitesoft.pos_relational_data_service.dto.TicketReciboClienteRequest;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.entities.Ticket;
 import com.infinitesoft.pos_relational_data_service.entities.TicketRecibo;
@@ -11,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.List;
 
@@ -51,13 +54,22 @@ public class TicketController {
 
     // New endpoint: get all tickets by sessionId
     @GetMapping("/session/{sessionId}")
-    public List<Ticket> findBySession(@PathVariable Long sessionId) {
-        return ticketService.findBySessionId(sessionId);
+    public List<TicketDto> findBySession(@PathVariable Long sessionId, HttpServletRequest request) {
+        return ticketService.findBySessionIdDto(sessionId, request);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Ticket> update(@PathVariable Long id, @RequestBody Ticket ticket) {
         Ticket updated = ticketService.update(id, ticket);
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(updated);
+    }
+
+    @PutMapping("/actualizaCliente")
+    public ResponseEntity<Ticket> actualizaCliente(@RequestBody TicketReciboClienteRequest request) {
+        Ticket updated = ticketService.updateCliente(request);
         if (updated == null) {
             return ResponseEntity.notFound().build();
         }

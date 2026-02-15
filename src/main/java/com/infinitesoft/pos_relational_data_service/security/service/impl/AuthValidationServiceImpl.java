@@ -118,4 +118,10 @@ public class AuthValidationServiceImpl implements AuthValidationService {
         if (userId == null) return null;
         return authClient.getUsuarioById(userId);
     }
+
+    @Override
+    public List<AuthUserDto> getUsuarios(String token) {
+        if (token == null || token.isBlank()) return List.of();
+        return authClient.getUsuarios(token);
+    }
 }

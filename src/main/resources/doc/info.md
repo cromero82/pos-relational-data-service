@@ -608,11 +608,27 @@ curl --location 'http://localhost:8080/tickets' \
 }'
 ```
 
-## Obtener tickets por sesión (Ordenados por `orden` ASC)
+## Obtener tickets por sesión (Enriquecido)
+Obtiene todos los tickets de una sesión. Incluye información detallada del cliente y del usuario que atendió (si el cliente no es anónimo). El campo `perteneceUsuarioActual` indica si el ticket fue creado por el usuario logueado.
 
 ```bash
-curl --location 'http://localhost:8080/tickets/session/{sessionId}' \
+curl --location 'http://localhost:8088/tickets/session/{sessionId}' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+*Nota: La información del cliente y de quien atendió se omite si el cliente es el usuario anónimo (ID configurado en `app.id-usuario-anonimo`).*
+
+## Actualizar cliente de un ticket
+Actualiza el cliente asociado a un ticket específico navegando hasta el recibo correspondiente.
+
+```bash
+curl --location --request PUT 'http://localhost:8088/tickets/actualizaCliente' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "ticketId": 95,
+    "clienteId": 2
+}'
 ```
 
 ## Actualización masiva de tickets (Reordenamiento)
