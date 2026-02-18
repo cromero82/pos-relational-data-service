@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
 import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleResponse;
 import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalle;
 import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,8 +20,8 @@ public class ReciboDetalleController {
     private ReciboDetalleService service;
 
     @PostMapping
-    public ResponseEntity<ReciboDetalle> create(@RequestBody ReciboDetalle detalle) {
-        ReciboDetalle saved = service.create(detalle);
+    public ResponseEntity<ReciboDetalleResponse> create(@RequestBody ReciboDetalle detalle) {
+        ReciboDetalleResponse saved = service.create(detalle);
         URI location = URI.create("/recibo-detalles/" + saved.getId());
         return ResponseEntity.created(location).body(saved);
     }

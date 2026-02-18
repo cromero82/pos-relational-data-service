@@ -14,7 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ReciboDetalleDto {
+public class ReciboDetalleResponse {
     private Long id;
     private Long reciboId;
     private Long productoId;
@@ -22,20 +22,8 @@ public class ReciboDetalleDto {
     private BigDecimal subtotal;
     private LocalDateTime fechaCreacion;
     private UUID usuarioCreacion;
-
-    // Enriched product information
-    private Product producto;
-
     private String nombreUsuarioAtendio;
 
-    public ReciboDetalleDto(Long id, Long reciboId, Long productoId, Integer cantidad, BigDecimal subtotal, LocalDateTime fechaCreacion, UUID usuarioCreacion, Product producto) {
-        this.id = id;
-        this.reciboId = reciboId;
-        this.productoId = productoId;
-        this.cantidad = cantidad;
-        this.subtotal = subtotal;
-        this.fechaCreacion = fechaCreacion;
-        this.usuarioCreacion = usuarioCreacion;
-        this.producto = producto;
-    }
+    // Enriched product information (optional, but keep consistent with Dto if needed)
+    private Product producto;
 }

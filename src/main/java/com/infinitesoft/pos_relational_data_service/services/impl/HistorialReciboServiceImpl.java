@@ -2,7 +2,6 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
-import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketRepository;
@@ -34,9 +33,6 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Autowired
     private ProductRepository productRepository;
-
-    @Autowired
-    private HistorialReciboDetalleRepository historialReciboDetalleRepository;
 
     @Autowired
     private HistorialReciboDetalleService historialReciboDetalleService;
@@ -104,7 +100,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                 .cantidad(1)
                 .subtotal(subtotal)
                 .build();
-        historialReciboDetalleRepository.save(detalle);
+        historialReciboDetalleService.create(detalle);
 
         return saved;
     }
@@ -271,6 +267,8 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                     .productoId(detalleHistorial.getProductoId())
                     .cantidad(detalleHistorial.getCantidad())
                     .subtotal(detalleHistorial.getSubtotal())
+                    .fechaCreacion(detalleHistorial.getFechaCreacion())
+                    .usuarioCreacion(detalleHistorial.getUsuarioCreacion())
                     .build();
             reciboDetalleService.create(nuevoDetalle);
 

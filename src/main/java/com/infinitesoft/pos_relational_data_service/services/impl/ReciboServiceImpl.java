@@ -4,7 +4,6 @@ import com.infinitesoft.pos_relational_data_service.dto.ReciboDto;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
-import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
 import com.infinitesoft.pos_relational_data_service.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +25,7 @@ public class ReciboServiceImpl implements ReciboService {
     private HistorialReciboService historialReciboService;
 
     @Autowired
-    private HistorialReciboDetalleRepository historialReciboDetalleRepository;
+    private HistorialReciboDetalleService historialReciboDetalleService;
 
     @Autowired
     private ReciboDetalleService reciboDetalleService;
@@ -119,8 +118,10 @@ public class ReciboServiceImpl implements ReciboService {
                         .productoId(d.getProductoId())
                         .cantidad(d.getCantidad())
                         .subtotal(d.getSubtotal())
+                        .fechaCreacion(d.getFechaCreacion())
+                        .usuarioCreacion(d.getUsuarioCreacion())
                         .build();
-                historialReciboDetalleRepository.save(hd);
+                historialReciboDetalleService.create(hd);
             }
 
             // 4) Delete all items from recibo_detalle

@@ -1,10 +1,13 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import javax.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "historial_recibo_detalle")
@@ -38,4 +41,17 @@ public class HistorialReciboDetalle {
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;
+
+    @Column(name = "fecha_creacion")
+    private LocalDateTime fechaCreacion;
+
+    @Column(name = "usuario_creacion")
+    private UUID usuarioCreacion;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.fechaCreacion == null) {
+            this.fechaCreacion = DateUtils.obtenerFechaSistema();
+        }
+    }
 }

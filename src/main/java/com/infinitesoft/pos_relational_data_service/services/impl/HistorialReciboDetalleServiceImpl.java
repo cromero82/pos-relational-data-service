@@ -3,6 +3,7 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 import com.infinitesoft.pos_relational_data_service.dto.HistorialReciboDetalleDto;
 import com.infinitesoft.pos_relational_data_service.entities.HistorialReciboDetalle;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboDetalleRepository;
+import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.HistorialReciboDetalleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -33,5 +34,13 @@ public class HistorialReciboDetalleServiceImpl implements HistorialReciboDetalle
         if (toDelete != null && !toDelete.isEmpty()) {
             repository.deleteAll(toDelete);
         }
+    }
+
+    @Override
+    public HistorialReciboDetalle create(HistorialReciboDetalle detalle) {
+        if (detalle.getUsuarioCreacion() == null) {
+            detalle.setUsuarioCreacion(SecurityContextHelper.getUserId());
+        }
+        return repository.save(detalle);
     }
 }

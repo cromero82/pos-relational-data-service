@@ -1,14 +1,19 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleResponse;
 import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalle;
+import com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto;
+import com.infinitesoft.pos_relational_data_service.security.service.AuthValidationService;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboDetalleRepository;
+import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class ReciboDetalleServiceImpl implements ReciboDetalleService {
@@ -16,9 +21,34 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     @Autowired
     private ReciboDetalleRepository repository;
 
+    @Autowired
+    private AuthValidationService authValidationService;
+
     @Override
-    public ReciboDetalle create(ReciboDetalle detalle) {
-        return repository.save(detalle);
+    public ReciboDetalleResponse create(ReciboDetalle detalle) {
+        if (detalle.getUsuarioCreacion() == null) {
+            detalle.setUsuarioCreacion(SecurityContextHelper.getUserId());
+        }
+        ReciboDetalle saved = repository.save(detalle);
+        
+        ReciboDetalleResponse response = ReciboDetalleResponse.builder()
+                .id(saved.getId())
+                .reciboId(saved.getReciboId())
+                .productoId(saved.getProductoId())
+                .cantidad(saved.getCantidad())
+                .subtotal(saved.getSubtotal())
+                .fechaCreacion(saved.getFechaCreacion())
+                .usuarioCreacion(saved.getUsuarioCreacion())
+                .build();
+
+        if (saved.getUsuarioCreacion() != null) {
+            AuthUserDto userInfo = authValidationService.fetchUserInfoById(saved.getUsuarioCreacion());
+            if (userInfo != null) {
+                response.setNombreUsuarioAtendio(userInfo.getNombre());
+            }
+        }
+
+        return response;
     }
 
     @Override
@@ -35,7 +65,18 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     @Override
     public List<ReciboDetalleDto> findByReciboId(Long reciboId) {
         if (reciboId == null) return List.of();
-        return repository.findDtoByReciboId(reciboId);
+        List<ReciboDetalleDto> dtos = repository.findDtoByReciboId(reciboId);
+        
+        for (ReciboDetalleDto dto : dtos) {
+            if (dto.getUsuarioCreacion() != null) {
+                AuthUserDto userInfo = authValidationService.fetchUserInfoById(dto.getUsuarioCreacion());
+                if (userInfo != null) {
+                    dto.setNombreUsuarioAtendio(userInfo.getNombre());
+                }
+            }
+        }
+        
+        return dtos;
     }
 
     @Override
@@ -60,6 +101,13 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
         existing.setProductoId(detalle.getProductoId());
         existing.setCantidad(detalle.getCantidad());
         existing.setSubtotal(detalle.getSubtotal());
+        // Preserve fechaCreacion and usuarioCreacion on update unless they are explicitly set in 'detalle'
+        if (detalle.getFechaCreacion() != null) {
+            existing.setFechaCreacion(detalle.getFechaCreacion());
+        }
+        if (detalle.getUsuarioCreacion() != null) {
+            existing.setUsuarioCreacion(detalle.getUsuarioCreacion());
+        }
         return repository.save(existing);
     }
 

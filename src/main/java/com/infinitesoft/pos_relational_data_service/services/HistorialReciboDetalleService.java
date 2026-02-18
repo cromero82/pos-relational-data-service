@@ -9,4 +9,5 @@ public interface HistorialReciboDetalleService {
     List<HistorialReciboDetalleDto> findByReciboId(Long reciboId);
     List<HistorialReciboDetalle> findEntityListByReciboId(Long reciboId);
     void deleteByReciboId(Long reciboId);
+    HistorialReciboDetalle create(HistorialReciboDetalle detalle);
 }
