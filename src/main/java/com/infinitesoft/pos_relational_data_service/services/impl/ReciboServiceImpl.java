@@ -159,9 +159,21 @@ public class ReciboServiceImpl implements ReciboService {
     }
 
     @Override
+    @Transactional
     public boolean delete(Long id) {
         if (id == null) return false;
         if (!reciboRepository.existsById(id)) return false;
+
+        // 1) Delete dependent EdicionRecibo if exists
+        edicionReciboService.deleteByReciboId(id);
+
+        // 2) Delete all items from recibo_detalle
+        reciboDetalleService.deleteByReciboId(id);
+
+        // 3) Delete links in ticket_recibo table
+        ticketReciboRepository.deleteByReciboId(id);
+
+        // 4) Finally delete the recibo itself
         reciboRepository.deleteById(id);
         return true;
     }

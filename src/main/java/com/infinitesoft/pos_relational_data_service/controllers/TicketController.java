@@ -90,22 +90,29 @@ public class TicketController {
             return ResponseEntity.notFound().build();
         }
 
-        // 1) Delete from ticket_recibo by ticket_id (handle all links just in case)
+        // 1) Find the links to recibos
         List<TicketRecibo> links = ticketReciboService.findByTicketId(id);
         for (TicketRecibo link : links) {
             Long reciboId = link.getReciboId();
-            // delete the link row
-            ticketReciboService.delete(link.getId());
 
-            // 2) If the linked recibo is in PENDIENTE_PAGO, delete it too
+            // 2) If the linked recibo is in PENDIENTE_PAGO, delete it (this handles ReciboDetalle, EdicionRecibo, and TicketRecibo links)
             if (reciboId != null) {
                 Recibo recibo = reciboService.findById(reciboId);
                 if (recibo != null) {
                     ReciboEstado estado = ReciboEstado.fromId(recibo.getEstadoId());
                     if (estado == ReciboEstado.PENDIENTE_PAGO) {
                         reciboService.delete(reciboId);
+                    } else {
+                        // If not PENDIENTE_PAGO, just delete the link for this ticket
+                        ticketReciboService.delete(link.getId());
                     }
+                } else {
+                    // Recibo not found, just delete the link
+                    ticketReciboService.delete(link.getId());
                 }
+            } else {
+                // No recibo linked, just delete the link
+                ticketReciboService.delete(link.getId());
             }
         }
 

@@ -38,6 +38,11 @@ public class EdicionReciboServiceImpl implements EdicionReciboService {
     }
 
     @Override
+    public void deleteByReciboId(Long reciboId) {
+        repository.findByReciboId(reciboId).ifPresent(edicion -> repository.delete(edicion));
+    }
+
+    @Override
     public EdicionRecibo update(Long id, EdicionRecibo edicionRecibo) {
         if (id == null) return null;
         Optional<EdicionRecibo> existingOpt = repository.findById(id);

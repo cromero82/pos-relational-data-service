@@ -79,3 +79,7 @@ hs_err_pid*
 
 # Ignore all files and folders in resources/model
 src/main/resources/model/
+
+# Ignorar configuraciones de herramientas de IA
+*.ignore
+

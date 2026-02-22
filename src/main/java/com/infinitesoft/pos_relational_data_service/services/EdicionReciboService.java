@@ -10,6 +10,7 @@ public interface EdicionReciboService {
     List<EdicionRecibo> findAll();
     EdicionRecibo findById(Long id);
     Optional<EdicionRecibo> findByReciboId(Long reciboId);
+    void deleteByReciboId(Long reciboId);
     EdicionRecibo update(Long id, EdicionRecibo edicionRecibo);
     boolean delete(Long id);
 }

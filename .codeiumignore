@@ -1,0 +1,15 @@
+# Bloqueo de dependencias y builds
+node_modules/
+dist/
+.angular/
+.git/
+
+# Archivos de configuración de IDEs
+.idea/
+.vscode/
+
+# Assets pesados
+src/assets/
+*.png
+*.jpg
+*.svg
