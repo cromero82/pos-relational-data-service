@@ -387,10 +387,16 @@ curl --location 'http://localhost:8080/products/search-by-barcode?barcode=123456
 
 ## Búsqueda paginada de productos (por nombre o código de barras)
 
-Búsqueda inteligente que incluye productos activos e inactivos, maneja unión de palabras y términos desordenados.
+Búsqueda inteligente que incluye productos activos e inactivos (por defecto), maneja unión de palabras y términos desordenados.
+
+**Parámetros:**
+- `query`: Término de búsqueda (Nombre o código de barras).
+- `page`: Número de página (opcional, defecto 0).
+- `size`: Tamaño de página (opcional, defecto 10).
+- `unicamenteActivos`: Si es `true`, filtra solo productos activos. Si es `false` (defecto), incluye todos.
 
 ```bash
-curl --location 'http://localhost:8080/products/search?query=CERVEZA&page=0&size=10' \
+curl --location 'http://localhost:8080/products/search?query=CERVEZA&page=0&size=10&unicamenteActivos=true' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
 

@@ -45,10 +45,11 @@ public class ProductController {
     public Page<Product> search(
             @RequestParam(name = "query") String query,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "false") boolean unicamenteActivos
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        return productService.busquedaSmart(query, pageable);
+        return productService.busquedaSmart(query, pageable, unicamenteActivos);
     }
 
     @GetMapping("/search-by-barcode")

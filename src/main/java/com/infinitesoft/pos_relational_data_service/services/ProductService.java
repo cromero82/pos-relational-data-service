@@ -8,7 +8,7 @@ import java.util.Optional;
 public interface ProductService {
     Page<Product> getAll(String barcodeOrName, Pageable pageable);
     Page<Product> search(String query, Pageable pageable);
-    Page<Product> busquedaSmart(String query, Pageable pageable);
+    Page<Product> busquedaSmart(String query, Pageable pageable, boolean unicamenteActivos);
     Page<Product> getByName(String name, Pageable pageable);
     Optional<Product> getByBarcode(String barcode);
     java.util.List<Product> findAll();

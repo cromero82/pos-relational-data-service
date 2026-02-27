@@ -85,16 +85,16 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Page<Product> busquedaSmart(String query, Pageable pageable) {
+    public Page<Product> busquedaSmart(String query, Pageable pageable, boolean unicamenteActivos) {
         if (query == null || query.isBlank()) {
-            return productRepository.findAll(withNameAsc(pageable));
+            return unicamenteActivos ? productRepository.findAllActive(withNameAsc(pageable)) : productRepository.findAll(withNameAsc(pageable));
         }
 
         String q = query.trim().toUpperCase();
         Pageable sorted = withNameAsc(pageable);
 
         // 1. Intento búsqueda normal (completa)
-        Page<Product> results = productRepository.searchAllByBarcodeOrNombreContaining(q, sorted);
+        Page<Product> results = unicamenteActivos ? productRepository.searchActiveByBarcodeOrNombreContaining(q, sorted) : productRepository.searchAllByBarcodeOrNombreContaining(q, sorted);
         if (results.hasContent()) {
             return results;
         }
@@ -109,7 +109,7 @@ public class ProductServiceImpl implements ProductService {
             
             // Caso 2.1: Unir todo
             String joinedAll = String.join("", words);
-            results = productRepository.searchAllByBarcodeOrNombreContaining(joinedAll, sorted);
+            results = unicamenteActivos ? productRepository.searchActiveByBarcodeOrNombreContaining(joinedAll, sorted) : productRepository.searchAllByBarcodeOrNombreContaining(joinedAll, sorted);
             if (results.hasContent()) {
                 return results;
             }
@@ -126,16 +126,16 @@ public class ProductServiceImpl implements ProductService {
                     }
                     if (i + 2 < words.length) sb.append(" ");
                 }
-                results = productRepository.searchAllByBarcodeOrNombreContaining(sb.toString(), sorted);
+                results = unicamenteActivos ? productRepository.searchActiveByBarcodeOrNombreContaining(sb.toString(), sorted) : productRepository.searchAllByBarcodeOrNombreContaining(sb.toString(), sorted);
                 if (results.hasContent()) return results;
             } else if (words.length == 3) {
                 // Caso 3 palabras: "7 up man" -> "7up man" o "7 upman"
                 String attempt1 = words[0] + words[1] + " " + words[2];
-                results = productRepository.searchAllByBarcodeOrNombreContaining(attempt1, sorted);
+                results = unicamenteActivos ? productRepository.searchActiveByBarcodeOrNombreContaining(attempt1, sorted) : productRepository.searchAllByBarcodeOrNombreContaining(attempt1, sorted);
                 if (results.hasContent()) return results;
 
                 String attempt2 = words[0] + " " + words[1] + words[2];
-                results = productRepository.searchAllByBarcodeOrNombreContaining(attempt2, sorted);
+                results = unicamenteActivos ? productRepository.searchActiveByBarcodeOrNombreContaining(attempt2, sorted) : productRepository.searchAllByBarcodeOrNombreContaining(attempt2, sorted);
                 if (results.hasContent()) return results;
             }
         }
@@ -149,7 +149,7 @@ public class ProductServiceImpl implements ProductService {
             List<Set<Long>> wordHits = new ArrayList<>();
             for (String word : words) {
                 if (word.length() < 2) continue;
-                List<Product> hits = productRepository.searchAllByBarcodeOrNombreContaining(word, Pageable.unpaged()).getContent();
+                List<Product> hits = unicamenteActivos ? productRepository.searchActiveByBarcodeOrNombreContaining(word, Pageable.unpaged()).getContent() : productRepository.searchAllByBarcodeOrNombreContaining(word, Pageable.unpaged()).getContent();
                 Set<Long> ids = new HashSet<>();
                 for (Product p : hits) {
                     ids.add(p.getId());
