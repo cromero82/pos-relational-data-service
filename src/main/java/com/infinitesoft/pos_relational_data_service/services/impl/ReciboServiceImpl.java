@@ -3,6 +3,7 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 import com.infinitesoft.pos_relational_data_service.dto.ReciboDto;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
+import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
 import com.infinitesoft.pos_relational_data_service.services.*;
@@ -38,6 +39,9 @@ public class ReciboServiceImpl implements ReciboService {
 
     @Autowired
     private TicketService ticketService;
+
+    @Autowired
+    private ProductRepository productRepository;
 
     @Override
     public Recibo create(ReciboDto dto) {
@@ -122,6 +126,11 @@ public class ReciboServiceImpl implements ReciboService {
                         .usuarioCreacion(d.getUsuarioCreacion())
                         .build();
                 historialReciboDetalleService.create(hd);
+
+                // Increment total_ventas in product
+                if (targetEstado == ReciboEstado.PAGADO && d.getProductoId() != null) {
+                    productRepository.incrementarVentas(d.getProductoId(), d.getCantidad());
+                }
             }
 
             // 4) Delete all items from recibo_detalle

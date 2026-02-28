@@ -5,6 +5,7 @@ import com.infinitesoft.pos_relational_data_service.entities.HistorialProducto;
 import com.infinitesoft.pos_relational_data_service.entities.Product;
 import com.infinitesoft.pos_relational_data_service.entities.enums.BitacoraEvento;
 import com.infinitesoft.pos_relational_data_service.dto.BitacoraUsuarioRequest;
+import com.infinitesoft.pos_relational_data_service.dto.FilterRequest;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialProductoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.services.BitacoraUsuarioService;
@@ -21,6 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.criteria.Predicate;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -217,6 +222,86 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public Page<Product> busquedaPorFiltros(List<FilterRequest> filtros, Pageable pageable, String campoOrdenamiento, String orden) {
+        Pageable pageableWithSort = withDynamicSort(pageable, campoOrdenamiento, orden);
+        Specification<Product> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+            for (FilterRequest filtro : filtros) {
+                String campo = filtro.getCampo();
+                String condicion = filtro.getCondicion();
+                String valor = filtro.getValor();
+
+                if (valor == null || valor.equalsIgnoreCase("null")) {
+                    if ("=".equals(condicion)) {
+                        predicates.add(cb.isNull(root.get(campo)));
+                    } else if ("!=".equals(condicion) || "<>".equals(condicion)) {
+                        predicates.add(cb.isNotNull(root.get(campo)));
+                    }
+                    continue;
+                }
+
+                // Determinar el tipo del campo para conversión
+                Class<?> fieldType = root.get(campo).getJavaType();
+
+                if (fieldType.equals(LocalDateTime.class)) {
+                    LocalDateTime dateTimeValor = LocalDate.parse(valor, formatter).atStartOfDay();
+                    switch (condicion) {
+                        case "=":
+                            predicates.add(cb.between(root.get(campo), dateTimeValor, dateTimeValor.plusDays(1).minusNanos(1)));
+                            break;
+                        case ">":
+                            predicates.add(cb.greaterThan(root.get(campo), dateTimeValor.plusDays(1).minusNanos(1)));
+                            break;
+                        case ">=":
+                            predicates.add(cb.greaterThanOrEqualTo(root.get(campo), dateTimeValor));
+                            break;
+                        case "<":
+                            predicates.add(cb.lessThan(root.get(campo), dateTimeValor));
+                            break;
+                        case "<=":
+                            predicates.add(cb.lessThanOrEqualTo(root.get(campo), dateTimeValor.plusDays(1).minusNanos(1)));
+                            break;
+                    }
+                } else if (Number.class.isAssignableFrom(fieldType) || fieldType.equals(double.class) || fieldType.equals(int.class) || fieldType.equals(long.class)) {
+                    Double doubleValor = Double.parseDouble(valor);
+                    switch (condicion) {
+                        case "=":
+                            predicates.add(cb.equal(root.get(campo), doubleValor));
+                            break;
+                        case ">":
+                            predicates.add(cb.greaterThan(root.get(campo), doubleValor));
+                            break;
+                        case ">=":
+                            predicates.add(cb.greaterThanOrEqualTo(root.get(campo), doubleValor));
+                            break;
+                        case "<":
+                            predicates.add(cb.lessThan(root.get(campo), doubleValor));
+                            break;
+                        case "<=":
+                            predicates.add(cb.lessThanOrEqualTo(root.get(campo), doubleValor));
+                            break;
+                    }
+                } else {
+                    // Por defecto tratar como String
+                    switch (condicion) {
+                        case "=":
+                            predicates.add(cb.equal(root.get(campo), valor));
+                            break;
+                        case "like":
+                            predicates.add(cb.like(cb.upper(root.get(campo)), "%" + valor.toUpperCase() + "%"));
+                            break;
+                    }
+                }
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return productRepository.findAll(spec, pageableWithSort);
+    }
+
+    @Override
     public Page<Product> search(String query, Pageable pageable) {
         Pageable sorted = withNameAsc(pageable);
         if (query == null || query.isEmpty()) {
@@ -244,8 +329,15 @@ public class ProductServiceImpl implements ProductService {
         return productRepository.findByBarcode(barcode.toUpperCase());
     }
 
+    private Pageable withDynamicSort(Pageable pageable, String campoOrdenamiento, String orden) {
+        String field = (campoOrdenamiento == null || campoOrdenamiento.isBlank()) ? "nombre" : campoOrdenamiento;
+        Sort.Direction direction = "desc".equalsIgnoreCase(orden) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        Sort sort = Sort.by(direction, field);
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+    }
+
     private Pageable withNameAsc(Pageable pageable) {
-        Sort sort = Sort.by(Sort.Order.asc("nombre").ignoreCase());
+        Sort sort = Sort.by(Sort.Order.asc("nombre"));
         return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
     }
 

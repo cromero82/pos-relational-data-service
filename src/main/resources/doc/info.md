@@ -400,6 +400,86 @@ curl --location 'http://localhost:8080/products/search?query=CERVEZA&page=0&size
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
 
+## Búsqueda de productos por filtros avanzados (JSON)
+
+Permite realizar búsquedas dinámicas enviando un arreglo de filtros en el cuerpo de la petición.
+
+**Estructura del filtro:**
+- `campo`: Nombre del campo en la base de datos (ej: `nombre`, `precio`, `fechaCreacion`, `fechaUltimaActualizacionPrecio`, `totalVentas`).
+- `condicion`: Operador de comparación (`=`, `>`, `>=`, `<`, `<=`, `like`).
+- `valor`: El valor a comparar. Para fechas usar formato `dd/MM/yyyy`. Para nulos usar `"null"`.
+- `campoOrdenamiento`: (Opcional, defecto: `nombre`) Campo por el cual ordenar los resultados.
+- `orden`: (Opcional, defecto: `asc`) Dirección del ordenamiento (`asc` o `desc`).
+
+**Ejemplo de filtros con ordenamiento:**
+
+```json
+{
+  "filtros": [
+    {
+      "campo": "precio",
+      "condicion": ">=",
+      "valor": "10.5"
+    }
+  ],
+  "page": 0,
+  "size": 10,
+  "campoOrdenamiento": "precio",
+  "orden": "desc"
+}
+```
+
+**Ejemplo de filtros:**
+
+```json
+{
+  "filtros": [
+    {
+      "campo": "precio",
+      "condicion": ">=",
+      "valor": "10.5"
+    },
+    {
+      "campo": "fechaUltimaActualizacionPrecio",
+      "condicion": ">",
+      "valor": "31/12/2025"
+    }
+  ],
+  "page": 0,
+  "size": 10
+}
+```
+
+**Ejemplo de búsqueda por valor nulo:**
+
+```json
+{
+  "filtros": [
+    {
+      "campo": "fechaUltimaActualizacionPrecio",
+      "condicion": "=",
+      "valor": "null"
+    }
+  ]
+}
+```
+
+**Comando CURL:**
+
+```bash
+curl --location 'http://localhost:8080/products/busquedaPorFiltros' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+  "filtros": [
+    {"campo": "precio", "condicion": ">=", "valor": "0"},
+    {"campo": "fechaUltimaActualizacionPrecio", "condicion": ">", "valor": "31/12/2025"}
+  ],
+  "page": 0,
+  "size": 10
+}'
+```
+
 # CargueProducto Endpoints
 
 ## Obtener todos los registros de cargue
@@ -721,3 +801,61 @@ curl --location 'http://localhost:8088/copias-seguridad/exportar-a-correo' \
 ```
 
 *Nota: Al igual que la generación de backup, este proceso es asíncrono y requiere privilegios de `admin`.*
+
+# UsuarioPerfil Endpoints
+
+## Obtener todos los perfiles de usuario
+
+```bash
+curl --location 'http://localhost:8080/usuario-perfil' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Obtener perfil de usuario por ID
+
+```bash
+curl --location 'http://localhost:8080/usuario-perfil/{id}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Crear perfil de usuario
+
+```bash
+curl --location 'http://localhost:8080/usuario-perfil' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "personalizacion": {
+        "tema": "oscuro",
+        "notificaciones": true
+    }
+}'
+```
+
+## Actualizar perfil de usuario
+
+```bash
+curl --location --request PUT 'http://localhost:8080/usuario-perfil/{id}' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "personalizacion": {
+        "tema": "claro",
+        "notificaciones": false
+    }
+}'
+```
+
+## Eliminar perfil de usuario
+
+```bash
+curl --location --request DELETE 'http://localhost:8080/usuario-perfil/{id}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Obtener perfiles de usuario por usuario_id
+
+```bash
+curl --location 'http://localhost:8080/usuario-perfil/usuario/{usuarioId}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```

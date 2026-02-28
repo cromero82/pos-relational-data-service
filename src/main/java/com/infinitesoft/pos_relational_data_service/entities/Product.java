@@ -40,6 +40,10 @@ public class Product {
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
 
+    @Column(name = "total_ventas")
+    @Builder.Default
+    private Integer totalVentas = 0;
+
     @PrePersist
     protected void onPrePersist() {
         if (fechaCreacion == null) {

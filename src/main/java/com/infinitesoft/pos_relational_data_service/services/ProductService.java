@@ -1,8 +1,10 @@
 package com.infinitesoft.pos_relational_data_service.services;
 
+import com.infinitesoft.pos_relational_data_service.dto.FilterRequest;
 import com.infinitesoft.pos_relational_data_service.entities.Product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductService {
@@ -10,6 +12,7 @@ public interface ProductService {
     Page<Product> search(String query, Pageable pageable);
     Page<Product> busquedaSmart(String query, Pageable pageable, boolean unicamenteActivos);
     Page<Product> getByName(String name, Pageable pageable);
+    Page<Product> busquedaPorFiltros(List<FilterRequest> filtros, Pageable pageable, String campoOrdenamiento, String orden);
     Optional<Product> getByBarcode(String barcode);
     java.util.List<Product> findAll();
     Product create(Product product);

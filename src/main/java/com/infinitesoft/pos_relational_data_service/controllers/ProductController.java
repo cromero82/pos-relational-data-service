@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
+import com.infinitesoft.pos_relational_data_service.dto.ProductSearchRequest;
 import com.infinitesoft.pos_relational_data_service.entities.Product;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,6 +51,12 @@ public class ProductController {
     ) {
         Pageable pageable = PageRequest.of(page, size);
         return productService.busquedaSmart(query, pageable, unicamenteActivos);
+    }
+
+    @PostMapping("/busquedaPorFiltros")
+    public Page<Product> busquedaPorFiltros(@RequestBody ProductSearchRequest request) {
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+        return productService.busquedaPorFiltros(request.getFiltros(), pageable, request.getCampoOrdenamiento(), request.getOrden());
     }
 
     @GetMapping("/search-by-barcode")

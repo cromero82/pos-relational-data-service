@@ -30,6 +30,11 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     Optional<Product> findByBarcode(String barcode);
 
+    @Modifying
+    @Transactional
+    @Query("update Product p set p.totalVentas = p.totalVentas + :cantidad where p.id = :id")
+    void incrementarVentas(@Param("id") Long id, @Param("cantidad") Integer cantidad);
+
     // Soft delete -> set activate = 0
     @Modifying
     @Transactional
