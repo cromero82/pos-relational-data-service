@@ -413,6 +413,9 @@ public class ProductServiceImpl implements ProductService {
         } else {
             existing.setNombre(null);
         }
+        if (product.getPrecio() != null && !product.getPrecio().equals(existing.getPrecio())) {
+            existing.setFechaUltimaActualizacionPrecio(LocalDateTime.now());
+        }
         existing.setPrecio(product.getPrecio());
         existing.setPrecioCompra(product.getPrecioCompra());
         // Preserve activate flag unless explicitly provided

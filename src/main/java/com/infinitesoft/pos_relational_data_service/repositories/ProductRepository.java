@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 @Repository
@@ -34,6 +35,11 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     @Transactional
     @Query("update Product p set p.totalVentas = p.totalVentas + :cantidad where p.id = :id")
     void incrementarVentas(@Param("id") Long id, @Param("cantidad") Integer cantidad);
+
+    @Modifying
+    @Transactional
+    @Query("update Product p set p.fechaUltimaVenta = :fecha where p.id = :id")
+    void actualizarFechaUltimaVenta(@Param("id") Long id, @Param("fecha") LocalDate fecha);
 
     // Soft delete -> set activate = 0
     @Modifying

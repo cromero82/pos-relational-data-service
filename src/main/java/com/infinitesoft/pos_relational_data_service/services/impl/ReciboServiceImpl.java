@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -127,9 +128,10 @@ public class ReciboServiceImpl implements ReciboService {
                         .build();
                 historialReciboDetalleService.create(hd);
 
-                // Increment total_ventas in product
+                // Increment total_ventas and update fecha_ultima_venta in product
                 if (targetEstado == ReciboEstado.PAGADO && d.getProductoId() != null) {
                     productRepository.incrementarVentas(d.getProductoId(), d.getCantidad());
+                    productRepository.actualizarFechaUltimaVenta(d.getProductoId(), LocalDate.now());
                 }
             }
 

@@ -6,6 +6,7 @@ import javax.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -29,7 +30,7 @@ public class Product {
     @Column(name = "precio_compra")
     private Double precioCompra = 0.0;
 
-    @Column(name = "fecha_actualizacion_precio", updatable = false)
+    @Column(name = "fecha_actualizacion_precio")
     private LocalDateTime fechaUltimaActualizacionPrecio;
 
     // 1 = active, 0 = deleted
@@ -43,6 +44,9 @@ public class Product {
     @Column(name = "total_ventas")
     @Builder.Default
     private Integer totalVentas = 0;
+
+    @Column(name = "fecha_ultima_venta")
+    private LocalDate fechaUltimaVenta;
 
     @PrePersist
     protected void onPrePersist() {
