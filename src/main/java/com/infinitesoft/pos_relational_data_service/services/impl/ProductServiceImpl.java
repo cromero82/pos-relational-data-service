@@ -424,6 +424,12 @@ public class ProductServiceImpl implements ProductService {
         }
         Product saved = productRepository.save(existing);
 
+        // Actualizar porcentaje_ganancia si el producto tiene precio y precio_compra
+        if (saved.getPrecio() != null && saved.getPrecioCompra() != null && saved.getPrecioCompra() > 0) {
+            short porcentaje = (short) Math.round(((saved.getPrecio() - saved.getPrecioCompra()) / saved.getPrecioCompra()) * 100);
+            productRepository.actualizarPorcentajeGanancia(saved.getId(), porcentaje);
+        }
+
         // Registrar en bitácora de usuario
         try {
             BitacoraUsuarioRequest bitacoraRequest = new BitacoraUsuarioRequest();

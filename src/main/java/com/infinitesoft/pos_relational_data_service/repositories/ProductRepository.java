@@ -41,6 +41,11 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     @Query("update Product p set p.fechaUltimaVenta = :fecha where p.id = :id")
     void actualizarFechaUltimaVenta(@Param("id") Long id, @Param("fecha") LocalDate fecha);
 
+    @Modifying
+    @Transactional
+    @Query("update Product p set p.porcentajeGanancia = :porcentaje where p.id = :id")
+    void actualizarPorcentajeGanancia(@Param("id") Long id, @Param("porcentaje") Short porcentaje);
+
     // Soft delete -> set activate = 0
     @Modifying
     @Transactional

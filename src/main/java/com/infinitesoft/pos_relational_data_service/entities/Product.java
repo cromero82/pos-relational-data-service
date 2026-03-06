@@ -48,6 +48,9 @@ public class Product {
     @Column(name = "fecha_ultima_venta")
     private LocalDate fechaUltimaVenta;
 
+    @Column(name = "porcentaje_ganancia")
+    private Short porcentajeGanancia;
+
     @PrePersist
     protected void onPrePersist() {
         if (fechaCreacion == null) {
