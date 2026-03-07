@@ -33,6 +33,17 @@ curl --location --request PUT 'http://localhost:8080/configuracion-app/{id}' \
 }'
 ```
 
+## Modificar configuración por Key
+
+```bash
+curl --location --request PUT 'http://localhost:8080/configuracion-app/key/total-productos' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "value": "150"
+}'
+```
+
 # Evento Endpoints
 
 ## Obtener todos los eventos

@@ -34,6 +34,16 @@ public class ConfiguracionAppServiceImpl implements ConfiguracionAppService {
     }
 
     @Override
+    public ConfiguracionApp updateByKey(String key, String value) {
+        if (key == null) return null;
+        Optional<ConfiguracionApp> existingOpt = repository.findByKey(key);
+        if (existingOpt.isEmpty()) return null;
+        ConfiguracionApp existing = existingOpt.get();
+        existing.setValue(value);
+        return repository.save(existing);
+    }
+
+    @Override
     public ConfiguracionApp findById(Long id) {
         if (id == null) return null;
         return repository.findById(id).orElse(null);

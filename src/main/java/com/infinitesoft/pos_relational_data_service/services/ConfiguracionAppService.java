@@ -11,6 +11,8 @@ public interface ConfiguracionAppService {
 
     ConfiguracionApp update(Long id, ConfiguracionApp config);
 
+    ConfiguracionApp updateByKey(String key, String value);
+
     ConfiguracionApp findById(Long id);
 
     Optional<ConfiguracionApp> findByKey(ConfiguracionAppKey key);

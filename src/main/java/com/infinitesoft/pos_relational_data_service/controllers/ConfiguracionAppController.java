@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
+import com.infinitesoft.pos_relational_data_service.dto.ConfigurationAppRequest;
 import com.infinitesoft.pos_relational_data_service.entities.ConfiguracionApp;
 import com.infinitesoft.pos_relational_data_service.services.ConfiguracionAppService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,16 @@ public class ConfiguracionAppController {
     @PutMapping("/{id}")
     public ResponseEntity<ConfiguracionApp> modificar(@PathVariable Long id, @RequestBody ConfiguracionApp body) {
         ConfiguracionApp updated = service.update(id, body);
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(updated);
+    }
+
+    // Endpoint: modificar por key (PUT)
+    @PutMapping("/key/{key}")
+    public ResponseEntity<ConfiguracionApp> modificarPorKey(@PathVariable String key, @RequestBody ConfigurationAppRequest body) {
+        ConfiguracionApp updated = service.updateByKey(key, body.getValue());
         if (updated == null) {
             return ResponseEntity.notFound().build();
         }
