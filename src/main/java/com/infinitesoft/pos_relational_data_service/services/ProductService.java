@@ -12,7 +12,7 @@ public interface ProductService {
     Page<Product> search(String query, Pageable pageable);
     Page<Product> busquedaSmart(String query, Pageable pageable, boolean unicamenteActivos);
     Page<Product> getByName(String name, Pageable pageable);
-    Page<Product> busquedaPorFiltros(List<FilterRequest> filtros, Pageable pageable, String campoOrdenamiento, String orden);
+    Page<Product> busquedaPorFiltros(List<FilterRequest> filtros, Pageable pageable, String campoOrdenamiento, String orden, String query);
     Optional<Product> getByBarcode(String barcode);
     java.util.List<Product> findAll();
     Product create(Product product);

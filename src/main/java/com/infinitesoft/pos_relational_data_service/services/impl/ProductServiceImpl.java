@@ -222,11 +222,38 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Page<Product> busquedaPorFiltros(List<FilterRequest> filtros, Pageable pageable, String campoOrdenamiento, String orden) {
+    public Page<Product> busquedaPorFiltros(List<FilterRequest> filtros, Pageable pageable, String campoOrdenamiento, String orden, String query) {
         Pageable pageableWithSort = withDynamicSort(pageable, campoOrdenamiento, orden);
-        Specification<Product> spec = (root, query, cb) -> {
+        Specification<Product> spec = (root, criteriaQuery, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+            if (query != null && !query.isBlank()) {
+                String q = query.trim().toUpperCase();
+                String[] words = q.split("\\s+");
+
+                Predicate smartPredicate;
+
+                if (words.length > 1) {
+                    // All words must be present in the name
+                    Predicate[] wordPredicates = Arrays.stream(words)
+                            .map(word -> cb.like(cb.upper(root.get("nombre")), "%" + word + "%"))
+                            .toArray(Predicate[]::new);
+                    Predicate allWordsInName = cb.and(wordPredicates);
+
+                    // Or the whole query is in barcode
+                    Predicate barcodeMatch = cb.like(cb.upper(root.get("barcode")), "%" + q + "%");
+
+                    smartPredicate = cb.or(allWordsInName, barcodeMatch);
+
+                } else {
+                    // Simple case for one word or direct barcode scan
+                    Predicate barcodePredicate = cb.like(cb.upper(root.get("barcode")), "%" + q + "%");
+                    Predicate nombrePredicate = cb.like(cb.upper(root.get("nombre")), "%" + q + "%");
+                    smartPredicate = cb.or(barcodePredicate, nombrePredicate);
+                }
+                predicates.add(smartPredicate);
+            }
 
             for (FilterRequest filtro : filtros) {
                 String campo = filtro.getCampo();

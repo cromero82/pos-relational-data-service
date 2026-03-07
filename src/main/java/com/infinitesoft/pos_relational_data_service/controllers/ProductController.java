@@ -54,9 +54,12 @@ public class ProductController {
     }
 
     @PostMapping("/busquedaPorFiltros")
-    public Page<Product> busquedaPorFiltros(@RequestBody ProductSearchRequest request) {
+    public Page<Product> busquedaPorFiltros(
+            @RequestBody ProductSearchRequest request,
+            @RequestParam(name = "query", required = false) String query // Added query parameter
+    ) {
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
-        return productService.busquedaPorFiltros(request.getFiltros(), pageable, request.getCampoOrdenamiento(), request.getOrden());
+        return productService.busquedaPorFiltros(request.getFiltros(), pageable, request.getCampoOrdenamiento(), request.getOrden(), query); // Pass query
     }
 
     @GetMapping("/search-by-barcode")
