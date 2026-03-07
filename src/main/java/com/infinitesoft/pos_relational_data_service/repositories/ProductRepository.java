@@ -16,6 +16,9 @@ import java.util.Optional;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
+    
+    long countByActivateNot(Integer activate);
+
     // Active-only finders
     @Query("select p from Product p where p.activate <> 0")
     Page<Product> findAllActive(Pageable pageable);

@@ -1,7 +1,11 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
 import com.infinitesoft.pos_relational_data_service.dto.ProductSearchRequest;
+import com.infinitesoft.pos_relational_data_service.dto.ProductSearchResponse;
+import com.infinitesoft.pos_relational_data_service.entities.ConfiguracionApp;
 import com.infinitesoft.pos_relational_data_service.entities.Product;
+import com.infinitesoft.pos_relational_data_service.entities.enums.ConfiguracionAppKey;
+import com.infinitesoft.pos_relational_data_service.services.ConfiguracionAppService;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -21,6 +25,9 @@ import java.util.Optional;
 public class ProductController {
     @Autowired
     private ProductService productService;
+
+    @Autowired
+    private ConfiguracionAppService configuracionAppService;
 
     @GetMapping
     public Page<Product> getAll(
@@ -54,12 +61,27 @@ public class ProductController {
     }
 
     @PostMapping("/busquedaPorFiltros")
-    public Page<Product> busquedaPorFiltros(
+    public ProductSearchResponse busquedaPorFiltros(
             @RequestBody ProductSearchRequest request,
-            @RequestParam(name = "query", required = false) String query // Added query parameter
+            @RequestParam(name = "query", required = false) String query
     ) {
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
-        return productService.busquedaPorFiltros(request.getFiltros(), pageable, request.getCampoOrdenamiento(), request.getOrden(), query); // Pass query
+        Page<Product> productPage = productService.busquedaPorFiltros(request.getFiltros(), pageable, request.getCampoOrdenamiento(), request.getOrden(), query);
+
+        Double percentFromTotal = 0.0;
+        Optional<ConfiguracionApp> totalProductosConfig = configuracionAppService.findByKey(ConfiguracionAppKey.TOTAL_PRODUCTOS);
+        if (totalProductosConfig.isPresent()) {
+            try {
+                long totalProductos = Long.parseLong(totalProductosConfig.get().getValue());
+                if (totalProductos > 0) {
+                    percentFromTotal = (double) productPage.getTotalElements() / totalProductos;
+                }
+            } catch (NumberFormatException e) {
+                // Handle error if value is not a number
+            }
+        }
+
+        return new ProductSearchResponse(productPage, percentFromTotal);
     }
 
     @GetMapping("/search-by-barcode")

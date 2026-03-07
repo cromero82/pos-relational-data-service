@@ -1,11 +1,13 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.infinitesoft.pos_relational_data_service.entities.ConfiguracionApp;
 import com.infinitesoft.pos_relational_data_service.entities.HistorialProducto;
 import com.infinitesoft.pos_relational_data_service.entities.Product;
 import com.infinitesoft.pos_relational_data_service.entities.enums.BitacoraEvento;
 import com.infinitesoft.pos_relational_data_service.dto.BitacoraUsuarioRequest;
 import com.infinitesoft.pos_relational_data_service.dto.FilterRequest;
+import com.infinitesoft.pos_relational_data_service.repositories.ConfiguracionAppRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialProductoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.services.BitacoraUsuarioService;
@@ -38,6 +40,8 @@ public class ProductServiceImpl implements ProductService {
     private BitacoraUsuarioService bitacoraUsuarioService;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private ConfiguracionAppRepository configuracionAppRepository;
 
     @Override
     public Page<Product> getAll(String barcodeOrName, Pageable pageable) {
@@ -260,36 +264,78 @@ public class ProductServiceImpl implements ProductService {
                 String condicion = filtro.getCondicion();
                 String valor = filtro.getValor();
 
-                if (valor == null || valor.equalsIgnoreCase("null")) {
+                // Handle "is null" and "is not null"
+                if ("is".equalsIgnoreCase(condicion)) {
+                    if ("null".equalsIgnoreCase(valor)) {
+                        predicates.add(cb.isNull(root.get(campo)));
+                        continue;
+                    }
+                    if ("not null".equalsIgnoreCase(valor)) {
+                        predicates.add(cb.isNotNull(root.get(campo)));
+                        continue;
+                    }
+                }
+
+                // Handle legacy null checks
+                if (valor == null || "null".equalsIgnoreCase(valor)) {
                     if ("=".equals(condicion)) {
                         predicates.add(cb.isNull(root.get(campo)));
-                    } else if ("!=".equals(condicion) || "<>".equals(condicion)) {
-                        predicates.add(cb.isNotNull(root.get(campo)));
+                        continue;
                     }
-                    continue;
+                    if ("!=".equals(condicion) || "<>".equals(condicion)) {
+                        predicates.add(cb.isNotNull(root.get(campo)));
+                        continue;
+                    }
+                }
+
+                // If we reach here, 'valor' is a real value that needs parsing.
+                if (valor == null) {
+                    continue; // Should not happen if logic above is correct, but as a safeguard.
                 }
 
                 // Determinar el tipo del campo para conversión
                 Class<?> fieldType = root.get(campo).getJavaType();
 
-                if (fieldType.equals(LocalDateTime.class)) {
-                    LocalDateTime dateTimeValor = LocalDate.parse(valor, formatter).atStartOfDay();
-                    switch (condicion) {
-                        case "=":
-                            predicates.add(cb.between(root.get(campo), dateTimeValor, dateTimeValor.plusDays(1).minusNanos(1)));
-                            break;
-                        case ">":
-                            predicates.add(cb.greaterThan(root.get(campo), dateTimeValor.plusDays(1).minusNanos(1)));
-                            break;
-                        case ">=":
-                            predicates.add(cb.greaterThanOrEqualTo(root.get(campo), dateTimeValor));
-                            break;
-                        case "<":
-                            predicates.add(cb.lessThan(root.get(campo), dateTimeValor));
-                            break;
-                        case "<=":
-                            predicates.add(cb.lessThanOrEqualTo(root.get(campo), dateTimeValor.plusDays(1).minusNanos(1)));
-                            break;
+                if (fieldType.equals(LocalDateTime.class) || fieldType.equals(LocalDate.class)) {
+                    predicates.add(cb.isNotNull(root.get(campo))); // Exclude nulls for date comparisons
+                    if (fieldType.equals(LocalDateTime.class)) {
+                        LocalDateTime dateTimeValor = LocalDate.parse(valor, formatter).atStartOfDay();
+                        switch (condicion) {
+                            case "=":
+                                predicates.add(cb.between(root.get(campo), dateTimeValor, dateTimeValor.plusDays(1).minusNanos(1)));
+                                break;
+                            case ">":
+                                predicates.add(cb.greaterThan(root.get(campo), dateTimeValor.plusDays(1).minusNanos(1)));
+                                break;
+                            case ">=":
+                                predicates.add(cb.greaterThanOrEqualTo(root.get(campo), dateTimeValor));
+                                break;
+                            case "<":
+                                predicates.add(cb.lessThan(root.get(campo), dateTimeValor));
+                                break;
+                            case "<=":
+                                predicates.add(cb.lessThanOrEqualTo(root.get(campo), dateTimeValor.plusDays(1).minusNanos(1)));
+                                break;
+                        }
+                    } else { // LocalDate
+                        LocalDate dateValor = LocalDate.parse(valor, formatter);
+                        switch (condicion) {
+                            case "=":
+                                predicates.add(cb.equal(root.get(campo), dateValor));
+                                break;
+                            case ">":
+                                predicates.add(cb.greaterThan(root.get(campo), dateValor));
+                                break;
+                            case ">=":
+                                predicates.add(cb.greaterThanOrEqualTo(root.get(campo), dateValor));
+                                break;
+                            case "<":
+                                predicates.add(cb.lessThan(root.get(campo), dateValor));
+                                break;
+                            case "<=":
+                                predicates.add(cb.lessThanOrEqualTo(root.get(campo), dateValor));
+                                break;
+                        }
                     }
                 } else if (Number.class.isAssignableFrom(fieldType) || fieldType.equals(double.class) || fieldType.equals(int.class) || fieldType.equals(long.class)) {
                     Double doubleValor = Double.parseDouble(valor);
@@ -407,6 +453,8 @@ public class ProductServiceImpl implements ProductService {
             // No bloqueamos la creación del producto si falla el registro en bitácora
         }
 
+        actualizarConfiguracionApp(true);
+
         return saved;
     }
 
@@ -429,6 +477,7 @@ public class ProductServiceImpl implements ProductService {
             // Error serializando el estado anterior
         }
 
+        boolean activateChanged = false;
         // Full replace (PUT semantics), but keep primary key (id) from path
         if (product.getBarcode() != null) {
             existing.setBarcode(product.getBarcode().toUpperCase());
@@ -447,6 +496,9 @@ public class ProductServiceImpl implements ProductService {
         existing.setPrecioCompra(product.getPrecioCompra());
         // Preserve activate flag unless explicitly provided
         if (product.getActivate() != null) {
+            if (!product.getActivate().equals(existing.getActivate())) {
+                activateChanged = true;
+            }
             existing.setActivate(product.getActivate());
         }
         Product saved = productRepository.save(existing);
@@ -466,6 +518,10 @@ public class ProductServiceImpl implements ProductService {
             bitacoraUsuarioService.save(bitacoraRequest);
         } catch (Exception e) {
             // No bloqueamos la actualización del producto si falla el registro en bitácora
+        }
+
+        if (activateChanged) {
+            actualizarConfiguracionApp(false);
         }
 
         return saved;
@@ -504,6 +560,8 @@ public class ProductServiceImpl implements ProductService {
             // No bloqueamos si falla el registro en bitácora
         }
 
+        actualizarConfiguracionApp(false);
+
         return saved;
     }
 
@@ -540,6 +598,8 @@ public class ProductServiceImpl implements ProductService {
             // No bloqueamos si falla el registro en bitácora
         }
 
+        actualizarConfiguracionApp(false);
+
         return saved;
     }
 
@@ -547,6 +607,47 @@ public class ProductServiceImpl implements ProductService {
     public boolean delete(Long id) {
         if (id == null) return false;
         int updated = productRepository.softDeleteById(id);
-        return updated > 0;
+        boolean result = updated > 0;
+        if (result) {
+            actualizarConfiguracionApp(false);
+        }
+        return result;
+    }
+
+    private void actualizarConfiguracionApp(boolean actualizarTotalProductos) {
+        try {
+            if (actualizarTotalProductos) {
+                long totalProductos = productRepository.count();
+                Optional<ConfiguracionApp> configTotal = configuracionAppRepository.findByKey("total-productos");
+                if (configTotal.isPresent()) {
+                    ConfiguracionApp config = configTotal.get();
+                    config.setValue(String.valueOf(totalProductos));
+                    configuracionAppRepository.save(config);
+                } else {
+                    ConfiguracionApp config = ConfiguracionApp.builder()
+                            .key("total-productos")
+                            .value(String.valueOf(totalProductos))
+                            .build();
+                    configuracionAppRepository.save(config);
+                }
+            }
+
+            long totalProductosActivos = productRepository.countByActivateNot(0);
+            Optional<ConfiguracionApp> configActivos = configuracionAppRepository.findByKey("total-productos-activos");
+            if (configActivos.isPresent()) {
+                ConfiguracionApp config = configActivos.get();
+                config.setValue(String.valueOf(totalProductosActivos));
+                configuracionAppRepository.save(config);
+            } else {
+                ConfiguracionApp config = ConfiguracionApp.builder()
+                        .key("total-productos-activos")
+                        .value(String.valueOf(totalProductosActivos))
+                        .build();
+                configuracionAppRepository.save(config);
+            }
+        } catch (Exception e) {
+            // Log error or handle silently to not disrupt main flow
+            e.printStackTrace();
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.entities.ConfiguracionApp;
+import com.infinitesoft.pos_relational_data_service.entities.enums.ConfiguracionAppKey;
 import com.infinitesoft.pos_relational_data_service.repositories.ConfiguracionAppRepository;
 import com.infinitesoft.pos_relational_data_service.services.ConfiguracionAppService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,5 +37,11 @@ public class ConfiguracionAppServiceImpl implements ConfiguracionAppService {
     public ConfiguracionApp findById(Long id) {
         if (id == null) return null;
         return repository.findById(id).orElse(null);
+    }
+
+    @Override
+    public Optional<ConfiguracionApp> findByKey(ConfiguracionAppKey key) {
+        if (key == null) return Optional.empty();
+        return repository.findByKey(key.getKey());
     }
 }
