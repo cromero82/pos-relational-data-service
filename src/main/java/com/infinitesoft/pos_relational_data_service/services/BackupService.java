@@ -1,6 +1,8 @@
 package com.infinitesoft.pos_relational_data_service.services;
 
 import com.infinitesoft.pos_relational_data_service.entities.*;
+import com.infinitesoft.pos_relational_data_service.repositories.ConfiguracionAppRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.EstadoReciboRepository;
 import com.infinitesoft.pos_relational_data_service.security.client.AuthClient;
 import com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto;
 import com.infinitesoft.pos_relational_data_service.util.StringUtils;
@@ -30,6 +32,8 @@ public class BackupService {
     private final AuthClient authClient;
     private final EmailService emailService;
     private final com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboDetalleRepository historialReciboDetalleRepository;
+    private final ConfiguracionAppRepository configuracionAppRepository;
+    private final EstadoReciboRepository estadoReciboRepository;
 
     public byte[] generarBackupExcel(String token) throws IOException {
         try (Workbook workbook = new XSSFWorkbook()) {
@@ -42,6 +46,8 @@ public class BackupService {
             crearHojaEvento(workbook);
             crearHojaBitacoraUsuario(workbook);
             crearHojaUsuarios(workbook, token);
+            crearHojaConfiguracionApp(workbook);
+            crearHojaEstadoRecibos(workbook);
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
@@ -131,7 +137,7 @@ public class BackupService {
 
     private void crearHojaHistorialReciboDetalle(Workbook workbook) {
         Sheet sheet = workbook.createSheet("Historial recibo detalle");
-        String[] headers = {"ID", "Recibo ID", "Producto ID", "Cantidad", "Subtotal"};
+        String[] headers = {"ID", "Recibo ID", "Producto ID", "Cantidad", "Subtotal", "Usuario Creación", "Fecha Creación"};
         createHeaderRow(sheet, headers);
 
         List<HistorialReciboDetalle> list = historialReciboDetalleRepository.findAll();
@@ -143,6 +149,8 @@ public class BackupService {
             row.createCell(2).setCellValue(item.getProductoId() != null ? item.getProductoId() : 0);
             row.createCell(3).setCellValue(item.getCantidad() != null ? item.getCantidad() : 0);
             row.createCell(4).setCellValue(item.getSubtotal() != null ? item.getSubtotal().doubleValue() : 0.0);
+            row.createCell(5).setCellValue(item.getUsuarioCreacion() != null ? item.getUsuarioCreacion().toString() : "");
+            row.createCell(6).setCellValue(formatDate(item.getFechaCreacion()));
         }
     }
 
@@ -232,6 +240,36 @@ public class BackupService {
             row.createCell(3).setCellValue(clean(item.getTelefono()));
             String roles = item.getRoles() != null ? item.getRoles().stream().map(r -> r.getNombre()).collect(Collectors.joining(", ")) : "";
             row.createCell(4).setCellValue(clean(roles));
+        }
+    }
+
+    private void crearHojaConfiguracionApp(Workbook workbook) {
+        Sheet sheet = workbook.createSheet("Configuracion App");
+        String[] headers = {"ID", "Key", "Value"};
+        createHeaderRow(sheet, headers);
+
+        List<ConfiguracionApp> list = configuracionAppRepository.findAll();
+        int rowIdx = 1;
+        for (ConfiguracionApp item : list) {
+            Row row = sheet.createRow(rowIdx++);
+            row.createCell(0).setCellValue(item.getId() != null ? item.getId() : 0);
+            row.createCell(1).setCellValue(clean(item.getKey()));
+            row.createCell(2).setCellValue(clean(item.getValue()));
+        }
+    }
+
+    private void crearHojaEstadoRecibos(Workbook workbook) {
+        Sheet sheet = workbook.createSheet("Estado Recibos");
+        String[] headers = {"ID", "Descripción", "Sigla"};
+        createHeaderRow(sheet, headers);
+
+        List<EstadoRecibo> list = estadoReciboRepository.findAll();
+        int rowIdx = 1;
+        for (EstadoRecibo item : list) {
+            Row row = sheet.createRow(rowIdx++);
+            row.createCell(0).setCellValue(item.getId() != null ? item.getId() : 0);
+            row.createCell(1).setCellValue(clean(item.getDescripcion()));
+            row.createCell(2).setCellValue(clean(item.getSigla()));
         }
     }
 

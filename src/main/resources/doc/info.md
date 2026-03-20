@@ -870,3 +870,65 @@ curl --location --request DELETE 'http://localhost:8080/usuario-perfil/{id}' \
 curl --location 'http://localhost:8080/usuario-perfil/usuario/{usuarioId}' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
+
+# Proveedor Endpoints
+
+## Crear proveedor
+
+```bash
+curl --location 'http://localhost:8080/proveedores' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "documento": "123456789",
+    "nombre": "PROVEEDOR EJEMPLO S.A.S",
+    "telefono": "3001234567",
+    "correo": "contacto@proveedor.com"
+}'
+```
+
+*Nota: La creación de un proveedor genera automáticamente un registro en la bitácora de usuario con la sigla `REG_PROVEEDOR`.*
+
+## Obtener todos los proveedores
+
+```bash
+curl --location 'http://localhost:8080/proveedores' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Obtener proveedor por ID
+
+```bash
+curl --location 'http://localhost:8080/proveedores/{id}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Obtener proveedor por Documento
+
+```bash
+curl --location 'http://localhost:8080/proveedores/documento/{documento}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+## Actualizar proveedor
+
+```bash
+curl --location --request PUT 'http://localhost:8080/proveedores/{id}' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "documento": "123456789",
+    "nombre": "PROVEEDOR EJEMPLO MODIFICADO",
+    "telefono": "3007654321",
+    "correo": "nuevo_contacto@proveedor.com"
+}'
+```
+
+*Nota: La actualización de un proveedor genera automáticamente un registro en la bitácora de usuario con la sigla `MOD_PROVEEDOR`.*
+
+## Eliminar proveedor
+
+```bash
+curl --location --request DELETE 'http://localhost:8080/proveedores/{id}' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
