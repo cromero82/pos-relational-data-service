@@ -79,7 +79,9 @@ Este documento establece las reglas y buenas prácticas para garantizar un códi
 ---
 ## Important
 ##  CURL Endpoints generados Postman
-Una vez generado un nuevo endpoint o controlador, se debe asegurar que el endpoint se documente correctamente en Postman, para ello generaras un comando CURL para ser copiado y pegado (import request en postman) incluyendo los parámetros de entrada, los tipos de respuesta esperados y cualquier otra información relevante, Los end points deben ser documentados en el archivo Info.md 
+Una vez generado un nuevo endpoint o controlador, se debe asegurar que el endpoint se documente correctamente en Postman, para ello generaras un comando CURL para ser copiado y pegado (import request en postman) incluyendo los parámetros de entrada, los tipos de respuesta esperados y cualquier otra información relevante, Los end points deben ser documentados en el archivo Info.md. reglas para la generación:
+- urls de la forma: http://localhost:{{port}}/proveedores/1
+- header authorization con la forma: Authorization: Bearer {{token}}
 
 ## 📌 Conclusión
 

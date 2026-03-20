@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.dto;
 
+import com.infinitesoft.pos_relational_data_service.validators.UniqueDocumento;
 import lombok.Data;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
@@ -7,8 +8,8 @@ import javax.validation.constraints.Size;
 @Data
 public class ProveedorRequest {
 
-    @NotBlank(message = "El documento no puede estar vacío")
     @Size(max = 50, message = "El documento no puede tener más de 50 caracteres")
+    @UniqueDocumento
     private String documento;
 
     @NotBlank(message = "El nombre no puede estar vacío")

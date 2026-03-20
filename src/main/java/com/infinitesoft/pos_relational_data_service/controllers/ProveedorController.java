@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
+import com.infinitesoft.pos_relational_data_service.dto.ProveedorRequest;
 import com.infinitesoft.pos_relational_data_service.entities.Proveedor;
 import com.infinitesoft.pos_relational_data_service.services.ProveedorService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.net.URI;
 import java.util.List;
 
@@ -20,7 +22,13 @@ public class ProveedorController {
     private ProveedorService proveedorService;
 
     @PostMapping
-    public ResponseEntity<Proveedor> create(@RequestBody Proveedor proveedor) {
+    public ResponseEntity<Proveedor> create(@Valid @RequestBody ProveedorRequest request) {
+        Proveedor proveedor = Proveedor.builder()
+                .documento(request.getDocumento())
+                .nombre(request.getNombre())
+                .telefono(request.getTelefono())
+                .correo(request.getCorreo())
+                .build();
         Proveedor saved = proveedorService.create(proveedor);
         URI location = URI.create("/proveedores/" + saved.getId());
         return ResponseEntity.created(location).body(saved);

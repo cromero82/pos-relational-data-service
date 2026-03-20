@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class ProveedorServiceImpl implements ProveedorService {
@@ -33,6 +34,9 @@ public class ProveedorServiceImpl implements ProveedorService {
     @Transactional
     public Proveedor create(Proveedor proveedor) {
         logger.info("Iniciando servicio ProveedorService: create para proveedor: {}", proveedor.getNombre());
+        if (proveedor.getDocumento() == null || proveedor.getDocumento().trim().isEmpty()) {
+            proveedor.setDocumento(UUID.randomUUID().toString());
+        }
         Proveedor saved = proveedorRepository.save(proveedor);
         registrarBitacora(null, saved, "REG_PROVEEDOR");
         return saved;

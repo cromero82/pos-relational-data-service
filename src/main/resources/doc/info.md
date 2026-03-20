@@ -932,3 +932,132 @@ curl --location --request PUT 'http://localhost:8080/proveedores/{id}' \
 curl --location --request DELETE 'http://localhost:8080/proveedores/{id}' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
+
+# TipoEgreso Endpoints
+
+## Obtener todos los tipos de egreso
+
+```bash
+curl --location 'http://localhost:{{port}}/tipo_egresos' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Obtener tipo de egreso por ID
+
+```bash
+curl --location 'http://localhost:{{port}}/tipo_egresos/{id}' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Crear tipo de egreso
+
+```bash
+curl --location 'http://localhost:{{port}}/tipo_egresos' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer {{token}}' \
+--data '{
+    "nombre": "Gastos Operativos",
+    "descripcion": "Gastos relacionados con la operación diaria"
+}'
+```
+
+## Actualizar tipo de egreso
+
+```bash
+curl --location --request PUT 'http://localhost:{{port}}/tipo_egresos/{id}' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer {{token}}' \
+--data '{
+    "nombre": "Gastos Administrativos",
+    "descripcion": "Gastos de administración"
+}'
+```
+
+## Eliminar tipo de egreso
+
+```bash
+curl --location --request DELETE 'http://localhost:{{port}}/tipo_egresos/{id}' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+# Egreso Endpoints
+
+## Obtener todos los egresos
+
+```bash
+curl --location 'http://localhost:{{port}}/egresos' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Obtener egreso por ID
+
+```bash
+curl --location 'http://localhost:{{port}}/egresos/{id}' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Crear egreso
+
+```bash
+curl --location 'http://localhost:{{port}}/egresos' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer {{token}}' \
+--data '{
+    "fecha": "2025-10-20",
+    "valor": 1500.00,
+    "descripcion": "Pago de servicios públicos",
+    "tipoEgreso": {
+        "id": 1
+    },
+    "proveedor": {
+        "id": 1
+    }
+}'
+```
+
+## Actualizar egreso
+
+```bash
+curl --location --request PUT 'http://localhost:{{port}}/egresos/{id}' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer {{token}}' \
+--data '{
+    "fecha": "2025-10-21",
+    "valor": 1600.00,
+    "descripcion": "Pago corregido",
+    "tipoEgreso": {
+        "id": 1
+    },
+    "proveedor": {
+        "id": 1
+    }
+}'
+```
+
+## Eliminar egreso
+
+```bash
+curl --location --request DELETE 'http://localhost:{{port}}/egresos/{id}' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Buscar egresos por rango de fechas
+
+```bash
+curl --location 'http://localhost:{{port}}/egresos/rango_fechas?fechaInicio=2025-10-01&fechaFin=2025-10-31' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Buscar egresos por proveedor
+
+```bash
+curl --location 'http://localhost:{{port}}/egresos/proveedor/{proveedorId}' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Buscar egresos por tipo de egreso
+
+```bash
+curl --location 'http://localhost:{{port}}/egresos/tipo_egreso/{tipoEgresoId}' \
+--header 'Authorization: Bearer {{token}}'
+```
