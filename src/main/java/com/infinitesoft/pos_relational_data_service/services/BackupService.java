@@ -70,7 +70,7 @@ public class BackupService {
 
     private void crearHojaProductos(Workbook workbook) {
         Sheet sheet = workbook.createSheet("Productos");
-        String[] headers = {"ID", "Código Barras", "Nombre", "Precio", "Precio Compra", "Fecha Actualización Precio", "Activo", "Fecha Creación"};
+        String[] headers = {"ID", "Código Barras", "Nombre", "Precio", "Precio Compra", "Fecha Actualización Precio", "Activo", "Fecha Creación", "Total Ventas", "Fecha Última Venta", "Porcentaje Ganancia"};
         createHeaderRow(sheet, headers);
 
         List<Product> list = productService.findAll();
@@ -85,6 +85,9 @@ public class BackupService {
             row.createCell(5).setCellValue(formatDate(item.getFechaUltimaActualizacionPrecio()));
             row.createCell(6).setCellValue(item.getActivate() != null ? item.getActivate() : 0);
             row.createCell(7).setCellValue(formatDate(item.getFechaCreacion()));
+            row.createCell(8).setCellValue(item.getTotalVentas() != null ? item.getTotalVentas() : 0);
+            row.createCell(9).setCellValue(item.getFechaUltimaVenta() != null ? item.getFechaUltimaVenta().toString() : "");
+            row.createCell(10).setCellValue(item.getPorcentajeGanancia() != null ? item.getPorcentajeGanancia() : 0);
         }
     }
 
