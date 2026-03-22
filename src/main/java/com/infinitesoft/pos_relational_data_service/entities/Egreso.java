@@ -1,9 +1,10 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
-import com.infinitesoft.pos_relational_data_service.util.StringUtils;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import javax.persistence.*;
+import com.infinitesoft.pos_relational_data_service.util.StringUtils;
 import lombok.*;
+
+import javax.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -27,11 +28,6 @@ public class Egreso {
 
     @Column(columnDefinition = "TEXT")
     private String descripcion;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tipo_egreso_id", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private TipoEgreso tipoEgreso;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proveedor_id")

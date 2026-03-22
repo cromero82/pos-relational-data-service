@@ -789,6 +789,53 @@ UPDATE sesion SET
     fecha_fin = date_trunc('second', fecha_fin);
 ```
 
+## Corrección Estructural: Mover `tipo_egreso_id` de `egreso` a `proveedor`
+
+Para ajustar el diseño de la base de datos según el cambio solicitado, ejecuta las siguientes instrucciones SQL.
+
+**Paso 1: Añadir la columna a la tabla `proveedor`**
+```sql
+ALTER TABLE proveedor ADD COLUMN tipo_egreso_id INT;
+```
+
+**Paso 2: Añadir la restricción de clave foránea**
+```sql
+ALTER TABLE proveedor 
+ADD CONSTRAINT fk_proveedor_tipo_egreso 
+FOREIGN KEY (tipo_egreso_id) 
+REFERENCES tipo_egreso(id);
+```
+
+**Paso 3: (Opcional) Migrar datos existentes**
+Este paso es crucial si ya tienes datos. Asumiremos que cada proveedor tomará el `tipo_egreso_id` del primer egreso que tenga asociado. Si un proveedor no tiene egresos, su `tipo_egreso_id` quedará nulo.
+
+```sql
+UPDATE proveedor p
+SET tipo_egreso_id = (
+    SELECT e.tipo_egreso_id
+    FROM egreso e
+    WHERE e.proveedor_id = p.id
+    ORDER BY e.fecha ASC, e.id ASC
+    LIMIT 1
+)
+WHERE EXISTS (
+    SELECT 1
+    FROM egreso e
+    WHERE e.proveedor_id = p.id
+);
+```
+
+**Paso 4: Eliminar la columna y la restricción de la tabla `egreso`**
+Una vez que los datos estén migrados y la aplicación actualizada, puedes eliminar la columna de la tabla `egreso`.
+
+```sql
+-- Primero, eliminar la restricción de clave foránea
+ALTER TABLE egreso DROP CONSTRAINT fk_tipo_egreso;
+
+-- Luego, eliminar la columna
+ALTER TABLE egreso DROP COLUMN tipo_egreso_id;
+```
+
 # Copias de Seguridad Endpoints
 
 ## Generar Backup Excel
@@ -883,7 +930,8 @@ curl --location 'http://localhost:8080/proveedores' \
     "documento": "123456789",
     "nombre": "PROVEEDOR EJEMPLO S.A.S",
     "telefono": "3001234567",
-    "correo": "contacto@proveedor.com"
+    "correo": "contacto@proveedor.com",
+    "tipoEgresoId": 1
 }'
 ```
 
@@ -920,7 +968,8 @@ curl --location --request PUT 'http://localhost:8080/proveedores/{id}' \
     "documento": "123456789",
     "nombre": "PROVEEDOR EJEMPLO MODIFICADO",
     "telefono": "3007654321",
-    "correo": "nuevo_contacto@proveedor.com"
+    "correo": "nuevo_contacto@proveedor.com",
+    "tipoEgresoId": 2
 }'
 ```
 
@@ -1006,9 +1055,6 @@ curl --location 'http://localhost:{{port}}/egresos' \
     "fecha": "2025-10-20",
     "valor": 1500.00,
     "descripcion": "Pago de servicios públicos",
-    "tipoEgreso": {
-        "id": 1
-    },
     "proveedor": {
         "id": 1
     }
@@ -1025,9 +1071,6 @@ curl --location --request PUT 'http://localhost:{{port}}/egresos/{id}' \
     "fecha": "2025-10-21",
     "valor": 1600.00,
     "descripcion": "Pago corregido",
-    "tipoEgreso": {
-        "id": 1
-    },
     "proveedor": {
         "id": 1
     }
@@ -1059,5 +1102,32 @@ curl --location 'http://localhost:{{port}}/egresos/proveedor/{proveedorId}' \
 
 ```bash
 curl --location 'http://localhost:{{port}}/egresos/tipo_egreso/{tipoEgresoId}' \
+--header 'Authorization: Bearer {{token}}'
+```
+## Búsqueda paginada de egresos
+Busca y pagina los egresos, ordenados por fecha descendente.
+**Parámetros:**
+- `descripcion`: (Opcional) Texto para buscar en la descripción del egreso.
+- `tipoEgresoId`: (Opcional) ID del tipo de egreso para filtrar (a través del proveedor).
+- `proveedorId`: (Opcional) ID del proveedor para filtrar.
+- `page`: (Opcional) Número de página (defecto: 0).
+- `size`: (Opcional) Tamaño de la página (defecto: 10).
+
+### Búsqueda por descripción y tipo de egreso
+```bash
+curl --location 'http://localhost:{{port}}/egresos/search?descripcion=pago&tipoEgresoId=1' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+### Búsqueda con todos los filtros
+```bash
+curl --location 'http://localhost:{{port}}/egresos/search?descripcion=compra&tipoEgresoId=2&proveedorId=5&page=0&size=5' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Búsqueda global por descripción
+Busca un texto en la descripción del egreso, el nombre del proveedor y el nombre del tipo de egreso.
+```bash
+curl --location 'http://localhost:{{port}}/egresos/searchDescripciones?descripcion=pago&page=0&size=10' \
 --header 'Authorization: Bearer {{token}}'
 ```

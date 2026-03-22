@@ -82,12 +82,14 @@ public class ProveedorServiceImpl implements ProveedorService {
                 .nombre(existing.getNombre())
                 .telefono(existing.getTelefono())
                 .correo(existing.getCorreo())
+                .tipoEgreso(existing.getTipoEgreso())
                 .build();
 
         existing.setDocumento(proveedor.getDocumento());
         existing.setNombre(proveedor.getNombre());
         existing.setTelefono(proveedor.getTelefono());
         existing.setCorreo(proveedor.getCorreo());
+        existing.setTipoEgreso(proveedor.getTipoEgreso());
 
         Proveedor updated = proveedorRepository.save(existing);
         registrarBitacora(antes, updated, "MOD_PROVEEDOR");

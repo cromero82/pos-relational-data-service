@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.dto;
 
+import com.infinitesoft.pos_relational_data_service.entities.TipoEgreso;
 import com.infinitesoft.pos_relational_data_service.validators.UniqueDocumento;
 import lombok.Data;
 import javax.validation.constraints.NotBlank;
@@ -21,4 +22,6 @@ public class ProveedorRequest {
 
     @Size(max = 100, message = "El correo no puede tener más de 100 caracteres")
     private String correo;
+
+    private TipoEgreso tipoEgreso;
 }

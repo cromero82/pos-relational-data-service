@@ -4,6 +4,8 @@ import com.infinitesoft.pos_relational_data_service.entities.Egreso;
 import com.infinitesoft.pos_relational_data_service.repositories.EgresoRepository;
 import com.infinitesoft.pos_relational_data_service.services.EgresoService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -23,6 +25,16 @@ public class EgresoServiceImpl implements EgresoService {
     @Override
     public List<Egreso> findAll() {
         return egresoRepository.findAll();
+    }
+
+    @Override
+    public Page<Egreso> search(String descripcion, Long tipoEgresoId, Long proveedorId, Pageable pageable) {
+        return egresoRepository.search(descripcion, tipoEgresoId, proveedorId, pageable);
+    }
+
+    @Override
+    public Page<Egreso> searchDescripciones(String descripcion, Pageable pageable) {
+        return egresoRepository.searchDescripciones(descripcion, pageable);
     }
 
     @Override

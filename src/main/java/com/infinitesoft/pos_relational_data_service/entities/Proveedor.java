@@ -1,9 +1,10 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
-import com.infinitesoft.pos_relational_data_service.util.StringUtils;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import javax.persistence.*;
+import com.infinitesoft.pos_relational_data_service.util.StringUtils;
 import lombok.*;
+
+import javax.persistence.*;
 
 @Entity
 @Table(name = "proveedor")
@@ -28,6 +29,11 @@ public class Proveedor {
 
     @Column(length = 100)
     private String correo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tipo_egreso_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private TipoEgreso tipoEgreso;
 
     @PrePersist
     @PreUpdate

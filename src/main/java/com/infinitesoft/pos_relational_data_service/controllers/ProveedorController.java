@@ -28,7 +28,9 @@ public class ProveedorController {
                 .nombre(request.getNombre())
                 .telefono(request.getTelefono())
                 .correo(request.getCorreo())
+                .tipoEgreso(request.getTipoEgreso())
                 .build();
+
         Proveedor saved = proveedorService.create(proveedor);
         URI location = URI.create("/proveedores/" + saved.getId());
         return ResponseEntity.created(location).body(saved);

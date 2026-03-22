@@ -3,6 +3,10 @@ package com.infinitesoft.pos_relational_data_service.controllers;
 import com.infinitesoft.pos_relational_data_service.entities.Egreso;
 import com.infinitesoft.pos_relational_data_service.services.EgresoService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,6 +35,26 @@ public class EgresoController {
     @GetMapping
     public List<Egreso> findAll() {
         return egresoService.findAll();
+    }
+
+    @GetMapping("/search")
+    public Page<Egreso> search(
+            @RequestParam(required = false) String descripcion,
+            @RequestParam(required = false) Long tipoEgresoId,
+            @RequestParam(required = false) Long proveedorId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("fecha").descending());
+        return egresoService.search(descripcion, tipoEgresoId, proveedorId, pageable);
+    }
+
+    @GetMapping("/searchDescripciones")
+    public Page<Egreso> searchDescripciones(
+            @RequestParam(required = false) String descripcion,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("fecha").descending());
+        return egresoService.searchDescripciones(descripcion, pageable);
     }
 
     @GetMapping("/{id}")
