@@ -807,7 +807,7 @@ REFERENCES tipo_egreso(id);
 ```
 
 **Paso 3: (Opcional) Migrar datos existentes**
-Este paso es crucial si ya tienes datos. Asumiremos que cada proveedor tomará el `tipo_egreso_id` del primer egreso que tenga asociado. Si un proveedor no tiene egresos, su `tipo_egreso_id` quedará nulo.
+Este paso es crucial si ya tienes datos. Asumiremos que cada proveedor tomará el `tipo_egreso_id` del primer registro de `egrego` que tenga asociado. Si un proveedor no tiene egresos, su `tipo_egreso_id` quedará nulo.
 
 ```sql
 UPDATE proveedor p
@@ -834,6 +834,69 @@ ALTER TABLE egreso DROP CONSTRAINT fk_tipo_egreso;
 
 -- Luego, eliminar la columna
 ALTER TABLE egreso DROP COLUMN tipo_egreso_id;
+```
+
+# Scripts de Creación de Tablas Principales
+
+## Tabla Egreso
+```sql
+CREATE TABLE public.egreso (
+	id serial4 NOT NULL,
+	fecha_creacion timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	fecha date NOT NULL,
+	valor numeric(15, 2) NOT NULL,
+	descripcion text NULL,
+	proveedor_id int4 NULL,
+	CONSTRAINT egreso_pkey PRIMARY KEY (id)
+);
+
+-- public.egreso foreign keys
+
+ALTER TABLE public.egreso ADD CONSTRAINT fk_proveedor FOREIGN KEY (proveedor_id) REFERENCES public.proveedor(id);
+```
+
+## Tabla Tipo Resultado Financiero
+```sql
+CREATE TABLE tipo_resultado_fin (
+    id SERIAL PRIMARY KEY,
+    sigla VARCHAR(50) NOT NULL UNIQUE,
+    descripcion TEXT,
+    color VARCHAR(7) NOT NULL DEFAULT '#000000' CHECK (color ~ '^#[0-9A-Fa-f]{6}$')
+);
+
+INSERT INTO tipo_resultado_fin (sigla, descripcion, color) VALUES
+('no_ventas', 'No se registraron ventas', '#808080'),
+('no_egresos', 'No se registraron egresos', '#808080'),
+('util_menos_5p', 'Utilidad menor del 5%', '#E6FFFA'),
+('util_5p_10p', 'Utilidad entre el 5% y 10%', '#B2F5EA'),
+('util_10p_20p', 'Utilidad entre el 10% y 20%', '#81E6D9'),
+('util_20p_30p', 'Utilidad entre el 20% y 30%', '#4FD1C5'),
+('util_30p_40p', 'Utilidad entre el 30% y 40%', '#38B2AC'),
+('util_40p_50p', 'Utilidad entre el 40% y 50%', '#319795'),
+('util_50p_60p', 'Utilidad entre el 50% y 60%', '#2C7A7B'),
+('util_60p_70p', 'Utilidad entre el 60% y 70%', '#285E61'),
+('util_mayor_70p', 'Utilidad mayor a 70%', '#234E52'),
+('p_menos_5p', 'Pérdida menor a 5%', '#FFF5F5'),
+('p_5p_10p', 'Pérdida entre 5% y 10%', '#FED7D7'),
+('p_10p_20p', 'Pérdida entre 10% y 20%', '#FEB2B2'),
+('p_20p_30p', 'Pérdida entre 20% y 30%', '#FCA5A5'),
+('p_mayor_30p', 'Pérdida mayor a 30%', '#FC8181');
+```
+
+## Tabla Estadística Financiera
+```sql
+CREATE TABLE estadistica_fin (
+    id SERIAL PRIMARY KEY,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    total_egresos NUMERIC(15,2),
+    total_ventas NUMERIC(15,2),
+    utilidad NUMERIC(15,2),
+    porcentaje_utilidad NUMERIC(6,2) CHECK (porcentaje_utilidad >= -100 AND porcentaje_utilidad <= 100),
+    formato_tiempo VARCHAR(10) NOT NULL CHECK (formato_tiempo IN ('DIA','MES','ANIO')),
+    valor_tiempo VARCHAR(20) NOT null,
+    tipo_resultado_fin_id INT,
+    CONSTRAINT fk_tipo_resultado_fin FOREIGN KEY (tipo_resultado_fin_id) REFERENCES tipo_resultado_fin (id)
+);
 ```
 
 # Copias de Seguridad Endpoints
@@ -1034,21 +1097,21 @@ curl --location --request DELETE 'http://localhost:{{port}}/tipo_egresos/{id}' \
 ## Obtener todos los egresos
 
 ```bash
-curl --location 'http://localhost:{{port}}/egresos' \
+curl --location 'http://localhost:{{port}}/egreso' \
 --header 'Authorization: Bearer {{token}}'
 ```
 
 ## Obtener egreso por ID
 
 ```bash
-curl --location 'http://localhost:{{port}}/egresos/{id}' \
+curl --location 'http://localhost:{{port}}/egreso/{id}' \
 --header 'Authorization: Bearer {{token}}'
 ```
 
 ## Crear egreso
 
 ```bash
-curl --location 'http://localhost:{{port}}/egresos' \
+curl --location 'http://localhost:{{port}}/egreso' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer {{token}}' \
 --data '{
@@ -1064,7 +1127,7 @@ curl --location 'http://localhost:{{port}}/egresos' \
 ## Actualizar egreso
 
 ```bash
-curl --location --request PUT 'http://localhost:{{port}}/egresos/{id}' \
+curl --location --request PUT 'http://localhost:{{port}}/egreso/{id}' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer {{token}}' \
 --data '{
@@ -1080,28 +1143,28 @@ curl --location --request PUT 'http://localhost:{{port}}/egresos/{id}' \
 ## Eliminar egreso
 
 ```bash
-curl --location --request DELETE 'http://localhost:{{port}}/egresos/{id}' \
+curl --location --request DELETE 'http://localhost:{{port}}/egreso/{id}' \
 --header 'Authorization: Bearer {{token}}'
 ```
 
 ## Buscar egresos por rango de fechas
 
 ```bash
-curl --location 'http://localhost:{{port}}/egresos/rango_fechas?fechaInicio=2025-10-01&fechaFin=2025-10-31' \
+curl --location 'http://localhost:{{port}}/egreso/rango_fechas?fechaInicio=2025-10-01&fechaFin=2025-10-31' \
 --header 'Authorization: Bearer {{token}}'
 ```
 
 ## Buscar egresos por proveedor
 
 ```bash
-curl --location 'http://localhost:{{port}}/egresos/proveedor/{proveedorId}' \
+curl --location 'http://localhost:{{port}}/egreso/proveedor/{proveedorId}' \
 --header 'Authorization: Bearer {{token}}'
 ```
 
 ## Buscar egresos por tipo de egreso
 
 ```bash
-curl --location 'http://localhost:{{port}}/egresos/tipo_egreso/{tipoEgresoId}' \
+curl --location 'http://localhost:{{port}}/egreso/tipo_egreso/{tipoEgresoId}' \
 --header 'Authorization: Bearer {{token}}'
 ```
 ## Búsqueda paginada de egresos
@@ -1115,19 +1178,72 @@ Busca y pagina los egresos, ordenados por fecha descendente.
 
 ### Búsqueda por descripción y tipo de egreso
 ```bash
-curl --location 'http://localhost:{{port}}/egresos/search?descripcion=pago&tipoEgresoId=1' \
+curl --location 'http://localhost:{{port}}/egreso/search?descripcion=pago&tipoEgresoId=1' \
 --header 'Authorization: Bearer {{token}}'
 ```
 
 ### Búsqueda con todos los filtros
 ```bash
-curl --location 'http://localhost:{{port}}/egresos/search?descripcion=compra&tipoEgresoId=2&proveedorId=5&page=0&size=5' \
+curl --location 'http://localhost:{{port}}/egreso/search?descripcion=compra&tipoEgresoId=2&proveedorId=5&page=0&size=5' \
 --header 'Authorization: Bearer {{token}}'
 ```
 
 ## Búsqueda global por descripción
 Busca un texto en la descripción del egreso, el nombre del proveedor y el nombre del tipo de egreso.
 ```bash
-curl --location 'http://localhost:{{port}}/egresos/searchDescripciones?descripcion=pago&page=0&size=10' \
+curl --location 'http://localhost:{{port}}/egreso/searchDescripciones?descripcion=pago&page=0&size=10' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+# Estadistica Financiera Endpoints
+
+## Crear estadística financiera (Asíncrono)
+Inicia el proceso de cálculo de estadísticas para un periodo determinado. Detecta automáticamente el formato (DIA, MES, ANIO) basándose en `valorTiempo`.
+Si el registro ya existe, devuelve error `409 Conflict`.
+```bash
+curl --location 'http://localhost:{{port}}/estadistica-financiera' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer {{token}}' \
+--data '{
+    "valorTiempo": "2026-01-20"
+}'
+```
+
+## Actualizar estadística financiera (Síncrono)
+Recalcula y sobreescribe una estadística financiera existente. Devuelve el objeto actualizado o error `404 Not Found` si no existe.
+```bash
+curl --location --request PUT 'http://localhost:{{port}}/estadistica-financiera' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer {{token}}' \
+--data '{
+    "valorTiempo": "2026-01-20"
+}'
+```
+
+## Consultar estadísticas diarias (Paginado)
+Retorna estadísticas financieras en formato diario. El campo `valorTiempo` se convierte a un objeto `Date` llamado `dia`.
+```bash
+curl --location 'http://localhost:{{port}}/estadistica-financiera/diaria?page=0&size=10' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Consultar estadísticas diarias (Paginado con filtros de fecha)
+Retorna estadísticas financieras en formato diario, filtradas por un rango de fechas.
+```bash
+curl --location 'http://localhost:{{port}}/estadistica-financiera/diaria?fechaInicio=2024-01-01&fechaFin=2024-01-31&page=0&size=10' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Consultar estadísticas mensuales
+Retorna estadísticas financieras en formato mensual. El campo `valorTiempo` se convierte a un objeto `Date` llamado `mes`.
+```bash
+curl --location 'http://localhost:{{port}}/estadistica-financiera/mensual' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Consultar estadísticas anuales
+Retorna estadísticas financieras en formato anual. El campo `valorTiempo` se convierte a un objeto `Date` llamado `anio`.
+```bash
+curl --location 'http://localhost:{{port}}/estadistica-financiera/anual' \
 --header 'Authorization: Bearer {{token}}'
 ```

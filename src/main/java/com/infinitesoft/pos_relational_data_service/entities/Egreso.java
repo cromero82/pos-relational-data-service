@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "egreso")
+@Table(name = "egreso", schema = "public")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,6 +28,9 @@ public class Egreso {
 
     @Column(columnDefinition = "TEXT")
     private String descripcion;
+
+    @Column(name = "fecha_creacion", nullable = false, updatable = false, insertable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    private java.time.LocalDateTime fechaCreacion;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proveedor_id")
