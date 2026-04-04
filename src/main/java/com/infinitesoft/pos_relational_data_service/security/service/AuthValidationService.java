@@ -8,4 +8,5 @@ public interface AuthValidationService {
     java.util.UUID fetchUserIdByEmail(String email);
     AuthUserDto fetchUserInfoById(java.util.UUID userId);
     List<AuthUserDto> getUsuarios(String token);
+    Boolean isExpired(String token);
 }

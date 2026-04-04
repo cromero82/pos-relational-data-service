@@ -165,16 +165,16 @@ public class EstadisticaFinancieraService {
                 .map(this::convertToDiariaResponse);
     }
 
-    public List<EstadisticaMensualResponse> listarMensuales() {
-        log.info("Consultando estadísticas mensuales");
-        return estadisticaFinRepository.findByFormatoTiempo("MES").stream()
+    public List<EstadisticaMensualResponse> listarMensuales(String mesInicio, String mesFin) {
+        log.info("Consultando estadísticas mensuales con rango: {} - {}", mesInicio, mesFin);
+        return estadisticaFinRepository.findByFormatoTiempoWithRangeList("MES", mesInicio, mesFin).stream()
                 .map(this::convertToMensualResponse)
                 .collect(java.util.stream.Collectors.toList());
     }
 
-    public List<EstadisticaAnualResponse> listarAnuales() {
-        log.info("Consultando estadísticas anuales");
-        return estadisticaFinRepository.findByFormatoTiempo("ANIO").stream()
+    public List<EstadisticaAnualResponse> listarAnuales(String anioInicio, String anioFin) {
+        log.info("Consultando estadísticas anuales con rango: {} - {}", anioInicio, anioFin);
+        return estadisticaFinRepository.findByFormatoTiempoWithRangeList("ANIO", anioInicio, anioFin).stream()
                 .map(this::convertToAnualResponse)
                 .collect(java.util.stream.Collectors.toList());
     }

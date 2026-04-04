@@ -994,7 +994,7 @@ curl --location 'http://localhost:8080/proveedores' \
     "nombre": "PROVEEDOR EJEMPLO S.A.S",
     "telefono": "3001234567",
     "correo": "contacto@proveedor.com",
-    "tipoEgresoId": 1
+    "tipoEgreso": {"id": 1}
 }'
 ```
 
@@ -1032,7 +1032,7 @@ curl --location --request PUT 'http://localhost:8080/proveedores/{id}' \
     "nombre": "PROVEEDOR EJEMPLO MODIFICADO",
     "telefono": "3007654321",
     "correo": "nuevo_contacto@proveedor.com",
-    "tipoEgresoId": 2
+    "tipoEgreso": {"id": 2}
 }'
 ```
 
@@ -1228,7 +1228,7 @@ curl --location 'http://localhost:{{port}}/estadistica-financiera/diaria?page=0&
 ```
 
 ## Consultar estadísticas diarias (Paginado con filtros de fecha)
-Retorna estadísticas financieras en formato diario, filtradas por un rango de fechas.
+Retorna estadísticas financieras en formato diario, filtradas por un rango de fechas (`fechaInicio` y `fechaFin`).
 ```bash
 curl --location 'http://localhost:{{port}}/estadistica-financiera/diaria?fechaInicio=2024-01-01&fechaFin=2024-01-31&page=0&size=10' \
 --header 'Authorization: Bearer {{token}}'
@@ -1241,9 +1241,23 @@ curl --location 'http://localhost:{{port}}/estadistica-financiera/mensual' \
 --header 'Authorization: Bearer {{token}}'
 ```
 
+## Consultar estadísticas mensuales (Con filtros de mes)
+Retorna estadísticas financieras en formato mensual, filtradas por un rango de meses (`mesInicio` y `mesFin` en formato YYYY-MM).
+```bash
+curl --location 'http://localhost:{{port}}/estadistica-financiera/mensual?mesInicio=2026-01&mesFin=2026-04' \
+--header 'Authorization: Bearer {{token}}'
+```
+
 ## Consultar estadísticas anuales
 Retorna estadísticas financieras en formato anual. El campo `valorTiempo` se convierte a un objeto `Date` llamado `anio`.
 ```bash
 curl --location 'http://localhost:{{port}}/estadistica-financiera/anual' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+## Consultar estadísticas anuales (Con filtros de año)
+Retorna estadísticas financieras en formato anual, filtradas por un rango de años (`anioInicio` y `anioFin`).
+```bash
+curl --location 'http://localhost:{{port}}/estadistica-financiera/anual?anioInicio=2024&anioFin=2026' \
 --header 'Authorization: Bearer {{token}}'
 ```

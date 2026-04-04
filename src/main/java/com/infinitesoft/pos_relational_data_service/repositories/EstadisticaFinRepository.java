@@ -18,10 +18,17 @@ public interface EstadisticaFinRepository extends JpaRepository<EstadisticaFin, 
     List<EstadisticaFin> findByFormatoTiempo(String formatoTiempo);
 
     @Query("SELECT e FROM EstadisticaFin e WHERE e.formatoTiempo = :formato " +
-           "AND (:fechaInicio IS NULL OR e.valorTiempo >= :fechaInicio) " +
-           "AND (:fechaFin IS NULL OR e.valorTiempo <= :fechaFin)")
+           "AND (:inicio IS NULL OR e.valorTiempo >= :inicio) " +
+           "AND (:fin IS NULL OR e.valorTiempo <= :fin)")
     Page<EstadisticaFin> findByFormatoTiempoWithRange(@Param("formato") String formato,
-                                                     @Param("fechaInicio") String fechaInicio,
-                                                     @Param("fechaFin") String fechaFin,
+                                                     @Param("inicio") String inicio,
+                                                     @Param("fin") String fin,
                                                      Pageable pageable);
+
+    @Query("SELECT e FROM EstadisticaFin e WHERE e.formatoTiempo = :formato " +
+           "AND (:inicio IS NULL OR e.valorTiempo >= :inicio) " +
+           "AND (:fin IS NULL OR e.valorTiempo <= :fin)")
+    List<EstadisticaFin> findByFormatoTiempoWithRangeList(@Param("formato") String formato,
+                                                        @Param("inicio") String inicio,
+                                                        @Param("fin") String fin);
 }

@@ -58,12 +58,16 @@ public class EstadisticaFinancieraController {
     }
 
     @GetMapping("/mensual")
-    public ResponseEntity<List<EstadisticaMensualResponse>> listarMensual() {
-        return ResponseEntity.ok(estadisticaFinancieraService.listarMensuales());
+    public ResponseEntity<List<EstadisticaMensualResponse>> listarMensual(
+            @RequestParam(required = false) String mesInicio,
+            @RequestParam(required = false) String mesFin) {
+        return ResponseEntity.ok(estadisticaFinancieraService.listarMensuales(mesInicio, mesFin));
     }
 
     @GetMapping("/anual")
-    public ResponseEntity<List<EstadisticaAnualResponse>> listarAnual() {
-        return ResponseEntity.ok(estadisticaFinancieraService.listarAnuales());
+    public ResponseEntity<List<EstadisticaAnualResponse>> listarAnual(
+            @RequestParam(required = false) String anioInicio,
+            @RequestParam(required = false) String anioFin) {
+        return ResponseEntity.ok(estadisticaFinancieraService.listarAnuales(anioInicio, anioFin));
     }
 }

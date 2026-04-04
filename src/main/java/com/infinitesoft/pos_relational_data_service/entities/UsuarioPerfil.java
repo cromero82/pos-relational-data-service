@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Entity
-@Table(name = "usuario_perfil")
+@Table(name = "usuario_perfil", schema = "security")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

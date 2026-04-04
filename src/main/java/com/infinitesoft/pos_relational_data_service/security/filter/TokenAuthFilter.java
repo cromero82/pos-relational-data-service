@@ -118,10 +118,21 @@ public class TokenAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        AuthUserDto user = authValidationService.validateToken(rawToken);
+        AuthUserDto user = null;
+        try {
+            user = authValidationService.validateToken(rawToken);
+        } catch (Exception e) {
+            log.error("[AuthFilter] Exception during token validation: {}", e.getMessage());
+        }
+
         if (user == null) {
-            log.debug("[AuthFilter] Token validation failed or service unavailable");
-            unauthorized(response, "Invalid or expired token");
+            log.debug("[AuthFilter] Token validation failed or service unavailable. Checking if expired...");
+            Boolean expired = authValidationService.isExpired(rawToken);
+            if (Boolean.TRUE.equals(expired)) {
+                unauthorized(response, "El token ha expirado");
+            } else {
+                unauthorized(response, "Invalid token or auth service unavailable");
+            }
             return;
         }
 

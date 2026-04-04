@@ -29,6 +29,7 @@ public class AuthClient {
     private final String userIdPath;
     private final String usuariosPath;
     private final String usuarioPath;
+    private final String isExpiredPath;
 
     public AuthClient(
             WebClient.Builder webClientBuilder,
@@ -39,7 +40,8 @@ public class AuthClient {
             @Value("${auth.service.path.claims:/claims}") String claimsPath,
             @Value("${auth.service.path.user-id:/usuario-id}") String userIdPath,
             @Value("${auth.service.path.usuarios:/usuarios}") String usuariosPath,
-            @Value("${auth.service.path.usuario:/usuario}") String usuarioPath
+            @Value("${auth.service.path.usuario:/usuario}") String usuarioPath,
+            @Value("${auth.service.path.is-expired:/is-expired}") String isExpiredPath
     ) {
         String baseUrl = serviceHost + basePath;
         this.webClient = webClientBuilder.baseUrl(baseUrl).build();
@@ -49,6 +51,7 @@ public class AuthClient {
         this.userIdPath = userIdPath;
         this.usuariosPath = usuariosPath;
         this.usuarioPath = usuarioPath;
+        this.isExpiredPath = isExpiredPath;
     }
 
     public Boolean validateToken(String token) {
@@ -130,6 +133,21 @@ public class AuthClient {
         } catch (Exception e) {
             log.error("[AuthClient] Error fetching usuario by id {}: {}", userId, e.toString());
             return null;
+        }
+    }
+
+    public Boolean isExpired(String token) {
+        try {
+            return webClient.post()
+                    .uri(isExpiredPath)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(BodyInserters.fromValue(Map.of("token", token)))
+                    .retrieve()
+                    .bodyToMono(Boolean.class)
+                    .block(timeout);
+        } catch (Exception e) {
+            log.error("[AuthClient] Error checking token expiration: {}", e.toString());
+            return false;
         }
     }
 }

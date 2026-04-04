@@ -124,4 +124,10 @@ public class AuthValidationServiceImpl implements AuthValidationService {
         if (token == null || token.isBlank()) return List.of();
         return authClient.getUsuarios(token);
     }
+
+    @Override
+    public Boolean isExpired(String token) {
+        if (token == null || token.isBlank()) return true;
+        return authClient.isExpired(token);
+    }
 }
