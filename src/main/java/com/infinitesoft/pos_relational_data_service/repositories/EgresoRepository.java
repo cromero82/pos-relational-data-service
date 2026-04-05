@@ -22,10 +22,14 @@ public interface EgresoRepository extends JpaRepository<Egreso, Long> {
     @Query("SELECT e FROM Egreso e LEFT JOIN e.proveedor p WHERE " +
            "(:descripcion IS NULL OR LOWER(e.descripcion) LIKE LOWER(CONCAT('%', :descripcion, '%'))) AND " +
            "(:tipoEgresoId IS NULL OR p.tipoEgreso.id = :tipoEgresoId) AND " +
-           "(:proveedorId IS NULL OR p.id = :proveedorId)")
+           "(:proveedorId IS NULL OR p.id = :proveedorId) AND " +
+           "(CAST(:fechaInicio AS date) IS NULL OR e.fecha >= :fechaInicio) AND " +
+           "(CAST(:fechaFin AS date) IS NULL OR e.fecha <= :fechaFin)")
     Page<Egreso> search(@Param("descripcion") String descripcion,
                         @Param("tipoEgresoId") Long tipoEgresoId,
                         @Param("proveedorId") Long proveedorId,
+                        @Param("fechaInicio") LocalDate fechaInicio,
+                        @Param("fechaFin") LocalDate fechaFin,
                         Pageable pageable);
 
     @Query("SELECT e FROM Egreso e LEFT JOIN e.proveedor p LEFT JOIN p.tipoEgreso t WHERE " +

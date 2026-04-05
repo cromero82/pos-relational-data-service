@@ -42,10 +42,12 @@ public class EgresoController {
             @RequestParam(required = false) String descripcion,
             @RequestParam(required = false) Long tipoEgresoId,
             @RequestParam(required = false) Long proveedorId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("fecha").descending());
-        return egresoService.search(descripcion, tipoEgresoId, proveedorId, pageable);
+        return egresoService.search(descripcion, tipoEgresoId, proveedorId, fechaInicio, fechaFin, pageable);
     }
 
     @GetMapping("/searchDescripciones")

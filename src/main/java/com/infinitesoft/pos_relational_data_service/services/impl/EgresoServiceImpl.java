@@ -28,8 +28,8 @@ public class EgresoServiceImpl implements EgresoService {
     }
 
     @Override
-    public Page<Egreso> search(String descripcion, Long tipoEgresoId, Long proveedorId, Pageable pageable) {
-        return egresoRepository.search(descripcion, tipoEgresoId, proveedorId, pageable);
+    public Page<Egreso> search(String descripcion, Long tipoEgresoId, Long proveedorId, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable) {
+        return egresoRepository.search(descripcion, tipoEgresoId, proveedorId, fechaInicio, fechaFin, pageable);
     }
 
     @Override

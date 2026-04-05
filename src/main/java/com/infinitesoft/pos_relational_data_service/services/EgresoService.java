@@ -10,7 +10,7 @@ import java.util.List;
 public interface EgresoService {
     Egreso create(Egreso egreso);
     List<Egreso> findAll();
-    Page<Egreso> search(String descripcion, Long tipoEgresoId, Long proveedorId, Pageable pageable);
+    Page<Egreso> search(String descripcion, Long tipoEgresoId, Long proveedorId, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable);
     Page<Egreso> searchDescripciones(String descripcion, Pageable pageable);
     Egreso findById(Long id);
     List<Egreso> findByFechaBetween(LocalDate fechaInicio, LocalDate fechaFin);

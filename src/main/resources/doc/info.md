@@ -1173,6 +1173,8 @@ Busca y pagina los egresos, ordenados por fecha descendente.
 - `descripcion`: (Opcional) Texto para buscar en la descripción del egreso.
 - `tipoEgresoId`: (Opcional) ID del tipo de egreso para filtrar (a través del proveedor).
 - `proveedorId`: (Opcional) ID del proveedor para filtrar.
+- `fechaInicio`: (Opcional) Fecha de inicio (YYYY-MM-DD) para filtrar egresos (>=).
+- `fechaFin`: (Opcional) Fecha de fin (YYYY-MM-DD) para filtrar egresos (<=).
 - `page`: (Opcional) Número de página (defecto: 0).
 - `size`: (Opcional) Tamaño de la página (defecto: 10).
 
@@ -1182,9 +1184,15 @@ curl --location 'http://localhost:{{port}}/egreso/search?descripcion=pago&tipoEg
 --header 'Authorization: Bearer {{token}}'
 ```
 
+### Búsqueda con filtros de fecha
+```bash
+curl --location 'http://localhost:{{port}}/egreso/search?fechaInicio=2025-01-01&fechaFin=2025-01-31' \
+--header 'Authorization: Bearer {{token}}'
+```
+
 ### Búsqueda con todos los filtros
 ```bash
-curl --location 'http://localhost:{{port}}/egreso/search?descripcion=compra&tipoEgresoId=2&proveedorId=5&page=0&size=5' \
+curl --location 'http://localhost:{{port}}/egreso/search?descripcion=compra&tipoEgresoId=2&proveedorId=5&fechaInicio=2025-01-01&fechaFin=2025-01-31&page=0&size=5' \
 --header 'Authorization: Bearer {{token}}'
 ```
 
