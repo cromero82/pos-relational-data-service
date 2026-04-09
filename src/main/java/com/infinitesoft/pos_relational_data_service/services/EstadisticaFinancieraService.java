@@ -57,6 +57,44 @@ public class EstadisticaFinancieraService {
         return estadisticaFinRepository.findByValorTiempoAndFormatoTiempo(valorTiempo, formato).isPresent();
     }
 
+    public boolean tieneDatos(String valorTiempo) {
+        String formato = extraerFormatoDesdeValorTiempo(valorTiempo);
+        LocalDate fechaInicio;
+        LocalDate fechaFin;
+
+        try {
+            switch (formato) {
+                case "DIA":
+                    fechaInicio = LocalDate.parse(valorTiempo);
+                    fechaFin = fechaInicio;
+                    break;
+                case "MES":
+                    YearMonth ym = YearMonth.parse(valorTiempo);
+                    fechaInicio = ym.atDay(1);
+                    fechaFin = ym.atEndOfMonth();
+                    break;
+                case "ANIO":
+                    int year = Integer.parseInt(valorTiempo);
+                    fechaInicio = LocalDate.of(year, 1, 1);
+                    fechaFin = LocalDate.of(year, 12, 31);
+                    break;
+                default:
+                    return false;
+            }
+        } catch (DateTimeParseException | NumberFormatException e) {
+            return false;
+        }
+
+        // Verificar egresos
+        boolean hayEgresos = !egresoRepository.findByFechaBetween(fechaInicio, fechaFin).isEmpty();
+        if (hayEgresos) return true;
+
+        // Verificar ventas
+        LocalDateTime ldtInicio = fechaInicio.atStartOfDay();
+        LocalDateTime ldtFin = fechaFin.atTime(23, 59, 59);
+        return !corteVentaRepository.findByFechaIniGreaterThanEqualAndFechaIniLessThanEqual(ldtInicio, ldtFin).isEmpty();
+    }
+
     @Async
     @Transactional
     public void crearEstadisticaAsync(String valorTiempo) {
@@ -67,8 +105,12 @@ public class EstadisticaFinancieraService {
                 log.info("Estadistica ya existe para {} y {}. Proceso omitido.", valorTiempo, formato);
                 return;
             }
-            calcularYGuardarEstadistica(valorTiempo, formato, null);
-            log.info("Finalizada creación asíncrona de estadística para: {}", valorTiempo);
+            EstadisticaFin nueva = calcularYGuardarEstadistica(valorTiempo, formato, null);
+            if (nueva != null) {
+                log.info("Finalizada creación asíncrona de estadística para: {}", valorTiempo);
+            } else {
+                log.info("No se creó estadística para {} porque totalVentas y totalEgresos son nulos", valorTiempo);
+            }
         } catch (Exception e) {
             log.error("Error en proceso asíncrono para {}: {}", valorTiempo, e.getMessage(), e);
         }
@@ -125,6 +167,10 @@ public class EstadisticaFinancieraService {
             totalVentas = ventas.stream()
                     .map(CorteVenta::getTotal)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        if (totalEgresos == null && totalVentas == null) {
+            return null;
         }
 
         BigDecimal utilidad = null;

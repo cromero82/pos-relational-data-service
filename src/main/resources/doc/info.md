@@ -1205,6 +1205,20 @@ curl --location 'http://localhost:{{port}}/egreso/searchDescripciones?descripcio
 
 # Estadistica Financiera Endpoints
 
+## Cierre de Usuario y Estadísticas (Asíncrono)
+Cada vez que se crea una nueva sesión (`POST /sesiones`), se dispara automáticamente un proceso en segundo plano que genera estadísticas financieras históricas faltantes (Días, Meses y Años hacia atrás).
+
+```bash
+curl --location --request POST 'http://localhost:8080/sesiones' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--header 'Content-Type: application/json' \
+--data '{
+    "cookie": "some_cookie_data",
+    "ultimoTicketId": 0
+}'
+```
+*Nota: Este proceso es asíncrono y no afecta el tiempo de respuesta de la creación de la sesión.*
+
 ## Crear estadística financiera (Asíncrono)
 Inicia el proceso de cálculo de estadísticas para un periodo determinado. Detecta automáticamente el formato (DIA, MES, ANIO) basándose en `valorTiempo`.
 Si el registro ya existe, devuelve error `409 Conflict`.

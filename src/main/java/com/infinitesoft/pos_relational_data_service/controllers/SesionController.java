@@ -1,18 +1,15 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
-import com.infinitesoft.pos_relational_data_service.entities.Sesion;
 import com.infinitesoft.pos_relational_data_service.services.SesionService;
+import com.infinitesoft.pos_relational_data_service.services.CierreUsuarioService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import javax.servlet.http.HttpServletRequest;
-import com.infinitesoft.pos_relational_data_service.security.util.TokenUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
 import com.infinitesoft.pos_relational_data_service.dto.SesionDto;
 
 @RestController
@@ -24,10 +21,17 @@ public class SesionController {
     @Autowired
     private SesionService service;
 
+    @Autowired
+    private CierreUsuarioService cierreUsuarioService;
+
     @PostMapping
     public ResponseEntity<SesionDto> create(@RequestBody SesionDto sesionDto,
                                             HttpServletRequest request) {
         SesionDto saved = service.create(sesionDto, request);
+        
+        // Ejecutar rutina de cierre de manera asíncrona al crear una sesión
+        cierreUsuarioService.ejecutarCierre();
+        
         URI location = URI.create("/sesiones/" + saved.getId());
         return ResponseEntity.created(location).body(saved);
     }
