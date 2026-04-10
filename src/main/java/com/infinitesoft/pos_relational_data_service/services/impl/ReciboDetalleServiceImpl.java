@@ -7,9 +7,11 @@ import com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto;
 import com.infinitesoft.pos_relational_data_service.security.service.AuthValidationService;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
+import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleHistoricoService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,12 +26,19 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     @Autowired
     private AuthValidationService authValidationService;
 
+    @Autowired
+    private ReciboDetalleHistoricoService historicoService;
+
     @Override
+    @Transactional
     public ReciboDetalleResponse create(ReciboDetalle detalle) {
         if (detalle.getUsuarioCreacion() == null) {
             detalle.setUsuarioCreacion(SecurityContextHelper.getUserId());
         }
         ReciboDetalle saved = repository.save(detalle);
+
+        // Registro en el histórico
+        historicoService.registrarAccion(saved.getId(), String.valueOf(saved.getUsuarioCreacion()), "agrega");
         
         ReciboDetalleResponse response = ReciboDetalleResponse.builder()
                 .id(saved.getId())
@@ -39,6 +48,7 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
                 .subtotal(saved.getSubtotal())
                 .fechaCreacion(saved.getFechaCreacion())
                 .usuarioCreacion(saved.getUsuarioCreacion())
+                .historicoAcciones(historicoService.findByReciboDetalleId(saved.getId()))
                 .build();
 
         if (saved.getUsuarioCreacion() != null) {
@@ -53,13 +63,21 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
 
     @Override
     public List<ReciboDetalle> findAll() {
-        return repository.findAll();
+        List<ReciboDetalle> list = repository.findAll();
+        for (ReciboDetalle item : list) {
+            item.setHistoricoAcciones(historicoService.findByReciboDetalleId(item.getId()));
+        }
+        return list;
     }
 
     @Override
     public ReciboDetalle findById(Long id) {
         if (id == null) return null;
-        return repository.findById(id).orElse(null);
+        ReciboDetalle found = repository.findById(id).orElse(null);
+        if (found != null) {
+            found.setHistoricoAcciones(historicoService.findByReciboDetalleId(found.getId()));
+        }
+        return found;
     }
 
     @Override
@@ -74,6 +92,7 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
                     dto.setNombreUsuarioAtendio(userInfo.getNombre());
                 }
             }
+            dto.setHistoricoAcciones(historicoService.findByReciboDetalleId(dto.getId()));
         }
         
         return dtos;
@@ -92,11 +111,16 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     }
 
     @Override
+    @Transactional
     public ReciboDetalle update(Long id, ReciboDetalle detalle) {
         if (id == null) return null;
         Optional<ReciboDetalle> existingOpt = repository.findById(id);
         if (existingOpt.isEmpty()) return null;
         ReciboDetalle existing = existingOpt.get();
+
+        int oldCantidad = existing.getCantidad() != null ? existing.getCantidad() : 0;
+        int newCantidad = detalle.getCantidad() != null ? detalle.getCantidad() : 0;
+
         existing.setReciboId(detalle.getReciboId());
         existing.setProductoId(detalle.getProductoId());
         existing.setCantidad(detalle.getCantidad());
@@ -108,13 +132,30 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
         if (detalle.getUsuarioCreacion() != null) {
             existing.setUsuarioCreacion(detalle.getUsuarioCreacion());
         }
-        return repository.save(existing);
+        ReciboDetalle updated = repository.save(existing);
+
+        // Registro en el histórico según la diferencia de cantidad
+        if (newCantidad > oldCantidad) {
+            historicoService.registrarAccion(updated.getId(), String.valueOf(SecurityContextHelper.getUserId()), "agrega");
+        } else if (newCantidad < oldCantidad) {
+            historicoService.registrarAccion(updated.getId(), String.valueOf(SecurityContextHelper.getUserId()), "elimina");
+        }
+
+        // Return updated object with history
+        updated.setHistoricoAcciones(historicoService.findByReciboDetalleId(updated.getId()));
+        return updated;
     }
 
     @Override
+    @Transactional
     public boolean delete(Long id) {
         if (id == null) return false;
-        if (!repository.existsById(id)) return false;
+        Optional<ReciboDetalle> existingOpt = repository.findById(id);
+        if (existingOpt.isEmpty()) return false;
+        
+        // Registro en el histórico antes de eliminar
+        historicoService.registrarAccion(id, String.valueOf(SecurityContextHelper.getUserId()), "elimina");
+        
         repository.deleteById(id);
         return true;
     }

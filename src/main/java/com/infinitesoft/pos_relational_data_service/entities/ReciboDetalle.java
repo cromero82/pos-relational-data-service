@@ -7,6 +7,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -47,6 +48,9 @@ public class ReciboDetalle {
 
     @Column(name = "usuario_creacion")
     private UUID usuarioCreacion;
+
+    @Transient
+    private List<ReciboDetalleHistorico> historicoAcciones;
 
     @PrePersist
     protected void onCreate() {

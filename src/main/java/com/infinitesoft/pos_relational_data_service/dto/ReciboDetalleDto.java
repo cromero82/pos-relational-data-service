@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.dto;
 
 import com.infinitesoft.pos_relational_data_service.entities.Product;
+import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalleHistorico;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -8,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -27,6 +29,8 @@ public class ReciboDetalleDto {
     private Product producto;
 
     private String nombreUsuarioAtendio;
+
+    private List<ReciboDetalleHistorico> historicoAcciones;
 
     public ReciboDetalleDto(Long id, Long reciboId, Long productoId, Integer cantidad, BigDecimal subtotal, LocalDateTime fechaCreacion, UUID usuarioCreacion, Product producto) {
         this.id = id;
