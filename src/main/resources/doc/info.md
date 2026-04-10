@@ -206,7 +206,8 @@ curl --location 'http://localhost:8080/recibos' \
     "metodoPagoId": 1,
     "sesionId": 10,
     "total": 100.00,
-    "montoRecibido": 100.00
+    "montoRecibido": 100.00,
+    "reciboIdPadre": 5
 }'
 ```
 
@@ -214,6 +215,23 @@ curl --location 'http://localhost:8080/recibos' \
 ```bash
 curl --location 'http://localhost:8080/recibos/{id}' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+Retorno esperado (ejemplo):
+```json
+{
+    "id": 10,
+    "clienteId": 1,
+    "cliente": { ... },
+    "fechaCreacion": "2026-04-10T15:18:00",
+    "estadoId": 1,
+    "estado": "PENDIENTE_PAGO",
+    "metodoPagoId": 1,
+    "sesionId": 10,
+    "total": 100.0,
+    "montoRecibido": 100.0,
+    "reciboIdPadre": 5
+}'
 ```
 
 ## Actualizar recibo
@@ -226,8 +244,19 @@ curl --location --request PUT 'http://localhost:8080/recibos/{id}' \
     "estadoId": 2,
     "metodoPagoId": 1,
     "total": 100.00,
-    "montoRecibido": 100.00
+    "montoRecibido": 100.00,
+    "reciboIdPadre": 5
 }'
+```
+
+# TicketRecibo Endpoints
+
+## Obtener o crear recibo por Ticket ID
+Este endpoint busca el enlace entre un ticket y un recibo. Si el recibo no existe, crea uno nuevo (cliente ANONIMO, estado PENDIENTE_PAGO) y lo asocia al ticket. También permite especificar un `reciboPadreId` opcional para establecer una jerarquía de recibos.
+
+```bash
+curl --location 'http://localhost:8080/ticket-recibos/ticket/{ticketId}?sessionId=10&reciboPadreId=5' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
 
 # EdicionRecibo Endpoints

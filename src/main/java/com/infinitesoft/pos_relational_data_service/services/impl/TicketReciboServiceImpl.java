@@ -82,7 +82,7 @@ public class TicketReciboServiceImpl implements TicketReciboService {
 
     @Override
     @Transactional
-    public TicketRecibo getOrCreateByTicketId(Long ticketId, Long sessionId) {
+    public TicketRecibo getOrCreateByTicketId(Long ticketId, Long sessionId, Long reciboPadreId) {
         if (ticketId == null || sessionId == null) return null;
 
         // Update session with the latest ticket ID
@@ -114,6 +114,7 @@ public class TicketReciboServiceImpl implements TicketReciboService {
                 .sesionId(sessionId)
                 .total(BigDecimal.ZERO)
                 .montoRecibido(BigDecimal.ZERO)
+                .reciboIdPadre(reciboPadreId)
                 .build();
         Recibo savedRecibo = reciboService.create(nuevoRecibo);
 

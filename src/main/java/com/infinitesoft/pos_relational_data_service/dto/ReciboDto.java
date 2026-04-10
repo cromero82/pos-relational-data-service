@@ -28,4 +28,6 @@ public class ReciboDto {
     private BigDecimal total;
 
     private BigDecimal montoRecibido;
+
+    private Long reciboIdPadre;
 }

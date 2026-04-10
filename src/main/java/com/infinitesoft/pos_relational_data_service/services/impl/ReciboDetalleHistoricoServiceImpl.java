@@ -10,7 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ReciboDetalleHistoricoServiceImpl implements ReciboDetalleHistoricoService {
@@ -48,5 +50,26 @@ public class ReciboDetalleHistoricoServiceImpl implements ReciboDetalleHistorico
     public List<ReciboDetalleHistorico> findByReciboDetalleId(Long reciboDetalleId) {
         if (reciboDetalleId == null) return List.of();
         return repository.findByReciboDetalleId(reciboDetalleId);
+    }
+
+    @Override
+    @Transactional
+    public void copiarHistorico(Long origenId, Long destinoId) {
+        if (origenId == null || destinoId == null) return;
+        List<ReciboDetalleHistorico> historicosOrigen = repository.findByReciboDetalleId(origenId);
+        
+        if (!historicosOrigen.isEmpty()) {
+            List<ReciboDetalleHistorico> nuevosHistoricos = historicosOrigen.stream()
+                    .map(h -> ReciboDetalleHistorico.builder()
+                            .reciboDetalleId(destinoId)
+                            .fechaHora(h.getFechaHora())
+                            .usuarioId(h.getUsuarioId())
+                            .accion(h.getAccion())
+                            .build())
+                    .collect(Collectors.toList());
+            repository.saveAll(nuevosHistoricos);
+            logger.info("Se han copiado {} registros históricos desde recibo_detalle_id: {} hacia recibo_detalle_id: {}", 
+                    nuevosHistoricos.size(), origenId, destinoId);
+        }
     }
 }

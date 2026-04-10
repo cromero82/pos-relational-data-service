@@ -66,6 +66,7 @@ public class ReciboController {
                 .sesionId(found.getSesionId())
                 .total(found.getTotal())
                 .montoRecibido(found.getMontoRecibido())
+                .reciboIdPadre(found.getReciboPadreId())
                 .build();
         return ResponseEntity.ok(dto);
     }

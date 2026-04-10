@@ -41,8 +41,9 @@ public class TicketReciboController {
     // New endpoint: get by ticketId; creates Recibo and link when absent. Requires sessionId.
     @GetMapping("/ticket/{ticketId}")
     public ResponseEntity<TicketRecibo> getByTicketId(@PathVariable Long ticketId,
-                                                      @RequestParam(name = "sessionId", required = true) Long sessionId) {
-        TicketRecibo result = service.getOrCreateByTicketId(ticketId, sessionId);
+                                                      @RequestParam(name = "sessionId", required = true) Long sessionId,
+                                                      @RequestParam(name = "reciboPadreId", required = false) Long reciboPadreId) {
+        TicketRecibo result = service.getOrCreateByTicketId(ticketId, sessionId, reciboPadreId);
         if (result == null) {
             return ResponseEntity.badRequest().build();
         }

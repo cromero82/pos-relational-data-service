@@ -7,4 +7,5 @@ import java.util.List;
 public interface ReciboDetalleHistoricoService {
     ReciboDetalleHistorico registrarAccion(Long reciboDetalleId, String usuarioId, String accion);
     List<ReciboDetalleHistorico> findByReciboDetalleId(Long reciboDetalleId);
+    void copiarHistorico(Long origenId, Long destinoId);
 }

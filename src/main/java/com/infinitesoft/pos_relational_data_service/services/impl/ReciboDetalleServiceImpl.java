@@ -2,7 +2,9 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleDto;
 import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleResponse;
+import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalle;
+import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
 import com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto;
 import com.infinitesoft.pos_relational_data_service.security.service.AuthValidationService;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboDetalleRepository;
@@ -24,6 +26,9 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     private ReciboDetalleRepository repository;
 
     @Autowired
+    private ReciboRepository reciboRepository;
+
+    @Autowired
     private AuthValidationService authValidationService;
 
     @Autowired
@@ -37,8 +42,27 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
         }
         ReciboDetalle saved = repository.save(detalle);
 
-        // Registro en el histórico
-        historicoService.registrarAccion(saved.getId(), String.valueOf(saved.getUsuarioCreacion()), "agrega");
+        boolean copiedFromParent = false;
+        if (saved.getReciboId() != null) {
+            Optional<Recibo> reciboOpt = reciboRepository.findById(saved.getReciboId());
+            if (reciboOpt.isPresent()) {
+                Recibo recibo = reciboOpt.get();
+                if (recibo.getReciboPadreId() != null) {
+                    List<ReciboDetalle> detallesPadre = repository.findByReciboId(recibo.getReciboPadreId());
+                    Optional<ReciboDetalle> matchingDetallePadre = detallesPadre.stream()
+                            .filter(d -> d.getProductoId().equals(saved.getProductoId()))
+                            .findFirst();
+                    if (matchingDetallePadre.isPresent()) {
+                        historicoService.copiarHistorico(matchingDetallePadre.get().getId(), saved.getId());
+                        copiedFromParent = true;
+                    }
+                }
+            }
+        }
+
+        if (!copiedFromParent) {
+            historicoService.registrarAccion(saved.getId(), String.valueOf(saved.getUsuarioCreacion()), "agrega");
+        }
         
         ReciboDetalleResponse response = ReciboDetalleResponse.builder()
                 .id(saved.getId())

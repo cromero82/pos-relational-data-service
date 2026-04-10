@@ -48,6 +48,9 @@ public class Recibo {
     @Column(name = "monto_recibido", nullable = false, precision = 10, scale = 2)
     private BigDecimal montoRecibido;
 
+    @Column(name = "recibo_padre_id")
+    private Long reciboPadreId;
+
     @PrePersist
     protected void onPrePersist() {
         if (fechaCreacion == null) {

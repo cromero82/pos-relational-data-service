@@ -53,6 +53,7 @@ public class ReciboServiceImpl implements ReciboService {
                 .sesionId(dto.getSesionId())
                 .total(dto.getTotal())
                 .montoRecibido(dto.getMontoRecibido())
+                .reciboPadreId(dto.getReciboIdPadre())
                 .build();
 
         // Default estado to PENDIENTE_PAGO when not provided
@@ -97,6 +98,7 @@ public class ReciboServiceImpl implements ReciboService {
         }
         existing.setTotal(dto.getTotal());
         existing.setMontoRecibido(dto.getMontoRecibido());
+        existing.setReciboPadreId(dto.getReciboIdPadre());
 
         // Determine target estado
         ReciboEstado targetEstado = ReciboEstado.fromId(existing.getEstadoId());
