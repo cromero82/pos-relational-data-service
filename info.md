@@ -1,3 +1,53 @@
+# Actualización de Producto - Nuevo Campo Precio Unidad
+
+Se ha agregado el campo `precio_unidad` a la tabla `producto` para permitir el manejo de precios por unidad de medida.
+
+## Cambios Realizados
+
+### 1. Entidad Product.java
+Se agregó el campo `precioUnidad` mapeado a la columna `precio_unidad` de la base de datos.
+
+```java
+@Column(name = "precio_unidad")
+private Double precioUnidad;
+```
+
+### 2. ProductServiceImpl.java
+Se actualizó el método `update` para procesar el nuevo campo durante la edición de productos.
+
+```java
+@Override
+@Transactional
+public Product update(Long id, Product product) {
+    // ...
+    existing.setPrecio(product.getPrecio());
+    existing.setPrecioCompra(product.getPrecioCompra());
+    existing.setPrecioUnidad(product.getPrecioUnidad()); // Nueva línea
+    // ...
+}
+```
+
+## Ejemplo de Uso (JSON)
+
+Para crear o actualizar un producto con el nuevo campo:
+
+**Endpoint:** `POST /products` o `PUT /products/{id}`
+
+**Cuerpo de la petición:**
+```json
+{
+  "barcode": "7701234567890",
+  "nombre": "ARROZ BLANCO 1KG",
+  "precio": 5000.0,
+  "precioCompra": 3800.0,
+  "precioUnidad": 5.0,
+  "porcentajeGanancia": 32,
+  "activate": 1
+}
+```
+
+---
+
 # Actualización de TicketRecibo con Recibo Padre
 
 Se ha modificado el flujo de creación automática de recibos vinculados a tickets para permitir la asociación con un recibo padre (útil para devoluciones o notas de crédito).

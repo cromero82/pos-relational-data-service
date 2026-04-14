@@ -30,6 +30,9 @@ public class Product {
     @Column(name = "precio_compra")
     private Double precioCompra = 0.0;
 
+    @Column(name = "precio_unidad")
+    private Double precioUnidad;
+
     @Column(name = "fecha_actualizacion_precio")
     private LocalDateTime fechaUltimaActualizacionPrecio;
 

@@ -494,6 +494,7 @@ public class ProductServiceImpl implements ProductService {
         }
         existing.setPrecio(product.getPrecio());
         existing.setPrecioCompra(product.getPrecioCompra());
+        existing.setPrecioUnidad(product.getPrecioUnidad());
         // Preserve activate flag unless explicitly provided
         if (product.getActivate() != null) {
             if (!product.getActivate().equals(existing.getActivate())) {
