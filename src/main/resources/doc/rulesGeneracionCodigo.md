@@ -52,14 +52,14 @@ Este documento establece las reglas y buenas prácticas para garantizar un códi
     - Usar **Log4j** como framework estándar.
     - Configurar niveles adecuados (`INFO`, `WARN`, `ERROR`).
     - Evitar logs excesivos que afecten el rendimiento.
-    - Nunca loggear contraseñas, números de identificación completos ni datos financieros.
+    - Nunca loggear contraseñas, números de identificación completos ni datos financieros, en caso tal agregar funcion de enmascaramiento parcial.
 
 ---
 
 ## 🚫 Qué Evitar
 
 - Colocar lógica de negocio en los **Controllers**.
-- Exponer directamente las **Entities** en las respuestas de API.
+- Exponer directamente las **Entities** en las respuestas de API. (usar objetos tipo DTO como por ejemplo: ProductoRequest, ProductoResponse)
 - Usar lógica compleja en los **Repositories** (solo acceso a datos).
 - Duplicar código en múltiples servicios.
 - Ignorar validaciones de entrada/salida.
