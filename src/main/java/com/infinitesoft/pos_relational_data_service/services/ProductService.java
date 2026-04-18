@@ -14,6 +14,7 @@ public interface ProductService {
     Page<Product> getByName(String name, Pageable pageable);
     Page<Product> busquedaPorFiltros(List<FilterRequest> filtros, Pageable pageable, String campoOrdenamiento, String orden, String query);
     Optional<Product> getByBarcode(String barcode);
+    Optional<Product> getById(Long id);
     java.util.List<Product> findAll();
     Product create(Product product);
     Product update(Long id, Product product);

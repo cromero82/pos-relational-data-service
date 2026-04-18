@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -48,6 +49,12 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     @Transactional
     @Query("update Product p set p.porcentajeGanancia = :porcentaje where p.id = :id")
     void actualizarPorcentajeGanancia(@Param("id") Long id, @Param("porcentaje") Short porcentaje);
+
+    @Query("SELECT p FROM Product p WHERE p.grupoEspejo.id = :grupoEspejoId")
+    List<Product> findByGrupoEspejoId(@Param("grupoEspejoId") Long grupoEspejoId);
+
+    @Query("SELECT p FROM Product p WHERE p.grupoEspejo IS NOT NULL AND (upper(p.barcode) LIKE concat('%', :q, '%') OR upper(p.nombre) LIKE concat('%', :q, '%'))")
+    List<Product> findConGrupoPorBarcodeONombre(@Param("q") String q);
 
     // Soft delete -> set activate = 0
     @Modifying

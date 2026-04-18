@@ -1232,6 +1232,120 @@ curl --location 'http://localhost:{{port}}/egreso/searchDescripciones?descripcio
 --header 'Authorization: Bearer {{token}}'
 ```
 
+# GrupoEspejo Endpoints
+
+## Obtener todos los Grupos Espejo con productos (GET)
+Retorna todos los grupos espejo existentes, cada uno con la lista de sus productos asociados. Permite filtrar por nombre de producto o código de barras; si se provee `query`, solo se retornan los grupos que contienen al menos un producto coincidente (con todos sus productos).
+
+```bash
+# Sin filtro - retorna todos los grupos
+curl --location 'http://localhost:{{port}}/grupos-espejo' \
+--header 'Authorization: Bearer {{token}}'
+
+# Con filtro por nombre o código de barras
+curl --location 'http://localhost:{{port}}/grupos-espejo?query=coca' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+**Respuesta 200 OK:**
+```json
+[
+    {
+        "id": 1,
+        "nombre": "BEBIDAS",
+        "fechaCreacion": "2026-04-17T10:00:00",
+        "fechaActualizacion": "2026-04-17T10:05:00",
+        "productoReferenciaId": 3,
+        "productos": [
+            {
+                "id": 1,
+                "nombre": "COCA COLA 600ML",
+                "precio": 15.0,
+                "precioCompra": 10.0,
+                "precioUnidad": 8.0,
+                "porcentajeGanancia": 50,
+                "fechaUltimaActualizacionPrecio": "2026-04-17T09:00:00"
+            }
+        ]
+    }
+]
+```
+
+## Crear Grupo Espejo (POST)
+Crea un nuevo grupo espejo y asocia los productos indicados. Productos ya asignados a otro grupo o inexistentes son ignorados.
+
+```bash
+curl --location 'http://localhost:{{port}}/grupos-espejo' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer {{token}}' \
+--data '{
+    "nombre": "COCTEL LOS CUATES",
+    "productoIds": [1, 2, 3]
+}'
+```
+
+**Respuesta 201 Created:**
+```json
+{
+    "id": 1,
+    "nombre": "COCTEL LOS CUATES",
+    "fechaCreacion": "2026-04-17T10:00:00",
+    "fechaActualizacion": "2026-04-17T10:00:00",
+    "productoReferenciaId": 3
+}
+```
+
+## Agregar Producto a Grupo Espejo (PUT)
+Asocia un producto a un grupo espejo existente. El producto no debe pertenecer ya a otro grupo espejo.
+
+```bash
+curl --location --request PUT 'http://localhost:{{port}}/grupos-espejo/1/productos/5' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+**Respuesta 200 OK:**
+```json
+{
+    "id": 1,
+    "nombre": "COCTEL LOS CUATES",
+    "fechaCreacion": "2026-04-17T10:00:00",
+    "fechaActualizacion": "2026-04-17T10:05:00",
+    "productoReferenciaId": 5
+}
+```
+
+**Errores:**
+- `404 Not Found` — grupo espejo o producto no existe
+- `409 Conflict` — el producto ya pertenece a otro grupo espejo
+
+## Quitar Producto de Grupo Espejo (DELETE)
+Desasocia un producto de un grupo espejo.
+
+```bash
+curl --location --request DELETE 'http://localhost:{{port}}/grupos-espejo/1/productos/5' \
+--header 'Authorization: Bearer {{token}}'
+```
+
+**Respuesta 204 No Content**
+
+**Errores:**
+- `404 Not Found` — grupo espejo no existe o el producto no pertenece a ese grupo
+
+## Campo `grupoEspejo` en Productos
+Los endpoints de búsqueda y consulta de productos ahora incluyen el campo `grupoEspejo` (puede ser `null`):
+
+```json
+{
+    "id": 1,
+    "nombre": "COCA COLA 600ML",
+    "precio": 15.0,
+    "grupoEspejo": {
+        "id": 1,
+        "nombre": "COCTEL LOS CUATES"
+    }
+}
+```
+
 # Estadistica Financiera Endpoints
 
 ## Cierre de Usuario y Estadísticas (Asíncrono)

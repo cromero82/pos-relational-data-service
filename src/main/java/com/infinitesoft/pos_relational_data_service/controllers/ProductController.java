@@ -39,6 +39,13 @@ public class ProductController {
         return productService.getAll(barcodeOrName, pageable);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<Product> getById(@PathVariable Long id) {
+        Optional<Product> product = productService.getById(id);
+        return product.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/search-by-name")
     public Page<Product> searchByName(
             @RequestParam String name,

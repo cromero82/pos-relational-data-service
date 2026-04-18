@@ -1,11 +1,11 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import com.infinitesoft.pos_relational_data_service.util.StringUtils;
-import javax.persistence.*;
 import lombok.*;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import javax.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -53,6 +53,15 @@ public class Product {
 
     @Column(name = "porcentaje_ganancia")
     private Short porcentajeGanancia;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "producto_espejo",
+            joinColumns = @JoinColumn(name = "producto_id", insertable = false, updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "grupo_espejo_id", insertable = false, updatable = false)
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "fechaCreacion", "fechaActualizacion", "productoReferenciaId"})
+    private GrupoEspejo grupoEspejo;
 
     @PrePersist
     protected void onPrePersist() {

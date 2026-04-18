@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java *)",
+      "Bash(xargs grep *)",
+      "Bash(find /c/dev/repos/pos-relational-data-service -type f -name \"pom.xml\" -exec head -100 {} \\\\;)"
+    ]
+  }
+}

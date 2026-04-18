@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infinitesoft.pos_relational_data_service.entities.ConfiguracionApp;
 import com.infinitesoft.pos_relational_data_service.entities.HistorialProducto;
 import com.infinitesoft.pos_relational_data_service.entities.Product;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import com.infinitesoft.pos_relational_data_service.entities.enums.BitacoraEvento;
 import com.infinitesoft.pos_relational_data_service.dto.BitacoraUsuarioRequest;
 import com.infinitesoft.pos_relational_data_service.dto.FilterRequest;
@@ -402,6 +403,11 @@ public class ProductServiceImpl implements ProductService {
         return productRepository.findByBarcode(barcode.toUpperCase());
     }
 
+    @Override
+    public Optional<Product> getById(Long id) {
+        return productRepository.findById(id);
+    }
+
     private Pageable withDynamicSort(Pageable pageable, String campoOrdenamiento, String orden) {
         String field = (campoOrdenamiento == null || campoOrdenamiento.isBlank()) ? "nombre" : campoOrdenamiento;
         Sort.Direction direction = "desc".equalsIgnoreCase(orden) ? Sort.Direction.DESC : Sort.Direction.ASC;
@@ -478,6 +484,11 @@ public class ProductServiceImpl implements ProductService {
         }
 
         boolean activateChanged = false;
+
+        boolean preciosModificados = !Objects.equals(product.getPrecio(), existing.getPrecio())
+                || !Objects.equals(product.getPrecioCompra(), existing.getPrecioCompra())
+                || !Objects.equals(product.getPrecioUnidad(), existing.getPrecioUnidad());
+
         // Full replace (PUT semantics), but keep primary key (id) from path
         if (product.getBarcode() != null) {
             existing.setBarcode(product.getBarcode().toUpperCase());
@@ -525,7 +536,43 @@ public class ProductServiceImpl implements ProductService {
             actualizarConfiguracionApp(false);
         }
 
+        if (preciosModificados && saved.getGrupoEspejo() != null) {
+            propagarPreciosGrupoEspejo(saved);
+        }
+
         return saved;
+    }
+
+    private void propagarPreciosGrupoEspejo(Product referencia) {
+        Long grupoId = referencia.getGrupoEspejo().getId();
+        List<Product> productosGrupo = productRepository.findByGrupoEspejoId(grupoId);
+
+        for (Product p : productosGrupo) {
+            if (p.getId().equals(referencia.getId())) {
+                continue;
+            }
+            boolean changed = false;
+            if (!Objects.equals(p.getPrecio(), referencia.getPrecio())) {
+                p.setPrecio(referencia.getPrecio());
+                p.setFechaUltimaActualizacionPrecio(DateUtils.obtenerFechaSistema());
+                changed = true;
+            }
+            if (!Objects.equals(p.getPrecioCompra(), referencia.getPrecioCompra())) {
+                p.setPrecioCompra(referencia.getPrecioCompra());
+                changed = true;
+            }
+            if (!Objects.equals(p.getPrecioUnidad(), referencia.getPrecioUnidad())) {
+                p.setPrecioUnidad(referencia.getPrecioUnidad());
+                changed = true;
+            }
+            if (changed) {
+                productRepository.save(p);
+                if (p.getPrecio() != null && p.getPrecioCompra() != null && p.getPrecioCompra() > 0) {
+                    short porcentaje = (short) Math.round(((p.getPrecio() - p.getPrecioCompra()) / p.getPrecioCompra()) * 100);
+                    productRepository.actualizarPorcentajeGanancia(p.getId(), porcentaje);
+                }
+            }
+        }
     }
 
     @Override
