@@ -1,9 +1,16 @@
 {
+  "defaultMode": "acceptEdits",
   "permissions": {
     "allow": [
       "Bash(java *)",
       "Bash(xargs grep *)",
-      "Bash(find /c/dev/repos/pos-relational-data-service -type f -name \"pom.xml\" -exec head -100 {} \\\\;)"
+      "Bash(find /c/dev/repos/pos-relational-data-service -type f -name \"pom.xml\" -exec head -100 {} \\\\;)",
+      "Bash(npm run *)",
+      "Bash(git commit *)",
+      "Bash(./gradlew *)",
+      "Edit",
+      "Write",
+      "Read"
     ]
   }
 }

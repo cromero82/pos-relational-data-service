@@ -15,6 +15,7 @@ public class MigrationResult {
     private int errors;
     private List<String> messages;
     private List<Conflict> conflictos;
+    private boolean fatalError;
 
     public MigrationResult() {}
 
@@ -37,8 +38,12 @@ public class MigrationResult {
     }
 
     public static MigrationResult error(String msg) {
-        return new MigrationResult(0, 0, 0, 1, Collections.singletonList(msg));
+        MigrationResult r = new MigrationResult(0, 0, 0, 1, Collections.singletonList(msg));
+        r.fatalError = true;
+        return r;
     }
+
+    public boolean isFatalError() { return fatalError; }
 
     public int getCreated() { return created; }
     public int getSkipped() { return skipped; }

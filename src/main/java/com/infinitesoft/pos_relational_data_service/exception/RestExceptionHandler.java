@@ -48,6 +48,15 @@ public class RestExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
+    @ExceptionHandler(CargueProductoException.class)
+    public ResponseEntity<Map<String, Object>> handleCargueProductoException(CargueProductoException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("error", "Error en el cargue de productos");
+        response.put("detalle", ex.getMessage());
+        response.put("exitoso", false);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
+    }
+
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<Map<String, List<Map<String, String>>>> handleEntityNotFoundException(EntityNotFoundException ex) {
         List<Map<String, String>> errorsList = new ArrayList<>();

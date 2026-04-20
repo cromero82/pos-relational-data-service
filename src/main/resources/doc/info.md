@@ -952,6 +952,115 @@ curl --location 'http://localhost:8088/copias-seguridad/exportar-a-correo' \
 
 *Nota: Al igual que la generación de backup, este proceso es asíncrono y requiere privilegios de `admin`.*
 
+## Restaurar Backup
+
+Restaura los datos del sistema desde un archivo Excel previamente generado. Soporta dos modos de restauración:
+- `incremental` (por defecto): Solo agrega registros que no existen actualmente en la base de datos
+- `full-reescritura`: Borra TODOS los registros de cada tabla antes de restaurar
+
+**Endpoint:** `POST /copias-seguridad/restaurar-backup`
+
+**Parámetros:**
+- `file` (multipart/form-data): Archivo Excel del backup
+- `tipo` (query param, opcional): Modo de restauración (`incremental` o `full-reescritura`)
+
+### Ejemplo con cURL (Modo Incremental - Por defecto):
+```bash
+curl --location 'http://localhost:8088/copias-seguridad/restaurar-backup?tipo=incremental' \
+  --header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+  --form 'file=@"backup.xlsx"'
+```
+
+### Ejemplo con cURL (Modo Full-Reescritura):
+```bash
+curl --location 'http://localhost:8088/copias-seguridad/restaurar-backup?tipo=full-reescritura' \
+  --header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+  --form 'file=@"backup.xlsx"'
+```
+
+### Ejemplo con HTTPie:
+```bash
+http --form POST 'http://localhost:8088/copias-seguridad/restaurar-backup?tipo=incremental' \
+  Authorization:'Bearer YOUR_TOKEN_HERE' \
+  file@backup.xlsx
+```
+
+### Ejemplo con JavaScript (Fetch API):
+```javascript
+const formData = new FormData();
+formData.append('file', fileInput.files[0]); // fileInput es un <input type="file">
+
+fetch('http://localhost:8088/copias-seguridad/restaurar-backup?tipo=incremental', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN_HERE'
+  },
+  body: formData
+})
+.then(response => response.json())
+.then(data => {
+  console.log('Backup restaurado:', data);
+  console.log(`Productos creados: ${data.productosCreados}`);
+  console.log(`Recibos creados: ${data.recibosCreados}`);
+})
+.catch(error => console.error('Error:', error));
+```
+
+### Ejemplo con Postman:
+1. Método: `POST`
+2. URL: `http://localhost:8088/copias-seguridad/restaurar-backup?tipo=incremental`
+3. Headers:
+   - `Authorization`: `Bearer YOUR_TOKEN_HERE`
+4. Body:
+   - Seleccionar `form-data`
+   - Key: `file` (cambiar tipo a "File")
+   - Value: Seleccionar el archivo `backup.xlsx`
+
+### Respuesta Exitosa (200 OK):
+```json
+{
+  "exito": true,
+  "mensaje": "Backup restaurado exitosamente",
+  "rolesCreados": 2,
+  "rolesActualizados": 0,
+  "usuariosCreados": 5,
+  "usuariosActualizados": 1,
+  "perfilesCreados": 5,
+  "perfilesActualizados": 0,
+  "clientesCreados": 15,
+  "clientesActualizados": 0,
+  "productosCreados": 250,
+  "productosActualizados": 10,
+  "recibosCreados": 100,
+  "recibosActualizados": 0
+}
+```
+
+### Respuesta de Error (500 Internal Server Error):
+```json
+{
+  "exito": false,
+  "mensaje": "Error al restaurar backup: descripción del error"
+}
+```
+
+**Diferencias entre modos:**
+
+- **Modo Incremental:**
+  - Solo restaura registros que NO existen en la base de datos actual
+  - Utiliza el ID de cada registro para determinar si ya existe
+  - Ventaja: No pierde datos actuales, solo agrega información faltante
+  - Uso recomendado: Sincronizar datos entre ambientes o recuperar registros eliminados
+
+- **Modo Full-Reescritura:**
+  - ⚠️ BORRA TODOS los registros de cada tabla antes de restaurar
+  - Sobrescribe completamente la base de datos con los datos del backup
+  - Ventaja: Garantiza que la base de datos quede exactamente como estaba en el backup
+  - Advertencia: Se pierden todos los datos actuales que no estén en el backup
+  - Uso recomendado: Restaurar el sistema a un estado anterior conocido
+
+*Nota: Este endpoint requiere privilegios de `admin`. La restauración respeta el orden de dependencias entre tablas para evitar errores de integridad referencial.*
+
 # UsuarioPerfil Endpoints
 
 ## Obtener todos los perfiles de usuario

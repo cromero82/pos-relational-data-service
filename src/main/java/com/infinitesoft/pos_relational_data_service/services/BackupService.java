@@ -3,6 +3,9 @@ package com.infinitesoft.pos_relational_data_service.services;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.repositories.*;
 import com.infinitesoft.pos_relational_data_service.security.client.AuthClient;
+import com.infinitesoft.pos_relational_data_service.security.dto.AuthBackupDto;
+import com.infinitesoft.pos_relational_data_service.security.dto.AuthRoleDto;
+import com.infinitesoft.pos_relational_data_service.security.dto.AuthUsuarioPerfilDto;
 import com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto;
 import com.infinitesoft.pos_relational_data_service.util.StringUtils;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +21,9 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -80,7 +85,28 @@ public class BackupService {
             crearHojaVentasTipo(workbook);
             crearHojaEvento(workbook);
             crearHojaBitacoraUsuario(workbook);
-            crearHojaUsuarios(workbook, token);
+
+            AuthBackupDto authBackup;
+            try {
+                authBackup = authClient.getBackup(token);
+            } catch (Exception e) {
+                log.error("[BackupService] Error al obtener datos de autenticación: {}", e.getMessage());
+                throw new RuntimeException("Error al obtener datos de autenticación: " + e.getMessage(), e);
+            }
+
+            if (authBackup == null) {
+                log.error("[BackupService] No se pudo obtener el backup de autenticación");
+                throw new RuntimeException("No se pudo obtener el backup de autenticación del servicio de auth");
+            }
+
+            List<AuthUserDto> usuarios = authBackup.getUsuarios() != null ? authBackup.getUsuarios() : Collections.emptyList();
+            List<AuthRoleDto> roles = authBackup.getRoles() != null ? authBackup.getRoles() : Collections.emptyList();
+            List<AuthUsuarioPerfilDto> usuarioPerfiles = authBackup.getUsuarioPerfiles() != null ? authBackup.getUsuarioPerfiles() : Collections.emptyList();
+
+            crearHojaUsuarios(workbook, usuarios);
+            crearHojaRoles(workbook, roles);
+            crearHojaUsuarioPerfiles(workbook, usuarioPerfiles);
+
             crearHojaConfiguracionApp(workbook);
             crearHojaEstadoRecibos(workbook);
 
@@ -291,12 +317,11 @@ public class BackupService {
         }
     }
 
-    private void crearHojaUsuarios(Workbook workbook, String token) {
+    private void crearHojaUsuarios(Workbook workbook, List<AuthUserDto> list) {
         Sheet sheet = workbook.createSheet("Usuarios");
         String[] headers = {"ID", "Nombre", "Correo Electrónico", "Teléfono", "Roles"};
         createHeaderRow(sheet, headers);
 
-        List<AuthUserDto> list = authClient.getUsuarios(token);
         int rowIdx = 1;
         for (AuthUserDto item : list) {
             Row row = sheet.createRow(rowIdx++);
@@ -305,9 +330,37 @@ public class BackupService {
             row.createCell(2).setCellValue(clean(item.getCorreoElectronico()));
             row.createCell(3).setCellValue(clean(item.getTelefono()));
             String roles = item.getRoles() != null
-                    ? item.getRoles().stream().map(r -> r.getNombre()).collect(Collectors.joining(", "))
+                    ? item.getRoles().stream().map(AuthRoleDto::getNombre).collect(Collectors.joining(", "))
                     : "";
             row.createCell(4).setCellValue(clean(roles));
+        }
+    }
+
+    private void crearHojaRoles(Workbook workbook, List<AuthRoleDto> list) {
+        Sheet sheet = workbook.createSheet("Roles");
+        String[] headers = {"ID", "Nombre", "Sigla"};
+        createHeaderRow(sheet, headers);
+
+        int rowIdx = 1;
+        for (AuthRoleDto item : list) {
+            Row row = sheet.createRow(rowIdx++);
+            row.createCell(0).setCellValue(item.getId() != null ? item.getId() : 0);
+            row.createCell(1).setCellValue(clean(item.getNombre()));
+            row.createCell(2).setCellValue(clean(item.getSigla()));
+        }
+    }
+
+    private void crearHojaUsuarioPerfiles(Workbook workbook, List<AuthUsuarioPerfilDto> list) {
+        Sheet sheet = workbook.createSheet("Usuario Perfiles");
+        String[] headers = {"ID", "Usuario ID", "Personalizacion"};
+        createHeaderRow(sheet, headers);
+
+        int rowIdx = 1;
+        for (AuthUsuarioPerfilDto item : list) {
+            Row row = sheet.createRow(rowIdx++);
+            row.createCell(0).setCellValue(item.getId() != null ? item.getId() : 0);
+            row.createCell(1).setCellValue(item.getUsuarioId() != null ? item.getUsuarioId().toString() : "");
+            row.createCell(2).setCellValue(clean(item.getPersonalizacion()));
         }
     }
 

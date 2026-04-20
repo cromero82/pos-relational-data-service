@@ -304,19 +304,20 @@ public class MigrationServiceImpl implements MigrationService {
                     continue;
                 }
 
-                // Fixed 3 columns for Excel: 0=Code, 1=Desc, 2=Price
+                // 4 columns for Excel: 0=Codigo, 1=Descripcion, 2=PrecioCosto, 3=PrecioVenta
                 // Use RETURN_BLANK_AS_NULL to safely handle missing or blank cells
-                String[] cols = new String[3];
+                String[] cols = new String[4];
                 cols[0] = getCellValueAsString(row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL));
                 cols[1] = getCellValueAsString(row.getCell(1, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL));
                 cols[2] = getCellValueAsString(row.getCell(2, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL));
-                
+                cols[3] = getCellValueAsString(row.getCell(3, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL));
+
                 // Trim and check for content
                 boolean hasContent = false;
-                for(int i=0; i<3; i++) {
-                    if(cols[i] != null) {
+                for (int i = 0; i < 4; i++) {
+                    if (cols[i] != null) {
                         cols[i] = cols[i].trim();
-                        if(!cols[i].isEmpty()) hasContent = true;
+                        if (!cols[i].isEmpty()) hasContent = true;
                     } else {
                         cols[i] = "";
                     }
@@ -475,69 +476,84 @@ public class MigrationServiceImpl implements MigrationService {
     private ImportResult processLiteRow(String[] cols, int lineNo, String eventName) {
         String codigo = null;
         String descripcion = null;
+        String precioCostoStr = null;
         String precioVentaStr = null;
 
         // Try to identify columns based on content
         String col0 = safeGet(cols, 0);
         String col1 = safeGet(cols, 1);
         String col2 = safeGet(cols, 2);
+        String col3 = safeGet(cols, 3);
 
         boolean col0IsBarcode = col0 != null && col0.matches(BARCODE_REGEX);
         boolean col1IsBarcode = col1 != null && col1.matches(BARCODE_REGEX);
-        
-        // Scenario 1: Standard (Barcode | Description | Price) or (Barcode | Price)
+
+        // Primary format (4 cols): Codigo | Descripcion | PrecioCosto | PrecioVenta
+        // Legacy format  (3 cols): Codigo | Descripcion | PrecioVenta  (precioCosto=0)
+        // Legacy format  (2 cols): Codigo | PrecioVenta               (precioCosto=0)
+
+        // Scenario 1: col0 is barcode
         if (col0IsBarcode) {
             codigo = col0;
             if (cols.length == 2) {
-                // Barcode | Price
+                // Barcode | PrecioVenta
                 descripcion = "";
                 precioVentaStr = col1;
+            } else if (cols.length == 3) {
+                // Barcode | Descripcion | PrecioVenta  (legacy 3-col)
+                descripcion = col1;
+                precioVentaStr = col2;
+                log.debug("[IMPORT] Line {}: 3-col legacy | barcode='{}' desc='{}' precioVenta='{}'", lineNo, codigo, descripcion, precioVentaStr);
             } else {
-                // Barcode | Description | Price
-                // If col1 is description and col2 is price
-                if (looksLikeMoney(col2)) {
-                     descripcion = col1;
-                     precioVentaStr = col2;
+                // 4+ cols: Barcode | Descripcion | PrecioCosto | PrecioVenta
+                if (looksLikeMoney(col3)) {
+                    descripcion = col1;
+                    precioCostoStr = col2;
+                    precioVentaStr = col3;
+                } else if (looksLikeMoney(col2)) {
+                    // col3 is absent/blank — fallback to 3-col mapping
+                    descripcion = col1;
+                    precioVentaStr = col2;
                 } else {
-                    // Maybe description is split or price is further down
+                    // Price is further down; join middle columns as description
                     precioVentaStr = safeGet(cols, cols.length - 1);
-                    // Join middle columns for description
+                    precioCostoStr = safeGet(cols, cols.length - 2);
                     StringBuilder descBuilder = new StringBuilder();
-                    for (int i = 1; i < cols.length - 1; i++) {
+                    for (int i = 1; i < cols.length - 2; i++) {
                         if (descBuilder.length() > 0) descBuilder.append(" ");
                         descBuilder.append(cols[i]);
                     }
                     descripcion = descBuilder.toString();
                 }
+                log.debug("[IMPORT] Line {}: 4-col | barcode='{}' desc='{}' precioCosto='{}' precioVenta='{}'", lineNo, codigo, descripcion, precioCostoStr, precioVentaStr);
             }
-        } 
-        // Scenario 2: Description | Barcode | Price (Inverted)
-        else if (col1IsBarcode) {
-             descripcion = col0;
-             codigo = col1;
-             precioVentaStr = safeGet(cols, 2);
         }
-        // Scenario 3: Description | Price (No Barcode or Barcode in description?)
+        // Scenario 2: Descripcion | Barcode | PrecioCosto | PrecioVenta (inverted)
+        else if (col1IsBarcode) {
+            descripcion = col0;
+            codigo = col1;
+            precioCostoStr = col2;
+            precioVentaStr = col3 != null && !col3.isBlank() ? col3 : col2;
+            if (col3 == null || col3.isBlank()) precioCostoStr = null; // only 3 cols available
+            log.debug("[IMPORT] Line {}: inverted | barcode='{}' desc='{}' precioCosto='{}' precioVenta='{}'", lineNo, codigo, descripcion, precioCostoStr, precioVentaStr);
+        }
+        // Scenario 3: No numeric barcode — Codigo | Descripcion | PrecioCosto | PrecioVenta
         else {
-             // Fallback logic based on user request:
-             // "PANBLANDITO PAN BLANDITO 2500" -> PANBLANDITO (code), PAN BLANDITO (desc), 2500 (price)
-             // "ALQURIA 200ML 1000" -> ALQURIA 200ML (code), "" (desc), 1000 (price)
-             
-             // If 3 columns: Code | Desc | Price
-             if (cols.length >= 3) {
-                 codigo = col0;
-                 descripcion = col1;
-                 precioVentaStr = col2;
-                 // If col2 is not money, maybe look for money at the end
-                 if (!looksLikeMoney(precioVentaStr)) {
-                     precioVentaStr = safeGet(cols, cols.length - 1);
-                 }
-             } else if (cols.length == 2) {
-                 // Code | Price
-                 codigo = col0;
-                 descripcion = "";
-                 precioVentaStr = col1;
-             }
+            if (cols.length >= 4) {
+                codigo = col0;
+                descripcion = col1;
+                precioCostoStr = col2;
+                precioVentaStr = looksLikeMoney(col3) ? col3 : safeGet(cols, cols.length - 1);
+            } else if (cols.length == 3) {
+                codigo = col0;
+                descripcion = col1;
+                precioVentaStr = looksLikeMoney(col2) ? col2 : safeGet(cols, cols.length - 1);
+            } else if (cols.length == 2) {
+                codigo = col0;
+                descripcion = "";
+                precioVentaStr = col1;
+            }
+            log.debug("[IMPORT] Line {}: no-barcode | codigo='{}' desc='{}' precioCosto='{}' precioVenta='{}'", lineNo, codigo, descripcion, precioCostoStr, precioVentaStr);
         }
 
         // Special handling for barcodes starting with "HTTPSÑ--"
@@ -552,9 +568,9 @@ public class MigrationServiceImpl implements MigrationService {
         }
 
         Double precioVenta = parseMoneyToDouble(precioVentaStr).orElse(0.0);
-        Double precioCosto = 0.0;
+        Double precioCosto = parseMoneyToDouble(precioCostoStr).orElse(0.0);
 
-        log.debug("[IMPORT] Line {}: parsed codigo='{}' descripcion='{}' precioVenta={}", lineNo, codigo, descripcion, precioVenta);
+        log.debug("[IMPORT] Line {}: parsed codigo='{}' descripcion='{}' precioCosto={} precioVenta={}", lineNo, codigo, descripcion, precioCosto, precioVenta);
 
         // Conflict Check 0: No price (Price is zero)
         if (precioVenta == 0.0) {
@@ -661,7 +677,7 @@ public class MigrationServiceImpl implements MigrationService {
                 p.setActivate(1);
             }
             Product saved = productRepository.save(p);
-            log.info("[IMPORT] Line {}: CREATED product id={} | barcode='{}' | nombre='{}' | precioVenta={}", lineNo, saved.getId(), saved.getBarcode(), saved.getNombre(), precioVenta);
+            log.info("[IMPORT] Line {}: CREATED product id={} | barcode='{}' | nombre='{}' | precioCosto={} | precioVenta={}", lineNo, saved.getId(), saved.getBarcode(), saved.getNombre(), precioCosto, precioVenta);
 
             BigDecimal historialPrecio = toSafeMoney(saved.getPrecio());
 
@@ -676,7 +692,7 @@ public class MigrationServiceImpl implements MigrationService {
 
             return ImportResult.created();
         } catch (Exception ex) {
-            String ctx = "codigo='" + codigo + "', descripcion='" + descripcion + "', precioVenta='" + precioVentaStr + "'";
+            String ctx = "codigo='" + codigo + "', descripcion='" + descripcion + "', precioCosto='" + precioCostoStr + "', precioVenta='" + precioVentaStr + "'";
             String err = ex.getClass().getSimpleName() + ": " + (ex.getMessage() == null ? "(no message)" : ex.getMessage());
             log.error("[IMPORT] Line {}: ERROR {} | {}", lineNo, err, ctx, ex);
             return ImportResult.error("Line " + lineNo + ": error - " + err + " | " + ctx);

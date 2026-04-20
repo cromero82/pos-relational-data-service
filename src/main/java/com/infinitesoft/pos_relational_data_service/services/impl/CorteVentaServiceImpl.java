@@ -35,13 +35,13 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
     @Override
     public CorteVenta create(CorteVenta corteVenta) {
-        log.info("Iniciando servicio CorteVentaServiceImpl - Método: create");
+        log.info("Iniciando servicio CorteVentaServiceImpl - Método: create - fechaIni: {} - fechaFin: {}", corteVenta.getFechaIni(), corteVenta.getFechaFin());
         return repository.save(corteVenta);
     }
 
     @Override
     public CorteVenta createFromDTO(CorteVentaDTO dto) {
-        log.info("Iniciando servicio CorteVentaServiceImpl - Método: createFromDTO");
+        log.info("Iniciando servicio CorteVentaServiceImpl - Método: createFromDTO - fechaIni: {} - fechaFin: {}", dto.getFechaIni(), dto.getFechaFin());
         CorteVenta entity = convertToEntity(dto);
 
         // Obtener usuarioId del contexto de seguridad si no viene en el DTO o para asegurar el valor correcto
@@ -97,7 +97,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
     @Override
     public CorteVenta update(Long id, CorteVenta corteVenta) {
-        log.info("Iniciando servicio CorteVentaServiceImpl - Método: update para ID: {}", id);
+        log.info("Iniciando servicio CorteVentaServiceImpl - Método: update para ID: {} - fechaIni: {} - fechaFin: {}", id, corteVenta.getFechaIni(), corteVenta.getFechaFin());
         if (id == null) return null;
         Optional<CorteVenta> existingOpt = repository.findById(id);
         if (existingOpt.isEmpty()) return null;
@@ -126,7 +126,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
     @Override
     public CorteVentaRangoResponse consultarRango(CorteVentaRangoRequest request) {
-        log.info("Iniciando servicio CorteVentaServiceImpl - Método: consultarRango");
+        log.info("Iniciando servicio CorteVentaServiceImpl - Método: consultarRango - fechaIni: {} - fechaFin: {} - ultimoCorte: {} - actual: {}", request.getFechaIni(), request.getFechaFin(), request.isUltimoCorte(), request.isActual());
         
         // Validaciones manuales según requerimiento
         if (!request.isUltimoCorte() && request.getFechaIni() == null) {
@@ -217,7 +217,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
     @Override
     public List<CorteVentaDTO> search(LocalDateTime fechaIni, LocalDateTime fechaFin) {
-        log.info("Iniciando servicio CorteVentaServiceImpl - Método: search");
+        log.info("Iniciando servicio CorteVentaServiceImpl - Método: search - fechaIni: {} - fechaFin: {}", fechaIni, fechaFin);
         return repository.findByFechaIniGreaterThanEqualAndFechaIniLessThanEqual(fechaIni, fechaFin)
                 .stream()
                 .map(this::convertToDTO)

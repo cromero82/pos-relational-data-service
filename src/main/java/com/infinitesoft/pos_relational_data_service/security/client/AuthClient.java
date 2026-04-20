@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.security.client;
 
+import com.infinitesoft.pos_relational_data_service.security.dto.AuthBackupDto;
 import com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,8 @@ public class AuthClient {
     private final String usuariosPath;
     private final String usuarioPath;
     private final String isExpiredPath;
+    private final WebClient backupWebClient;
+    private final String backupPath;
 
     public AuthClient(
             WebClient.Builder webClientBuilder,
@@ -39,10 +42,12 @@ public class AuthClient {
             @Value("${auth.service.path.user-id:/usuario-id}") String userIdPath,
             @Value("${auth.service.path.usuarios:/usuarios}") String usuariosPath,
             @Value("${auth.service.path.usuario:/usuario}") String usuarioPath,
-            @Value("${auth.service.path.is-expired:/is-expired}") String isExpiredPath
+            @Value("${auth.service.path.is-expired:/is-expired}") String isExpiredPath,
+            @Value("${auth.service.path.backup:/backup}") String backupPath
     ) {
         String baseUrl = serviceHost + basePath;
         this.webClient = webClientBuilder.baseUrl(baseUrl).build();
+        this.backupWebClient = webClientBuilder.baseUrl(serviceHost).build();
         this.timeout = Duration.ofMillis(timeoutMs);
         this.validatePath = validatePath;
         this.claimsPath = claimsPath;
@@ -50,6 +55,7 @@ public class AuthClient {
         this.usuariosPath = usuariosPath;
         this.usuarioPath = usuarioPath;
         this.isExpiredPath = isExpiredPath;
+        this.backupPath = backupPath;
     }
 
     public Boolean validateToken(String token) {
@@ -131,6 +137,42 @@ public class AuthClient {
         } catch (Exception e) {
             log.error("[AuthClient] Error fetching usuario by id {}: {}", userId, e.toString());
             return null;
+        }
+    }
+
+    public AuthBackupDto getBackup(String token) {
+        try {
+            return backupWebClient.get()
+                    .uri(backupPath)
+                    .header("Authorization", "Bearer " + token)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .bodyToMono(AuthBackupDto.class)
+                    .block(timeout);
+        } catch (Exception e) {
+            log.error("[AuthClient] Error fetching backup: {}", e.toString());
+            String errorMsg = "Error al obtener datos de backup del servicio de autenticación";
+            if (e.getMessage() != null && e.getMessage().contains("DecodingException")) {
+                errorMsg += ". Error de deserialización JSON - posible incompatibilidad en el formato del campo 'personalizacion'";
+            } else if (e.getMessage() != null && e.getMessage().contains("MismatchedInputException")) {
+                errorMsg += ". Error de deserialización - tipo de dato incompatible en la respuesta";
+            }
+            throw new RuntimeException(errorMsg, e);
+        }
+    }
+
+    public Map<String, Integer> restaurarBackup(AuthBackupDto backupDto) {
+        try {
+            return backupWebClient.post()
+                    .uri("/backup/restaurar")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(BodyInserters.fromValue(backupDto))
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Integer>>() {})
+                    .block(timeout);
+        } catch (Exception e) {
+            log.error("[AuthClient] Error restaurando backup: {}", e.toString());
+            throw new RuntimeException("Error al restaurar backup en el servicio de autenticación: " + e.getMessage(), e);
         }
     }
 
