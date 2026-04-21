@@ -50,7 +50,7 @@ public class SecurityConfig {
     ) {
         CorsConfiguration config = new CorsConfiguration();
         for (String o : allowedOriginsProp.split(",")) {
-            config.addAllowedOrigin(o.trim());
+            config.addAllowedOriginPattern(o.trim());
         }
         for (String m : allowedMethodsProp.split(",")) {
             config.addAllowedMethod(m.trim());
