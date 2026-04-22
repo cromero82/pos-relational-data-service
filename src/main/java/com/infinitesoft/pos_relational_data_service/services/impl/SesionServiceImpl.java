@@ -16,6 +16,7 @@ import com.infinitesoft.pos_relational_data_service.services.ClientService;
 import com.infinitesoft.pos_relational_data_service.entities.TicketRecibo;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.util.DateUtils;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Log4j2
 public class SesionServiceImpl implements SesionService {
 
     @Autowired
@@ -56,10 +58,14 @@ public class SesionServiceImpl implements SesionService {
 
     @Override
     public SesionDto create(SesionDto sesionDto, HttpServletRequest request) {
+        log.info("Iniciando servicio SesionServiceImpl - Método: create - DTO: {}", sesionDto);
         String token = TokenUtils.extractToken(request);
         Sesion sesion = toEntity(sesionDto);
         UUID resolvedUserId = resolveUserIdFromToken(token);
-        if (resolvedUserId == null) return null;
+        if (resolvedUserId == null) {
+            log.error("No se pudo resolver el userId desde el token para la creación de sesión");
+            return null;
+        }
         sesion.setUserId(resolvedUserId);
         // Set defaults on create
         sesion.setEsActivo(Boolean.TRUE);
@@ -67,47 +73,59 @@ public class SesionServiceImpl implements SesionService {
             sesion.setFechaInicio(DateUtils.obtenerFechaSistema());
         }
         Sesion saved = repository.save(sesion);
+        log.info("Sesión creada exitosamente - ID: {}, UserId: {}", saved.getId(), saved.getUserId());
         return toDto(saved);
     }
 
     @Override
     public List<SesionDto> findAll(HttpServletRequest request) {
+        log.info("Iniciando servicio SesionServiceImpl - Método: findAll");
         UUID userId = resolveUserIdFromToken(TokenUtils.extractToken(request));
-        if (userId == null) return List.of();
+        if (userId == null) {
+            log.warn("UserId no resuelto para findAll");
+            return List.of();
+        }
+        log.info("Buscando sesiones activas para UserId: {}", userId);
         return repository.findByUserIdAndEsActivoTrue(userId).stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Override
     public List<SesionDto> findAllByUserAllStates(HttpServletRequest request) {
+        log.info("Iniciando servicio SesionServiceImpl - Método: findAllByUserAllStates");
         UUID userId = resolveUserIdFromToken(TokenUtils.extractToken(request));
-        if (userId == null) return List.of();
+        if (userId == null) {
+            log.warn("UserId no resuelto para findAllByUserAllStates");
+            return List.of();
+        }
+        log.info("Buscando todas las sesiones para UserId: {}", userId);
         return repository.findByUserIdOrderByFechaInicioDesc(userId).stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Override
     public SesionDto findById(Long id, HttpServletRequest request) {
+        log.info("Iniciando servicio SesionServiceImpl - Método: findById - ID: {}", id);
         if (id == null ) return null;
         return repository.findById(id).map(this::toDto).orElse(null);
     }
 
     @Override
     public AuthUserDto findUserInfoBySesionId(Long sesionId, HttpServletRequest request) {
-        org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SesionServiceImpl.class);
-        logger.info("[SesionService] Iniciando búsqueda de usuario para sesión id={}", sesionId);
+        log.info("Iniciando servicio SesionServiceImpl - Método: findUserInfoBySesionId - SesionID: {}", sesionId);
 
         if (sesionId == null) return null;
         Optional<Sesion> sesionOpt = repository.findById(sesionId);
         if (sesionOpt.isEmpty()) {
-            logger.warn("[SesionService] No se encontró la sesión con id={}", sesionId);
+            log.warn("No se encontró la sesión con id={}", sesionId);
             return null;
         }
 
         UUID userId = sesionOpt.get().getUserId();
         if (userId == null) {
-            logger.warn("[SesionService] La sesión id={} no tiene un userId asociado", sesionId);
+            log.warn("La sesión id={} no tiene un userId asociado", sesionId);
             return null;
         }
 
+        log.info("Buscando información de AuthUser para UserId: {}", userId);
         return authValidationService.fetchUserInfoById(userId);
     }
 
@@ -122,14 +140,22 @@ public class SesionServiceImpl implements SesionService {
 
     @Override
     public SesionDto update(Long id, SesionDto sesionDto, HttpServletRequest request) {
+        log.info("Iniciando servicio SesionServiceImpl - Método: update - ID: {} - DTO: {}", id, sesionDto);
         UUID userId = resolveUserIdFromToken(TokenUtils.extractToken(request));
-        if (id == null || userId == null) return null;
+        if (id == null || userId == null) {
+            log.warn("ID o UserId nulo en update de sesión");
+            return null;
+        }
         Optional<Sesion> existingOpt = repository.findByIdAndUserIdAndEsActivoTrue(id, userId);
-        if (existingOpt.isEmpty()) return null;
+        if (existingOpt.isEmpty()) {
+            log.warn("Sesión activa no encontrada para ID: {} y UserId: {}", id, userId);
+            return null;
+        }
         Sesion existing = existingOpt.get();
         existing.setCookie(sesionDto.getCookie());
         existing.setUltimoTicketId(sesionDto.getUltimoTicketId());
         Sesion saved = repository.save(existing);
+        log.info("Sesión actualizada - ID: {}", saved.getId());
         return toDto(saved);
     }
 
@@ -147,13 +173,23 @@ public class SesionServiceImpl implements SesionService {
 
     @Override
     public boolean delete(Long id, HttpServletRequest request) {
+        log.info("Iniciando servicio SesionServiceImpl - Método: delete (Soft Delete) - ID: {}", id);
         UUID userId = resolveUserIdFromToken(TokenUtils.extractToken(request));
-        if (id == null || userId == null) return false;
+        if (id == null || userId == null) {
+            log.warn("ID o UserId nulo en delete de sesión");
+            return false;
+        }
         Optional<Sesion> existing = repository.findByIdAndUserIdAndEsActivoTrue(id, userId);
-        if (existing.isEmpty()) return false;
+        if (existing.isEmpty()) {
+            log.warn("Sesión activa no encontrada para eliminación - ID: {} y UserId: {}", id, userId);
+            return false;
+        }
+        
         // Cascade delete: ticket_recibo -> ticket -> soft delete session
+        log.info("Iniciando proceso de cascada para eliminación de sesión ID: {}", id);
         List<Ticket> tickets = ticketService.findBySessionId(id);
         if (tickets != null) {
+            log.info("Se encontraron {} tickets asociados a la sesión", tickets.size());
             for (Ticket t : tickets) {
                 if (t == null || t.getId() == null) continue;
                 List<TicketRecibo> ticketsRecibo = ticketReciboService.findByTicketId(t.getId());
@@ -171,6 +207,7 @@ public class SesionServiceImpl implements SesionService {
                 }
 
                 if (allowedToDelete) {
+                    log.info("Eliminando Ticket ID: {} y sus recibos asociados (cliente anónimo)", t.getId());
                     if (ticketsRecibo != null) {
                         for (TicketRecibo tr : ticketsRecibo) {
                             if (tr != null && tr.getId() != null) {
@@ -178,16 +215,12 @@ public class SesionServiceImpl implements SesionService {
                                 Long reciboId = tr.getReciboId();
                                 if (reciboId != null) {
                                     try {
+                                        log.info("Eliminando detalles de recibo para reciboId={}", reciboId);
                                         reciboDetalleService.deleteByReciboId(reciboId);
-                                    } catch (Exception e) {
-                                        org.slf4j.LoggerFactory.getLogger(SesionServiceImpl.class)
-                                                .error("[SesionDelete] Error deleting recibo_detalle for reciboId={}: {}", reciboId, e.toString(), e);
-                                    }
-                                    try {
+                                        log.info("Eliminando reciboId={}", reciboId);
                                         reciboService.delete(reciboId);
                                     } catch (Exception e) {
-                                        org.slf4j.LoggerFactory.getLogger(SesionServiceImpl.class)
-                                                .error("[SesionDelete] Error deleting recibo reciboId={}: {}", reciboId, e.toString(), e);
+                                        log.error("[SesionDelete] Error deleting recibo o detalles para reciboId={}: {}", reciboId, e.toString());
                                     }
                                 }
                                 ticketReciboService.delete(tr.getId());
@@ -195,23 +228,33 @@ public class SesionServiceImpl implements SesionService {
                         }
                     }
                     ticketService.delete(t.getId());
+                } else {
+                    log.info("Ticket ID: {} no permitido para eliminación (no es cliente anónimo o no tiene recibos)", t.getId());
                 }
             }
         }
+        
         // Soft delete session at the end
         Sesion s = existing.get();
         s.setEsActivo(Boolean.FALSE);
         s.setFechaFin(DateUtils.obtenerFechaSistema());
         repository.save(s);
+        log.info("Sesión ID: {} marcada como inactiva (Soft Delete completado)", id);
         return true;
     }
 
     private UUID resolveUserIdFromToken(String token) {
-        if (token == null || token.isBlank()) return null;
+        if (token == null || token.isBlank()) {
+            log.warn("Token vacío o nulo al intentar resolver UserId");
+            return null;
+        }
         AuthUserDto user = authValidationService.validateToken(token);
         if (user != null && user.getCorreoElectronico() != null && !user.getCorreoElectronico().isBlank()) {
-            return authValidationService.fetchUserIdByEmail(user.getCorreoElectronico());
+            UUID userId = authValidationService.fetchUserIdByEmail(user.getCorreoElectronico());
+            log.info("UserId resuelto para correo {}: {}", user.getCorreoElectronico(), userId);
+            return userId;
         }
+        log.warn("No se pudo obtener información de usuario desde el token");
         return null;
     }
 

@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface TicketReciboRepository extends JpaRepository<TicketRecibo, Long> {
     Optional<TicketRecibo> findFirstByTicketId(Long ticketId);
     List<TicketRecibo> findAllByTicketId(Long ticketId);
-    Optional<TicketRecibo> findByReciboId(Long reciboId);
+    Optional<TicketRecibo> findFirstByReciboId(Long reciboId);
 
     @Transactional
     @Modifying

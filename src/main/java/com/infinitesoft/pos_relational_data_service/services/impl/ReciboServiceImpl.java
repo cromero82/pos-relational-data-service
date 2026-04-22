@@ -115,7 +115,7 @@ public class ReciboServiceImpl implements ReciboService {
             HistorialRecibo savedHist = historialReciboService.create(hist);
 
             // 2) Find the link to the ticket
-            Optional<TicketRecibo> ticketReciboOpt = ticketReciboRepository.findByReciboId(id);
+            Optional<TicketRecibo> ticketReciboOpt = ticketReciboRepository.findFirstByReciboId(id);
 
             // 3) Copy all ReciboDetalle rows into HistorialReciboDetalle linked to savedHist.id
             List<ReciboDetalle> detalles = reciboDetalleService.findEntityListByReciboId(existing.getId());
