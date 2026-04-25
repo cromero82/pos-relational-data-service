@@ -1,3 +1,48 @@
+# ReporteFrontend Endpoints
+
+Endpoint para recibir reportes de error desde el frontend, junto con el historial de actividad reciente que precedió al error. Útil para diagnóstico remoto sin necesidad de herramientas de monitoreo externas.
+
+## Definición de tabla (PostgreSQL)
+
+```sql
+CREATE TABLE reporte_frontend (
+    id              UUID        PRIMARY KEY,
+    url             TEXT        NOT NULL,
+    actividad_reciente TEXT     NOT NULL,
+    error           TEXT        NOT NULL,
+    fecha_registro  TIMESTAMP   NOT NULL
+);
+```
+
+## Registrar reporte de error desde el frontend
+
+**Endpoint:** `POST /reporte-frontend`
+
+**Cuerpo del request:**
+- `url` *(string)*: URL de la página donde ocurrió el error (ej: `/apps/tickets`).
+- `actividadReciente` *(string)*: Las últimas N acciones ejecutadas antes del error. Puede contener saltos de línea para mayor legibilidad.
+- `error` *(string)*: Mensaje o stack trace del error JavaScript o de la respuesta HTTP fallida.
+
+**Respuesta:** `202 Accepted` sin cuerpo. El procesamiento ocurre de forma asíncrona para no bloquear al consumidor.
+El reporte es persistido en segundo plano junto con un `log.error(...)` que incluye el `idReporte` (UUID), el cual queda registrado automáticamente en `app_log` bajo el prefijo `[REPORTE-FRONTEND]`, permitiendo correlacionar el evento con los logs del servidor.
+
+```bash
+curl --location 'http://localhost:8088/reporte-frontend' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data '{
+    "url": "/apps/tickets",
+    "actividadReciente": "despliega modal: selector-productos component\nendpoint: GET http://localhost:8088/recibo-detalles/recibo/309 [{\"id\":664,\"reciboId\":309,\"productoId\":3,...}]\nse renderiza componente: detalle-ticket\nejecutó endpoint: POST http://localhost:8088/recibo-detalle payload: {\"reciboId\":314,\"productoId\":3046,\"cantidad\":1,\"subtotal\":1500}",
+    "error": "TypeError: Cannot read properties of undefined (reading '\''id'\'')\n    at DetalleTiketComponent.agregarProducto (detalle-ticket.component.ts:87)\n    at HTMLButtonElement.<anonymous> (detalle-ticket.component.html:42)"
+}'
+```
+
+**Respuesta exitosa:** `202 Accepted` (sin cuerpo). El frontend no debe esperar respuesta con datos.
+
+*Nota: Para correlacionar el reporte con los logs del servidor, busca en `app_log` con `WHERE mensaje LIKE '%[REPORTE-FRONTEND]%'` o filtra por url/fecha.*
+
+---
+
 # Health Check Endpoint
 
 To check the health of the application, you can use the following endpoint:
