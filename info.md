@@ -265,7 +265,7 @@ curl --location 'http://localhost:8088/copias-seguridad/exportar-a-correo' \
 ### Modo Incremental
 - Solo restaura registros que **no existen** en la base de datos actual
 - Utiliza el ID de cada registro para determinar si ya existe
-- **Ventaja:** No pierde datos actuales, solo agrega información faltante
+- **Ventaja:** No pierde datos actuales, sino que agrega información faltante
 - **Uso recomendado:** Para sincronizar datos entre ambientes o recuperar registros eliminados
 
 ### Modo Full-Reescritura
@@ -336,3 +336,59 @@ curl -H "Authorization: Bearer $TOKEN" \
 - Realizar backups periódicos (diarios o semanales)
 - Probar la restauración en ambiente de pruebas antes de usar en producción
 - Verificar la integridad del archivo Excel antes de restaurar
+
+---
+
+# Monitor de Logs e InfluxDB
+
+Proxy de consulta hacia InfluxDB para el dashboard de monitoreo de logs de backend y errores de frontend.
+
+## Endpoints de Logs
+
+### 1. Logs de Backend
+
+Obtiene registros del measurement `backend_log` almacenados en InfluxDB.
+
+**Endpoint:** `GET /api/v1/logs/backend`
+
+**Headers:**
+```
+Authorization: Bearer {token}
+```
+
+**Parámetros (Query Params):**
+- `from` (opcional): Fecha inicio (ej: `2026-04-01` o `2026-04-01T08:00:00Z`)
+- `to` (opcional): Fecha fin (ej: `2026-04-25` o `2026-04-25T23:59:59Z`)
+- `limit` (opcional): Máximo de filas a retornar (1-500)
+
+**Ejemplo con cURL:**
+```bash
+curl --location 'http://localhost:8088/api/v1/logs/backend?limit=100' \
+  --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...'
+```
+
+### 2. Errores de Frontend
+
+Obtiene registros del measurement `frontend_error` almacenados en InfluxDB.
+
+**Endpoint:** `GET /api/v1/logs/frontend`
+
+**Headers:**
+```
+Authorization: Bearer {token}
+```
+
+**Parámetros (Query Params):**
+- `from` (opcional): Fecha inicio
+- `to` (opcional): Fecha fin
+- `limit` (opcional): Máximo de filas a retornar (1-500)
+
+**Ejemplo con cURL:**
+```bash
+curl --location 'http://localhost:8088/api/v1/logs/frontend?from=2026-04-20&limit=50' \
+  --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...'
+```
+
+## Restricciones
+- Solo usuarios con rol `admin` pueden acceder a estos endpoints.
+- Los datos se retornan en formato JSON plano directamente desde la consulta a InfluxDB.
