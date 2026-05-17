@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -41,10 +42,19 @@ public interface HistorialReciboRepository extends JpaRepository<HistorialRecibo
 
     Optional<HistorialRecibo> findFirstByIdGreaterThanOrderByIdAsc(Long id);
 
-    @Query("SELECT h.metodoPagoId as metodoPagoId, SUM(h.total) as totalSistema FROM HistorialRecibo h " +
-           "WHERE h.fechaCreacion >= :start AND h.fechaCreacion <= :end " +
-           "GROUP BY h.metodoPagoId")
-    List<Object[]> findResumenVentasPorMetodoPago(LocalDateTime start, LocalDateTime end);
+    /**
+     * Resumen de ventas por método de pago usando la tabla junction historial_recibo_metodo_pago.
+     * Soporta múltiples métodos de pago por recibo: el total del recibo se atribuye
+     * a cada método de pago con el que fue procesado.
+     */
+    @Query(value = "SELECT hrmp.metodo_pago_id, SUM(hr.total) AS total_sistema " +
+                   "FROM historial_recibo hr " +
+                   "JOIN historial_recibo_metodo_pago hrmp ON hrmp.historial_recibo_id = hr.id " +
+                   "WHERE hr.fecha_creacion BETWEEN :start AND :end " +
+                   "GROUP BY hrmp.metodo_pago_id",
+           nativeQuery = true)
+    List<Object[]> findResumenVentasPorMetodoPago(@Param("start") LocalDateTime start,
+                                                  @Param("end") LocalDateTime end);
 
     @Query("SELECT MAX(h.id) FROM HistorialRecibo h WHERE h.fechaCreacion >= :start AND h.fechaCreacion <= :end")
     Optional<Long> findMaxIdByFechaCreacionBetween(LocalDateTime start, LocalDateTime end);

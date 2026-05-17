@@ -12,4 +12,10 @@ public interface ReciboService {
     Recibo findById(Long id);
     Recibo update(Long id, ReciboDto reciboDto);
     boolean delete(Long id);
+
+    /**
+     * Reemplaza los métodos de pago asociados al recibo en la tabla recibo_metodo_pago.
+     * También actualiza la columna de compatibilidad metodo_pago_id con el primero de la lista.
+     */
+    void saveMetodoPagoIds(Long reciboId, List<Long> metodoPagoIds);
 }

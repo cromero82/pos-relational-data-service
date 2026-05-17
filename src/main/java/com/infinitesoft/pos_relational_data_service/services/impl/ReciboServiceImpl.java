@@ -4,6 +4,7 @@ import com.infinitesoft.pos_relational_data_service.dto.ReciboDto;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.ReciboMetodoPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
 import com.infinitesoft.pos_relational_data_service.services.*;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +23,9 @@ public class ReciboServiceImpl implements ReciboService {
 
     @Autowired
     private ReciboRepository reciboRepository;
+
+    @Autowired
+    private ReciboMetodoPagoRepository reciboMetodoPagoRepository;
 
     @Autowired
     @Lazy
@@ -44,12 +49,44 @@ public class ReciboServiceImpl implements ReciboService {
     @Autowired
     private ProductRepository productRepository;
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // HELPERS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Persiste la lista de métodos de pago en recibo_metodo_pago.
+     * Borra los anteriores y los reinserta.
+     */
+    private void persistMetodoPagoIds(Long reciboId, List<Long> ids) {
+        reciboMetodoPagoRepository.deleteByReciboId(reciboId);
+        if (ids != null && !ids.isEmpty()) {
+            for (Long mpId : ids) {
+                reciboMetodoPagoRepository.save(ReciboMetodoPago.builder()
+                        .reciboId(reciboId)
+                        .metodoPagoId(mpId)
+                        .build());
+            }
+        }
+    }
+
+    /** Devuelve el primer id de la lista o null si está vacía. */
+    private Long firstOrNull(List<Long> ids) {
+        return (ids != null && !ids.isEmpty()) ? ids.get(0) : null;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CRUD
+    // ─────────────────────────────────────────────────────────────────────────
+
     @Override
+    @Transactional
     public Recibo create(ReciboDto dto) {
+        Long firstMetodoPagoId = firstOrNull(dto.getMetodoPagoIds());
+
         Recibo recibo = Recibo.builder()
                 .clienteId(dto.getClienteId())
                 .estadoId(dto.getEstadoId())
-                .metodoPagoId(dto.getMetodoPagoId())
+                .metodoPagoId(firstMetodoPagoId)
                 .sesionId(dto.getSesionId())
                 .total(dto.getTotal())
                 .montoRecibido(dto.getMontoRecibido())
@@ -60,12 +97,26 @@ public class ReciboServiceImpl implements ReciboService {
         if (recibo.getEstadoId() == null) {
             recibo.setEstadoId(ReciboEstado.PENDIENTE_PAGO.getId());
         }
-        return reciboRepository.save(recibo);
+
+        Recibo saved = reciboRepository.save(recibo);
+        persistMetodoPagoIds(saved.getId(), dto.getMetodoPagoIds());
+        return saved;
     }
 
     @Override
     public Recibo saveAndFlush(Recibo recibo) {
         return reciboRepository.saveAndFlush(recibo);
+    }
+
+    @Override
+    public void saveMetodoPagoIds(Long reciboId, List<Long> metodoPagoIds) {
+        persistMetodoPagoIds(reciboId, metodoPagoIds);
+        // También actualizar la columna de compatibilidad metodo_pago_id
+        Long first = firstOrNull(metodoPagoIds);
+        reciboRepository.findById(reciboId).ifPresent(r -> {
+            r.setMetodoPagoId(first);
+            reciboRepository.save(r);
+        });
     }
 
     @Override
@@ -88,10 +139,13 @@ public class ReciboServiceImpl implements ReciboService {
         if (existingOpt.isEmpty()) return null;
 
         Recibo existing = existingOpt.get();
+
+        Long firstMetodoPagoId = firstOrNull(dto.getMetodoPagoIds());
+
         // Update mutable fields, keep id and fechaCreacion
         existing.setClienteId(dto.getClienteId());
         existing.setEstadoId(dto.getEstadoId());
-        existing.setMetodoPagoId(dto.getMetodoPagoId());
+        existing.setMetodoPagoId(firstMetodoPagoId);
         // Preserve existing sesionId if not provided in the update payload
         if (dto.getSesionId() != null) {
             existing.setSesionId(dto.getSesionId());
@@ -103,6 +157,12 @@ public class ReciboServiceImpl implements ReciboService {
         // Determine target estado
         ReciboEstado targetEstado = ReciboEstado.fromId(existing.getEstadoId());
         if (targetEstado == ReciboEstado.PAGADO || targetEstado == ReciboEstado.ANULADO) {
+
+            // Recuperar lista actual de métodos de pago del recibo
+            List<Long> currentMetodoPagoIds = dto.getMetodoPagoIds() != null && !dto.getMetodoPagoIds().isEmpty()
+                    ? dto.getMetodoPagoIds()
+                    : reciboMetodoPagoRepository.findMetodoPagoIdsByReciboId(id);
+
             // 1) Copy Recibo to HistorialRecibo (using the just-updated fields)
             HistorialRecibo hist = HistorialRecibo.builder()
                     .clienteId(existing.getClienteId())
@@ -112,6 +172,7 @@ public class ReciboServiceImpl implements ReciboService {
                     .total(existing.getTotal())
                     .montoRecibido(existing.getMontoRecibido())
                     .build();
+            hist.setMetodoPagoIds(currentMetodoPagoIds); // transient → HistorialReciboServiceImpl lo persiste
             HistorialRecibo savedHist = historialReciboService.create(hist);
 
             // 2) Find the link to the ticket
@@ -140,7 +201,10 @@ public class ReciboServiceImpl implements ReciboService {
             // 4) Delete all items from recibo_detalle
             reciboDetalleService.deleteByReciboId(existing.getId());
 
-            // 5) Update EdicionRecibo if it exists
+            // 5) Delete junction entries del recibo
+            reciboMetodoPagoRepository.deleteByReciboId(existing.getId());
+
+            // 6) Update EdicionRecibo if it exists
             Optional<EdicionRecibo> edicionReciboOpt = edicionReciboService.findByReciboId(id);
             if (edicionReciboOpt.isPresent()) {
                 EdicionRecibo edicionRecibo = edicionReciboOpt.get();
@@ -168,6 +232,9 @@ public class ReciboServiceImpl implements ReciboService {
             return null;
         }
 
+        // Actualizar junction table para estados no finales
+        persistMetodoPagoIds(existing.getId(), dto.getMetodoPagoIds());
+
         return reciboRepository.save(existing);
     }
 
@@ -186,7 +253,10 @@ public class ReciboServiceImpl implements ReciboService {
         // 3) Delete links in ticket_recibo table
         ticketReciboRepository.deleteByReciboId(id);
 
-        // 4) Finally delete the recibo itself
+        // 4) Delete junction entries
+        reciboMetodoPagoRepository.deleteByReciboId(id);
+
+        // 5) Finally delete the recibo itself
         reciboRepository.deleteById(id);
         return true;
     }

@@ -86,4 +86,12 @@ public class RestoreBackupResponseDto {
     private Integer grupoEspejoActualizados;
     private Integer productoEspejoCreados;
     private Integer productoEspejoActualizados;
+
+    // Tablas junction métodos de pago (nuevas)
+    private Integer reciboMetodoPagoCreados;
+    private Integer reciboMetodoPagoActualizados;
+    private Integer historialReciboMetodoPagoCreados;
+    private Integer historialReciboMetodoPagoActualizados;
+    private Integer edicionReciboMetodoPagoCreados;
+    private Integer edicionReciboMetodoPagoActualizados;
 }

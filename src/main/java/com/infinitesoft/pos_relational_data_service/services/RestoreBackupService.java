@@ -60,6 +60,11 @@ public class RestoreBackupService {
     private final CargueProductoConflictoRepository cargueProductoConflictoRepository;
     private final GrupoEspejoRepository grupoEspejoRepository;
 
+    // Repositorios tablas junction métodos de pago
+    private final com.infinitesoft.pos_relational_data_service.repositories.ReciboMetodoPagoRepository reciboMetodoPagoRepository;
+    private final com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboMetodoPagoRepository historialReciboMetodoPagoRepository;
+    private final com.infinitesoft.pos_relational_data_service.repositories.EdicionReciboMetodoPagoRepository edicionReciboMetodoPagoRepository;
+
     private final AuthClient authClient;
 
     @Transactional
@@ -241,6 +246,18 @@ public class RestoreBackupService {
         // 24. Grupo Espejo (depende de producto)
         int[] grupoEspejoStats = restaurarGrupoEspejo(workbook, tipo);
         response.grupoEspejoCreados(grupoEspejoStats[0]).grupoEspejoActualizados(grupoEspejoStats[1]);
+
+        // 25. Recibo Metodo Pago (junction)
+        int[] reciboMetodoPagoStats = restaurarReciboMetodoPago(workbook, tipo);
+        response.reciboMetodoPagoCreados(reciboMetodoPagoStats[0]).reciboMetodoPagoActualizados(reciboMetodoPagoStats[1]);
+
+        // 26. Historial Recibo Metodo Pago (junction)
+        int[] historialReciboMetodoPagoStats = restaurarHistorialReciboMetodoPago(workbook, tipo);
+        response.historialReciboMetodoPagoCreados(historialReciboMetodoPagoStats[0]).historialReciboMetodoPagoActualizados(historialReciboMetodoPagoStats[1]);
+
+        // 27. Edicion Recibo Metodo Pago (junction)
+        int[] edicionReciboMetodoPagoStats = restaurarEdicionReciboMetodoPago(workbook, tipo);
+        response.edicionReciboMetodoPagoCreados(edicionReciboMetodoPagoStats[0]).edicionReciboMetodoPagoActualizados(edicionReciboMetodoPagoStats[1]);
     }
 
     // =====================================================================
@@ -526,6 +543,123 @@ public class RestoreBackupService {
     private int[] restaurarCargueProductos(Workbook workbook, String tipo) { return new int[]{0, 0}; }
     private int[] restaurarCargueProductoConflictos(Workbook workbook, String tipo) { return new int[]{0, 0}; }
     private int[] restaurarGrupoEspejo(Workbook workbook, String tipo) { return new int[]{0, 0}; }
+
+    private int[] restaurarReciboMetodoPago(Workbook workbook, String tipo) {
+        Sheet sheet = workbook.getSheet("Recibo Metodo Pago");
+        if (sheet == null) return new int[]{0, 0};
+
+        int creados = 0, actualizados = 0;
+
+        if ("full-reescritura".equals(tipo)) {
+            reciboMetodoPagoRepository.deleteAll();
+        }
+
+        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+            Row row = sheet.getRow(i);
+            if (row == null) continue;
+
+            Long id         = getCellValueAsLong(row.getCell(0));
+            Long reciboId   = getCellValueAsLong(row.getCell(1));
+            Long metodoPagoId = getCellValueAsLong(row.getCell(2));
+            if (reciboId == null || metodoPagoId == null) continue;
+
+            if ("incremental".equals(tipo) && id != null && reciboMetodoPagoRepository.existsById(id)) {
+                continue;
+            }
+
+            com.infinitesoft.pos_relational_data_service.entities.ReciboMetodoPago entity =
+                    id != null ? reciboMetodoPagoRepository.findById(id)
+                            .orElse(new com.infinitesoft.pos_relational_data_service.entities.ReciboMetodoPago())
+                            : new com.infinitesoft.pos_relational_data_service.entities.ReciboMetodoPago();
+            boolean esNuevo = entity.getId() == null;
+
+            if (id != null) entity.setId(id);
+            entity.setReciboId(reciboId);
+            entity.setMetodoPagoId(metodoPagoId);
+            reciboMetodoPagoRepository.save(entity);
+
+            if (esNuevo) creados++; else actualizados++;
+        }
+        return new int[]{creados, actualizados};
+    }
+
+    private int[] restaurarHistorialReciboMetodoPago(Workbook workbook, String tipo) {
+        Sheet sheet = workbook.getSheet("Hist Recibo Metodo Pago");
+        if (sheet == null) return new int[]{0, 0};
+
+        int creados = 0, actualizados = 0;
+
+        if ("full-reescritura".equals(tipo)) {
+            historialReciboMetodoPagoRepository.deleteAll();
+        }
+
+        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+            Row row = sheet.getRow(i);
+            if (row == null) continue;
+
+            Long id                = getCellValueAsLong(row.getCell(0));
+            Long historialReciboId = getCellValueAsLong(row.getCell(1));
+            Long metodoPagoId      = getCellValueAsLong(row.getCell(2));
+            if (historialReciboId == null || metodoPagoId == null) continue;
+
+            if ("incremental".equals(tipo) && id != null && historialReciboMetodoPagoRepository.existsById(id)) {
+                continue;
+            }
+
+            com.infinitesoft.pos_relational_data_service.entities.HistorialReciboMetodoPago entity =
+                    id != null ? historialReciboMetodoPagoRepository.findById(id)
+                            .orElse(new com.infinitesoft.pos_relational_data_service.entities.HistorialReciboMetodoPago())
+                            : new com.infinitesoft.pos_relational_data_service.entities.HistorialReciboMetodoPago();
+            boolean esNuevo = entity.getId() == null;
+
+            if (id != null) entity.setId(id);
+            entity.setHistorialReciboId(historialReciboId);
+            entity.setMetodoPagoId(metodoPagoId);
+            historialReciboMetodoPagoRepository.save(entity);
+
+            if (esNuevo) creados++; else actualizados++;
+        }
+        return new int[]{creados, actualizados};
+    }
+
+    private int[] restaurarEdicionReciboMetodoPago(Workbook workbook, String tipo) {
+        Sheet sheet = workbook.getSheet("Edicion Recibo Met Pago");
+        if (sheet == null) return new int[]{0, 0};
+
+        int creados = 0, actualizados = 0;
+
+        if ("full-reescritura".equals(tipo)) {
+            edicionReciboMetodoPagoRepository.deleteAll();
+        }
+
+        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+            Row row = sheet.getRow(i);
+            if (row == null) continue;
+
+            Long id              = getCellValueAsLong(row.getCell(0));
+            Long edicionReciboId = getCellValueAsLong(row.getCell(1));
+            Long metodoPagoId    = getCellValueAsLong(row.getCell(2));
+            if (edicionReciboId == null || metodoPagoId == null) continue;
+
+            if ("incremental".equals(tipo) && id != null && edicionReciboMetodoPagoRepository.existsById(id)) {
+                continue;
+            }
+
+            com.infinitesoft.pos_relational_data_service.entities.EdicionReciboMetodoPago entity =
+                    id != null ? edicionReciboMetodoPagoRepository.findById(id)
+                            .orElse(new com.infinitesoft.pos_relational_data_service.entities.EdicionReciboMetodoPago())
+                            : new com.infinitesoft.pos_relational_data_service.entities.EdicionReciboMetodoPago();
+            boolean esNuevo = entity.getId() == null;
+
+            if (id != null) entity.setId(id);
+            entity.setEdicionReciboId(edicionReciboId);
+            entity.setMetodoPagoId(metodoPagoId);
+            edicionReciboMetodoPagoRepository.save(entity);
+
+            if (esNuevo) creados++; else actualizados++;
+        }
+        return new int[]{creados, actualizados};
+    }
 
     // =====================================================================
     // Métodos utilitarios

@@ -2,6 +2,7 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
+import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboMetodoPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketRepository;
@@ -10,6 +11,7 @@ import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,9 +21,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class HistorialReciboServiceImpl implements HistorialReciboService {
@@ -30,6 +31,9 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Autowired
     private HistorialReciboRepository repository;
+
+    @Autowired
+    private HistorialReciboMetodoPagoRepository historialReciboMetodoPagoRepository;
 
     @Autowired
     private ProductRepository productRepository;
@@ -64,9 +68,67 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
     @Autowired
     private SesionService sesionService;
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // HELPERS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Persiste la lista de métodos de pago en historial_recibo_metodo_pago.
+     * Borra los anteriores y los reinserta.
+     */
+    private void persistMetodoPagoIds(Long historialReciboId, List<Long> ids) {
+        historialReciboMetodoPagoRepository.deleteByHistorialReciboId(historialReciboId);
+        if (ids != null && !ids.isEmpty()) {
+            for (Long mpId : ids) {
+                historialReciboMetodoPagoRepository.save(HistorialReciboMetodoPago.builder()
+                        .historialReciboId(historialReciboId)
+                        .metodoPagoId(mpId)
+                        .build());
+            }
+        }
+    }
+
+    /**
+     * Resuelve la lista efectiva de métodos de pago dada la entidad:
+     * prioriza el campo transient metodoPagoIds; si está vacío/null cae al campo
+     * de compatibilidad metodoPagoId.
+     */
+    private List<Long> resolveMetodoPagoIds(HistorialRecibo hr) {
+        if (hr.getMetodoPagoIds() != null && !hr.getMetodoPagoIds().isEmpty()) {
+            return hr.getMetodoPagoIds();
+        }
+        if (hr.getMetodoPagoId() != null) {
+            return Collections.singletonList(hr.getMetodoPagoId());
+        }
+        return Collections.emptyList();
+    }
+
+    /** Puebla el campo transient metodoPagoIds en una lista de entidades. */
+    private void populateMetodoPagoIds(List<HistorialRecibo> list) {
+        if (list == null || list.isEmpty()) return;
+        Set<Long> ids = list.stream().map(HistorialRecibo::getId).collect(Collectors.toSet());
+        Map<Long, List<Long>> junctionMap = historialReciboMetodoPagoRepository
+                .findByHistorialReciboIdIn(ids)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        HistorialReciboMetodoPago::getHistorialReciboId,
+                        Collectors.mapping(HistorialReciboMetodoPago::getMetodoPagoId, Collectors.toList())
+                ));
+        list.forEach(hr -> hr.setMetodoPagoIds(junctionMap.getOrDefault(hr.getId(), Collections.emptyList())));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CRUD
+    // ─────────────────────────────────────────────────────────────────────────
+
     @Override
+    @Transactional
     public HistorialRecibo create(HistorialRecibo historialRecibo) {
-        return repository.save(historialRecibo);
+        HistorialRecibo saved = repository.save(historialRecibo);
+        List<Long> ids = resolveMetodoPagoIds(historialRecibo);
+        persistMetodoPagoIds(saved.getId(), ids);
+        saved.setMetodoPagoIds(ids);
+        return saved;
     }
 
     @Override
@@ -77,6 +139,11 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         }
         // 1) Save the HistorialRecibo first
         HistorialRecibo saved = repository.save(historialRecibo);
+
+        // Persistir lista de métodos de pago
+        List<Long> ids = resolveMetodoPagoIds(historialRecibo);
+        persistMetodoPagoIds(saved.getId(), ids);
+        saved.setMetodoPagoIds(ids);
 
         // 2) Ensure the VARIOSPROD product exists
         final String VARIOS_BARCODE = "VARIOSPROD";
@@ -107,14 +174,19 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Override
     public List<HistorialRecibo> findAll() {
-        return repository.findAll();
+        List<HistorialRecibo> list = repository.findAll();
+        populateMetodoPagoIds(list);
+        return list;
     }
 
     @Override
     public HistorialRecibo findById(Long id) {
         if (id == null) return null;
         Optional<HistorialRecibo> opt = repository.findById(id);
-        return opt.orElse(null);
+        if (opt.isEmpty()) return null;
+        HistorialRecibo hr = opt.get();
+        hr.setMetodoPagoIds(historialReciboMetodoPagoRepository.findMetodoPagoIdsByHistorialReciboId(id));
+        return hr;
     }
 
     @Override
@@ -131,19 +203,30 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         HistorialRecibo existing = existingOpt.get();
         existing.setClienteId(historialRecibo.getClienteId());
         existing.setEstadoId(historialRecibo.getEstadoId());
-        existing.setMetodoPagoId(historialRecibo.getMetodoPagoId());
+
+        // Resolver lista de métodos de pago
+        List<Long> newIds = resolveMetodoPagoIds(historialRecibo);
+        Long firstMetodoPagoId = newIds.isEmpty() ? null : newIds.get(0);
+        existing.setMetodoPagoId(firstMetodoPagoId);
+
         if (historialRecibo.getSesionId() != null) {
             existing.setSesionId(historialRecibo.getSesionId());
         }
         existing.setTotal(historialRecibo.getTotal());
         existing.setMontoRecibido(historialRecibo.getMontoRecibido());
-        return repository.save(existing);
+        HistorialRecibo saved = repository.save(existing);
+
+        // Actualizar junction table
+        persistMetodoPagoIds(id, newIds);
+        saved.setMetodoPagoIds(newIds);
+        return saved;
     }
 
     @Override
     public boolean delete(Long id) {
         if (id == null) return false;
         if (!repository.existsById(id)) return false;
+        historialReciboMetodoPagoRepository.deleteByHistorialReciboId(id);
         repository.deleteById(id);
         return true;
     }
@@ -172,8 +255,10 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         boolean hasEstado = estadoId != null && estadoId != 0;
         boolean hasSesion = sesionId != null && sesionId > 0;
 
+        List<HistorialRecibo> results;
+        Page<HistorialRecibo> page;
+
         if (hasSesion) {
-            List<HistorialRecibo> results;
             if (hasFecha && hasEstado) {
                 try {
                     LocalDate date = LocalDate.parse(fecha, DATE_FMT);
@@ -197,7 +282,8 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
             } else {
                 results = repository.findBySesionId(sesionId);
             }
-            return new org.springframework.data.domain.PageImpl<>(results);
+            populateMetodoPagoIds(results);
+            return new PageImpl<>(results);
         }
 
         if (hasFecha && hasEstado) {
@@ -205,7 +291,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                 LocalDate date = LocalDate.parse(fecha, DATE_FMT);
                 LocalDateTime startOfDay = date.atStartOfDay();
                 LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
-                return repository.findByFechaCreacionBetweenAndEstadoId(startOfDay, endOfDay, estadoId, pageable);
+                page = repository.findByFechaCreacionBetweenAndEstadoId(startOfDay, endOfDay, estadoId, pageable);
             } catch (Exception e) {
                 return Page.empty(pageable);
             }
@@ -214,36 +300,52 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                 LocalDate date = LocalDate.parse(fecha, DATE_FMT);
                 LocalDateTime startOfDay = date.atStartOfDay();
                 LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
-                return repository.findByFechaCreacionBetween(startOfDay, endOfDay, pageable);
+                page = repository.findByFechaCreacionBetween(startOfDay, endOfDay, pageable);
             } catch (Exception e) {
                 return Page.empty(pageable);
             }
         } else if (hasEstado) {
-            return repository.findByEstadoId(estadoId, pageable);
+            page = repository.findByEstadoId(estadoId, pageable);
         } else {
-            return repository.findAll(pageable);
+            page = repository.findAll(pageable);
         }
+
+        populateMetodoPagoIds(page.getContent());
+        return page;
     }
 
     @Override
     @Transactional
     public void moveToEdition(Long historialReciboId, Long sesionId) {
-        HistorialRecibo historial = findById(historialReciboId);
+        HistorialRecibo historial = findById(historialReciboId); // ya incluye metodoPagoIds
         if (historial == null) {
-            // Or throw an exception
             return;
         }
+
+        // Recuperar lista de métodos de pago del historial
+        List<Long> metodoPagoIds = historial.getMetodoPagoIds();
+        if (metodoPagoIds == null || metodoPagoIds.isEmpty()) {
+            // Fallback a campo de compatibilidad
+            if (historial.getMetodoPagoId() != null) {
+                metodoPagoIds = Collections.singletonList(historial.getMetodoPagoId());
+            } else {
+                metodoPagoIds = Collections.emptyList();
+            }
+        }
+        Long firstMetodoPagoId = metodoPagoIds.isEmpty() ? null : metodoPagoIds.get(0);
 
         // 1. Move HistorialRecibo to Recibo
         Recibo nuevoRecibo = Recibo.builder()
                 .clienteId(historial.getClienteId())
-                .estadoId(ReciboEstado.EDICION.getId()) // Or whatever the default is
-                .metodoPagoId(historial.getMetodoPagoId())
+                .estadoId(ReciboEstado.EDICION.getId())
+                .metodoPagoId(firstMetodoPagoId)
                 .sesionId(sesionId)
                 .total(historial.getTotal())
                 .montoRecibido(historial.getMontoRecibido())
                 .build();
         Recibo reciboGuardado = reciboService.saveAndFlush(nuevoRecibo);
+        // Persistir lista de métodos de pago para el recibo nuevo
+        reciboService.saveMetodoPagoIds(reciboGuardado.getId(), metodoPagoIds);
 
         // 2. Copy HistorialRecibo to EdicionRecibo
         EdicionRecibo edicionRecibo = EdicionRecibo.builder()
@@ -251,11 +353,12 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                 .historialReciboId(historial.getId())
                 .clienteId(historial.getClienteId())
                 .estadoId(historial.getEstadoId())
-                .metodoPagoId(historial.getMetodoPagoId())
+                .metodoPagoId(firstMetodoPagoId)
                 .sesionId(historial.getSesionId())
                 .total(historial.getTotal())
                 .montoRecibido(historial.getMontoRecibido())
                 .build();
+        edicionRecibo.setMetodoPagoIds(metodoPagoIds);
         EdicionRecibo edicionReciboGuardado = edicionReciboService.create(edicionRecibo);
 
         // 3. Move and Copy Details
@@ -293,7 +396,6 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         }
         ticketName = now.format(formatter).toLowerCase();
 
-
         Ticket ticket = Ticket.builder()
                 .sessionId(sesionId)
                 .nombre(ticketName)
@@ -310,7 +412,8 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
             sesionService.update(sesionId, sesion);
         }
 
-        // 7. Delete original HistorialRecibo and its details
+        // 7. Delete original HistorialRecibo: junction + detalles + registro
+        historialReciboMetodoPagoRepository.deleteByHistorialReciboId(historialReciboId);
         historialReciboDetalleService.deleteByReciboId(historialReciboId);
         repository.delete(historial);
     }

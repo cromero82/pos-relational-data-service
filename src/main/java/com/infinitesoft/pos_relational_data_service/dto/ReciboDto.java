@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -21,7 +22,13 @@ public class ReciboDto {
     private Long estadoId;
     private String estado; // human readable label from enum
 
-    private Long metodoPagoId;
+    /**
+     * Lista de IDs de métodos de pago asociados a este recibo (relación 1-N).
+     * Reemplaza el campo único metodoPagoId.
+     * El primer elemento de la lista se persiste también en la columna
+     * metodo_pago_id de la tabla recibo por compatibilidad con datos históricos.
+     */
+    private List<Long> metodoPagoIds;
 
     private Long sesionId;
 

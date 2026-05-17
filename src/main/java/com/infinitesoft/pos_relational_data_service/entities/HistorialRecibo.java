@@ -8,6 +8,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "historial_recibo")
@@ -36,6 +37,13 @@ public class HistorialRecibo {
 
     @Column(name = "metodo_pago_id")
     private Long metodoPagoId;
+
+    /**
+     * Lista de IDs de métodos de pago (relación 1-N vía tabla historial_recibo_metodo_pago).
+     * Campo transient: no se persiste en esta tabla, se gestiona por el servicio.
+     */
+    @Transient
+    private List<Long> metodoPagoIds;
 
     @JsonAlias("sessionId")
     @Column(name = "sesion_id")

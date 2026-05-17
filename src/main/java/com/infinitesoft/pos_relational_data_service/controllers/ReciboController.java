@@ -4,6 +4,7 @@ import com.infinitesoft.pos_relational_data_service.dto.ReciboDto;
 import com.infinitesoft.pos_relational_data_service.entities.Client;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
+import com.infinitesoft.pos_relational_data_service.repositories.ReciboMetodoPagoRepository;
 import com.infinitesoft.pos_relational_data_service.services.ClientService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,9 @@ public class ReciboController {
 
     @Autowired
     private ClientService clientService;
+
+    @Autowired
+    private ReciboMetodoPagoRepository reciboMetodoPagoRepository;
 
     @PostMapping
     public ResponseEntity<Recibo> create(@RequestBody ReciboDto reciboDto) {
@@ -55,6 +59,9 @@ public class ReciboController {
         if (found.getClienteId() != null) {
             cliente = clientService.findById(found.getClienteId());
         }
+        // Load lista de métodos de pago desde junction table
+        List<Long> metodoPagoIds = reciboMetodoPagoRepository.findMetodoPagoIdsByReciboId(found.getId());
+
         ReciboDto dto = ReciboDto.builder()
                 .id(found.getId())
                 .clienteId(found.getClienteId())
@@ -62,7 +69,7 @@ public class ReciboController {
                 .fechaCreacion(found.getFechaCreacion())
                 .estadoId(found.getEstadoId())
                 .estado(estadoLabel)
-                .metodoPagoId(found.getMetodoPagoId())
+                .metodoPagoIds(metodoPagoIds)
                 .sesionId(found.getSesionId())
                 .total(found.getTotal())
                 .montoRecibido(found.getMontoRecibido())

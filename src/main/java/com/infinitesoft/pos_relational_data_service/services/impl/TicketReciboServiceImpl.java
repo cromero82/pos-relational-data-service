@@ -110,7 +110,7 @@ public class TicketReciboServiceImpl implements TicketReciboService {
         ReciboDto nuevoRecibo = ReciboDto.builder()
                 .clienteId(clienteId)
                 .estadoId(ReciboEstado.PENDIENTE_PAGO.getId())
-                .metodoPagoId(null)
+                .metodoPagoIds(java.util.Collections.emptyList())
                 .sesionId(sessionId)
                 .total(BigDecimal.ZERO)
                 .montoRecibido(BigDecimal.ZERO)

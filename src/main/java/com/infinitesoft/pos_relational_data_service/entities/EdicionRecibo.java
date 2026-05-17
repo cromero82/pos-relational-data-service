@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "edicion_recibo")
@@ -38,6 +39,13 @@ public class EdicionRecibo {
 
     @Column(name = "metodo_pago_id")
     private Long metodoPagoId;
+
+    /**
+     * Lista de IDs de métodos de pago (relación 1-N vía tabla edicion_recibo_metodo_pago).
+     * Campo transient: no se persiste en esta tabla, se gestiona por el servicio.
+     */
+    @Transient
+    private List<Long> metodoPagoIds;
 
     @Column(name = "sesion_id")
     private Long sesionId;

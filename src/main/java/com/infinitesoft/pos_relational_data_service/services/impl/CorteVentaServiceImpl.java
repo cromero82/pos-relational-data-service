@@ -195,10 +195,17 @@ public class CorteVentaServiceImpl implements CorteVentaService {
         if (response.getFechaIni() != null && response.getFechaFin() != null) {
             List<Object[]> resumen = historialReciboRepository.findResumenVentasPorMetodoPago(response.getFechaIni(), response.getFechaFin());
             List<CorteVentaRangoResponse.VentasTipoResumenDTO> ventasTipo = resumen.stream()
-                    .map(obj -> CorteVentaRangoResponse.VentasTipoResumenDTO.builder()
-                            .metodoPagoId((Long) obj[0])
-                            .totalSistema((BigDecimal) obj[1])
-                            .build())
+                    .map(obj -> {
+                        // Native query en PostgreSQL retorna BigInteger para bigint y BigDecimal para numeric/sum
+                        Long metodoPagoId = obj[0] instanceof Number ? ((Number) obj[0]).longValue() : null;
+                        BigDecimal totalSistema = obj[1] instanceof BigDecimal
+                                ? (BigDecimal) obj[1]
+                                : (obj[1] instanceof Number ? BigDecimal.valueOf(((Number) obj[1]).doubleValue()) : BigDecimal.ZERO);
+                        return CorteVentaRangoResponse.VentasTipoResumenDTO.builder()
+                                .metodoPagoId(metodoPagoId)
+                                .totalSistema(totalSistema)
+                                .build();
+                    })
                     .collect(Collectors.toList());
             
             response.setVentasTipo(ventasTipo);

@@ -69,6 +69,11 @@ public class BackupService {
     private final CargueProductoRepository cargueProductoRepository;
     private final CargueProductoConflictoRepository cargueProductoConflictoRepository;
 
+    // ── Repositorios tablas junction métodos de pago ──────────────────────────
+    private final com.infinitesoft.pos_relational_data_service.repositories.ReciboMetodoPagoRepository reciboMetodoPagoRepository;
+    private final com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboMetodoPagoRepository historialReciboMetodoPagoRepository;
+    private final com.infinitesoft.pos_relational_data_service.repositories.EdicionReciboMetodoPagoRepository edicionReciboMetodoPagoRepository;
+
     // ─────────────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -130,6 +135,11 @@ public class BackupService {
             crearHojaTipoResultadoFin(workbook);
             crearHojaCargueProductos(workbook);
             crearHojaCargueProductoConflictos(workbook);
+
+            // ── Tablas junction métodos de pago ───────────────────────────────
+            crearHojaReciboMetodoPago(workbook);
+            crearHojaHistorialReciboMetodoPago(workbook);
+            crearHojaEdicionReciboMetodoPago(workbook);
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
@@ -748,6 +758,58 @@ public class BackupService {
             row.createCell(3).setCellValue(clean(item.getNombreProducto()));
             row.createCell(4).setCellValue(clean(item.getDatosConflicto()));
             row.createCell(5).setCellValue(item.getResuelto() != null && item.getResuelto() ? "SI" : "NO");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TABLAS JUNCTION MÉTODOS DE PAGO
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void crearHojaReciboMetodoPago(Workbook workbook) {
+        Sheet sheet = workbook.createSheet("Recibo Metodo Pago");
+        String[] headers = {"ID", "Recibo ID", "Metodo Pago ID"};
+        createHeaderRow(sheet, headers);
+
+        List<com.infinitesoft.pos_relational_data_service.entities.ReciboMetodoPago> list =
+                reciboMetodoPagoRepository.findAll();
+        int rowIdx = 1;
+        for (com.infinitesoft.pos_relational_data_service.entities.ReciboMetodoPago item : list) {
+            Row row = sheet.createRow(rowIdx++);
+            row.createCell(0).setCellValue(item.getId() != null ? item.getId() : 0);
+            row.createCell(1).setCellValue(item.getReciboId() != null ? item.getReciboId() : 0);
+            row.createCell(2).setCellValue(item.getMetodoPagoId() != null ? item.getMetodoPagoId() : 0);
+        }
+    }
+
+    private void crearHojaHistorialReciboMetodoPago(Workbook workbook) {
+        Sheet sheet = workbook.createSheet("Hist Recibo Metodo Pago");
+        String[] headers = {"ID", "Historial Recibo ID", "Metodo Pago ID"};
+        createHeaderRow(sheet, headers);
+
+        List<com.infinitesoft.pos_relational_data_service.entities.HistorialReciboMetodoPago> list =
+                historialReciboMetodoPagoRepository.findAll();
+        int rowIdx = 1;
+        for (com.infinitesoft.pos_relational_data_service.entities.HistorialReciboMetodoPago item : list) {
+            Row row = sheet.createRow(rowIdx++);
+            row.createCell(0).setCellValue(item.getId() != null ? item.getId() : 0);
+            row.createCell(1).setCellValue(item.getHistorialReciboId() != null ? item.getHistorialReciboId() : 0);
+            row.createCell(2).setCellValue(item.getMetodoPagoId() != null ? item.getMetodoPagoId() : 0);
+        }
+    }
+
+    private void crearHojaEdicionReciboMetodoPago(Workbook workbook) {
+        Sheet sheet = workbook.createSheet("Edicion Recibo Met Pago");
+        String[] headers = {"ID", "Edicion Recibo ID", "Metodo Pago ID"};
+        createHeaderRow(sheet, headers);
+
+        List<com.infinitesoft.pos_relational_data_service.entities.EdicionReciboMetodoPago> list =
+                edicionReciboMetodoPagoRepository.findAll();
+        int rowIdx = 1;
+        for (com.infinitesoft.pos_relational_data_service.entities.EdicionReciboMetodoPago item : list) {
+            Row row = sheet.createRow(rowIdx++);
+            row.createCell(0).setCellValue(item.getId() != null ? item.getId() : 0);
+            row.createCell(1).setCellValue(item.getEdicionReciboId() != null ? item.getEdicionReciboId() : 0);
+            row.createCell(2).setCellValue(item.getMetodoPagoId() != null ? item.getMetodoPagoId() : 0);
         }
     }
 

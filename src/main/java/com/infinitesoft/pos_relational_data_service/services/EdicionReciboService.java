@@ -13,4 +13,9 @@ public interface EdicionReciboService {
     void deleteByReciboId(Long reciboId);
     EdicionRecibo update(Long id, EdicionRecibo edicionRecibo);
     boolean delete(Long id);
+
+    /**
+     * Reemplaza los métodos de pago asociados a la edición en edicion_recibo_metodo_pago.
+     */
+    void saveMetodoPagoIds(Long edicionReciboId, List<Long> metodoPagoIds);
 }
