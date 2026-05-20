@@ -29,7 +29,7 @@ public class MigracionProductoConflicto {
     private String nombreProducto;
 
     @Type(type = "jsonb")
-    @Column(name = "datos_conflicto", columnDefinition = "jsonb")
+    @Column(name = "datos_conflicto")
     private String datosConflicto;
 
     @Builder.Default

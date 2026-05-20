@@ -16,7 +16,7 @@ public class ConfiguracionApp {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "key", length = 50, nullable = false, unique = true)
+    @Column(name = "config_key", length = 50, nullable = false, unique = true)
     private String key;
 
     @Column(name = "value", length = 1000, nullable = false)

@@ -28,11 +28,11 @@ public class BitacoraUsuario {
     private Integer eventoId;
 
     @Type(type = "jsonb")
-    @Column(name = "valor_antes", columnDefinition = "jsonb")
+    @Column(name = "valor_antes")
     private String valorAntes;
 
     @Type(type = "jsonb")
-    @Column(name = "valor_despues", columnDefinition = "jsonb")
+    @Column(name = "valor_despues")
     private String valorDespues;
 
     @Column(name = "referencia_id")

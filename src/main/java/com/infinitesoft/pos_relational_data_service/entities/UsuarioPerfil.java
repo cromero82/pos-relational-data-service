@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Entity
-@Table(name = "usuario_perfil", schema = "security")
+@Table(name = "usuario_perfil")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,7 +24,7 @@ public class UsuarioPerfil {
     private Long id;
 
     @Type(type = "jsonb")
-    @Column(columnDefinition = "jsonb")
+    @Column
     private Map<String, Object> personalizacion;
 
     @Column(name = "usuario_id")

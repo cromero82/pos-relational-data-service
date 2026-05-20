@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS app_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    fecha TIMESTAMP NOT NULL,
+    nivel VARCHAR(10) NOT NULL,
+    logger VARCHAR(255) NOT NULL,
+    mensaje VARCHAR(4000),
+    excepcion VARCHAR(4000),
+    thread VARCHAR(100)
+);
