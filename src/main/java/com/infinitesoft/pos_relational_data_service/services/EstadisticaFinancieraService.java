@@ -124,6 +124,14 @@ public class EstadisticaFinancieraService {
         return calcularYGuardarEstadistica(valorTiempo, formato, existente);
     }
 
+    @Transactional
+    public EstadisticaFin crearOActualizarEstadisticaSync(String valorTiempo) {
+        String formato = extraerFormatoDesdeValorTiempo(valorTiempo);
+        EstadisticaFin existente = estadisticaFinRepository.findByValorTiempoAndFormatoTiempo(valorTiempo, formato)
+                .orElse(null);
+        return calcularYGuardarEstadistica(valorTiempo, formato, existente);
+    }
+
     private EstadisticaFin calcularYGuardarEstadistica(String valorTiempo, String formato, EstadisticaFin existente) {
         LocalDate fechaInicio;
         LocalDate fechaFin;
