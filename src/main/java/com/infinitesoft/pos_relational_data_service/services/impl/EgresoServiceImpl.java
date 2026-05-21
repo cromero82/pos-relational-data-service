@@ -12,7 +12,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -29,40 +28,67 @@ public class EgresoServiceImpl implements EgresoService {
     public Egreso create(Egreso egreso) {
         log.info("Iniciando servicio EgresoServiceImpl - Método: create - Egreso: {}", egreso);
         
-        LocalDateTime requestFechaCreacion = egreso.getFechaCreacion();
+        LocalDate requestDate = egreso.getFecha();
         
         Egreso saved = egresoRepository.save(egreso);
         
-        if (requestFechaCreacion != null) {
-            LocalDate requestDate = requestFechaCreacion.toLocalDate();
-            LocalDate currentDate = DateUtils.obtenerFechaSistema().toLocalDate();
-            
-            if (requestDate.isBefore(currentDate)) {
-                log.info("La fecha de creación del egreso {} es menor a la fecha actual {}. Iniciando ajuste de estadísticas.", requestDate, currentDate);
-                
-                String valorTiempoDia = requestDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
-                log.info("Ajustando estadística de DÍA para: {}", valorTiempoDia);
-                estadisticaFinancieraService.crearOActualizarEstadisticaSync(valorTiempoDia);
-                
-                java.time.YearMonth requestMonth = java.time.YearMonth.from(requestDate);
-                java.time.YearMonth currentMonth = java.time.YearMonth.from(currentDate);
-                if (requestMonth.isBefore(currentMonth)) {
-                    String valorTiempoMes = requestMonth.toString();
-                    log.info("Ajustando estadística de MES para: {}", valorTiempoMes);
-                    estadisticaFinancieraService.crearOActualizarEstadisticaSync(valorTiempoMes);
-                }
-                
-                int requestYear = requestDate.getYear();
-                int currentYear = currentDate.getYear();
-                if (requestYear < currentYear) {
-                    String valorTiempoAnio = String.valueOf(requestYear);
-                    log.info("Ajustando estadística de AÑO para: {}", valorTiempoAnio);
-                    estadisticaFinancieraService.crearOActualizarEstadisticaSync(valorTiempoAnio);
-                }
-            }
-        }
+        ajustarEstadisticas(requestDate);
         
         return saved;
+    }
+
+    @Override
+    public Egreso update(Long id, Egreso egreso) {
+        if (egresoRepository.existsById(id)) {
+            egreso.setId(id);
+            Egreso saved = egresoRepository.save(egreso);
+            ajustarEstadisticas(egreso.getFecha());
+            return saved;
+        }
+        return null;
+    }
+
+    @Override
+    public boolean delete(Long id) {
+        Egreso existente = findById(id);
+        if (existente != null) {
+            LocalDate fechaEgreso = existente.getFecha();
+            egresoRepository.deleteById(id);
+            ajustarEstadisticas(fechaEgreso);
+            return true;
+        }
+        return false;
+    }
+
+    private void ajustarEstadisticas(LocalDate requestDate) {
+        if (requestDate == null) {
+            return;
+        }
+        LocalDate currentDate = DateUtils.obtenerFechaSistema().toLocalDate();
+        
+        if (requestDate.isBefore(currentDate)) {
+            log.info("La fecha del egreso {} es menor a la fecha actual {}. Iniciando ajuste de estadísticas.", requestDate, currentDate);
+            
+            String valorTiempoDia = requestDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
+            log.info("Ajustando estadística de DÍA para: {}", valorTiempoDia);
+            estadisticaFinancieraService.crearOActualizarEstadisticaSync(valorTiempoDia);
+            
+            java.time.YearMonth requestMonth = java.time.YearMonth.from(requestDate);
+            java.time.YearMonth currentMonth = java.time.YearMonth.from(currentDate);
+            if (requestMonth.isBefore(currentMonth)) {
+                String valorTiempoMes = requestMonth.toString();
+                log.info("Ajustando estadística de MES para: {}", valorTiempoMes);
+                estadisticaFinancieraService.crearOActualizarEstadisticaSync(valorTiempoMes);
+            }
+            
+            int requestYear = requestDate.getYear();
+            int currentYear = currentDate.getYear();
+            if (requestYear < currentYear) {
+                String valorTiempoAnio = String.valueOf(requestYear);
+                log.info("Ajustando estadística de AÑO para: {}", valorTiempoAnio);
+                estadisticaFinancieraService.crearOActualizarEstadisticaSync(valorTiempoAnio);
+            }
+        }
     }
 
     @Override
@@ -98,23 +124,5 @@ public class EgresoServiceImpl implements EgresoService {
     @Override
     public List<Egreso> findByTipoEgresoId(Long tipoEgresoId) {
         return egresoRepository.findByTipoEgresoId(tipoEgresoId);
-    }
-
-    @Override
-    public Egreso update(Long id, Egreso egreso) {
-        if (egresoRepository.existsById(id)) {
-            egreso.setId(id);
-            return egresoRepository.save(egreso);
-        }
-        return null;
-    }
-
-    @Override
-    public boolean delete(Long id) {
-        if (egresoRepository.existsById(id)) {
-            egresoRepository.deleteById(id);
-            return true;
-        }
-        return false;
     }
 }
