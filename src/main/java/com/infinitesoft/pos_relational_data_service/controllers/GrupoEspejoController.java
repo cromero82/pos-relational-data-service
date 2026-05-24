@@ -36,6 +36,15 @@ public class GrupoEspejoController {
         return ResponseEntity.created(location).body(grupo);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<GrupoEspejo> actualizarNombre(
+            @PathVariable Long id,
+            @Valid @RequestBody GrupoEspejoRequest request
+    ) {
+        GrupoEspejo grupo = grupoEspejoService.actualizarNombre(id, request);
+        return ResponseEntity.ok(grupo);
+    }
+
     @PutMapping("/{grupoEspejoId}/productos/{productoId}")
     public ResponseEntity<GrupoEspejo> agregarProducto(
             @PathVariable Long grupoEspejoId,

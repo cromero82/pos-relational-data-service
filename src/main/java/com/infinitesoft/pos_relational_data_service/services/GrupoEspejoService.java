@@ -15,4 +15,5 @@ public interface GrupoEspejoService {
     GrupoEspejo agregarProducto(Long grupoEspejoId, Long productoId);
 
     void quitarProducto(Long grupoEspejoId, Long productoId);
+    GrupoEspejo actualizarNombre(Long id, GrupoEspejoRequest request);
 }

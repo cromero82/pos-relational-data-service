@@ -159,4 +159,16 @@ public class GrupoEspejoServiceImpl implements GrupoEspejoService {
         grupo.setProductoReferenciaId(nuevoReferencia.orElse(null));
         grupoEspejoRepository.save(grupo);
     }
+
+    @Override
+    @Transactional
+    public GrupoEspejo actualizarNombre(Long id, GrupoEspejoRequest request) {
+        log.info("GrupoEspejoServiceImpl - actualizarNombre: id={}, nombre={}", id, request.getNombre());
+
+        GrupoEspejo grupo = grupoEspejoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "GrupoEspejo no encontrado: " + id));
+
+        grupo.setNombre(request.getNombre().toUpperCase());
+        return grupoEspejoRepository.save(grupo);
+    }
 }
