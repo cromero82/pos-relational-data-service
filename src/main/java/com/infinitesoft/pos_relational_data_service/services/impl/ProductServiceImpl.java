@@ -14,6 +14,8 @@ import com.infinitesoft.pos_relational_data_service.repositories.ProductReposito
 import com.infinitesoft.pos_relational_data_service.services.BitacoraUsuarioService;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -396,6 +398,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Cacheable(value = "products", key = "#barcode", unless = "#barcode == null")
     public Optional<Product> getByBarcode(String barcode) {
         if (barcode == null || barcode.isBlank()) {
             return Optional.empty();
@@ -427,6 +430,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "products", allEntries = true)
     public Product create(Product product) {
         // Normalize fields safely (allow null barcode/nombre)
         if (product.getNombre() != null) {
@@ -466,6 +470,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "products", allEntries = true)
     public Product update(Long id, Product product) {
         if (id == null) {
             return null;
@@ -577,6 +582,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "products", allEntries = true)
     public Product deactivate(Long id) {
         if (id == null) {
             return null;
@@ -615,6 +621,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "products", allEntries = true)
     public Product activate(Long id) {
         if (id == null) {
             return null;
@@ -652,6 +659,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @CacheEvict(value = "products", allEntries = true)
     public boolean delete(Long id) {
         if (id == null) return false;
         int updated = productRepository.softDeleteById(id);
