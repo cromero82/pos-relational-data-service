@@ -48,7 +48,7 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
             if (reciboOpt.isPresent()) {
                 Recibo recibo = reciboOpt.get();
                 if (recibo.getReciboPadreId() != null) {
-                    List<ReciboDetalle> detallesPadre = repository.findByReciboId(recibo.getReciboPadreId());
+                    List<ReciboDetalle> detallesPadre = repository.findByReciboIdOrderByIdAsc(recibo.getReciboPadreId());
                     Optional<ReciboDetalle> matchingDetallePadre = detallesPadre.stream()
                             .filter(d -> d.getProductoId().equals(saved.getProductoId()))
                             .findFirst();
@@ -125,7 +125,7 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     @Override
     public List<ReciboDetalle> findEntityListByReciboId(Long reciboId) {
         if (reciboId == null) return List.of();
-        return repository.findByReciboId(reciboId);
+        return repository.findByReciboIdOrderByIdAsc(reciboId);
     }
 
     @Override
