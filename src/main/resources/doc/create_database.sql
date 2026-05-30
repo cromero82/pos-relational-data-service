@@ -128,6 +128,24 @@ CREATE TABLE IF NOT EXISTS tipo_resultado_fin (
 );
 
 -- ----------------------------------------------------------
+--  public.app_log
+--  Almacena logs de nivel WARN y ERROR generados por Log4j2
+--  via DbAppender
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS app_log (
+    id        BIGSERIAL    PRIMARY KEY,
+    fecha     TIMESTAMP    NOT NULL DEFAULT NOW(),
+    nivel     VARCHAR(10)  NOT NULL,
+    logger    VARCHAR(255) NOT NULL,
+    mensaje   TEXT         NOT NULL,
+    excepcion TEXT,
+    thread    VARCHAR(100)
+);
+
+CREATE INDEX IF NOT EXISTS idx_app_log_fecha  ON app_log (fecha DESC);
+CREATE INDEX IF NOT EXISTS idx_app_log_nivel  ON app_log (nivel);
+
+-- ----------------------------------------------------------
 --  public.tipo_conflicto
 --  Nota: en Java se mapea como enum TipoConflicto,
 --        pero la tabla existe en BD para datos de referencia.
