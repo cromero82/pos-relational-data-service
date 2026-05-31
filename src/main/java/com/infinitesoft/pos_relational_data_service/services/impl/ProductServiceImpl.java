@@ -398,12 +398,18 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    @Cacheable(value = "products", key = "#barcode", unless = "#barcode == null")
+    @Cacheable(value = "products", key = "#barcode == null ? null : #barcode.toUpperCase()", unless = "#barcode == null")
     public Optional<Product> getByBarcode(String barcode) {
         if (barcode == null || barcode.isBlank()) {
             return Optional.empty();
         }
         return productRepository.findByBarcode(barcode.toUpperCase());
+    }
+
+    @Override
+    @CacheEvict(value = "products", key = "#barcode == null ? null : #barcode.toUpperCase()", condition = "#barcode != null && !#barcode.isBlank()")
+    public void evictProductCacheByBarcode(String barcode) {
+        // La anotación invalida la entrada en caché por código de barras
     }
 
     @Override

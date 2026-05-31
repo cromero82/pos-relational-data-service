@@ -1,15 +1,20 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
+import com.infinitesoft.pos_relational_data_service.dto.BitacoraUsuarioRequest;
 import com.infinitesoft.pos_relational_data_service.dto.EntradaInventarioDetalleRequest;
 import com.infinitesoft.pos_relational_data_service.dto.EntradaInventarioEstadoResumenDto;
 import com.infinitesoft.pos_relational_data_service.dto.PrecioCompraPreviewDto;
 import com.infinitesoft.pos_relational_data_service.entities.*;
+import com.infinitesoft.pos_relational_data_service.entities.enums.BitacoraEvento;
 import com.infinitesoft.pos_relational_data_service.entities.enums.EntradaInventarioEstado;
 import com.infinitesoft.pos_relational_data_service.exception.EntradaInventarioException;
 import com.infinitesoft.pos_relational_data_service.repositories.*;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
+import com.infinitesoft.pos_relational_data_service.services.BitacoraUsuarioService;
 import com.infinitesoft.pos_relational_data_service.services.EntradaInventarioService;
+import com.infinitesoft.pos_relational_data_service.services.ProductService;
 import com.infinitesoft.pos_relational_data_service.util.DateUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,7 +25,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,7 +48,19 @@ public class EntradaInventarioServiceImpl implements EntradaInventarioService {
     private ProductRepository productRepository;
 
     @Autowired
+    private ProductService productService;
+
+    @Autowired
     private HistorialProductoRepository historialProductoRepository;
+
+    @Autowired
+    private HistorialPrecioProductoRepository historialPrecioProductoRepository;
+
+    @Autowired
+    private BitacoraUsuarioService bitacoraUsuarioService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -154,7 +174,7 @@ public class EntradaInventarioServiceImpl implements EntradaInventarioService {
         }
 
         for (EntradaInventarioDetalle detalle : detalles) {
-            aplicarDetalleAProducto(detalle);
+            aplicarDetalleAProducto(entrada, detalle);
         }
 
         entrada.setEstado(EntradaInventarioEstado.CONFIRMADA);
@@ -280,9 +300,13 @@ public class EntradaInventarioServiceImpl implements EntradaInventarioService {
         }
     }
 
-    private void aplicarDetalleAProducto(EntradaInventarioDetalle detalle) {
+    private void aplicarDetalleAProducto(EntradaInventario entrada, EntradaInventarioDetalle detalle) {
         Product producto = productRepository.findById(detalle.getProductoId())
                 .orElseThrow(() -> new EntityNotFoundException("Producto no encontrado: " + detalle.getProductoId()));
+
+        BigDecimal compraAntes = toBigDecimal(producto.getPrecioCompra());
+        BigDecimal ventaAntes = toBigDecimal(producto.getPrecio());
+        Short gananciaAntes = producto.getPorcentajeGanancia();
 
         double nuevoPrecioCompra = detalle.getPrecioCompraRegistrado().doubleValue();
         producto.setPrecioCompra(nuevoPrecioCompra);
@@ -296,11 +320,41 @@ public class EntradaInventarioServiceImpl implements EntradaInventarioService {
 
         Product saved = productRepository.save(producto);
 
+        if (saved.getBarcode() != null && !saved.getBarcode().isBlank()) {
+            productService.evictProductCacheByBarcode(saved.getBarcode());
+        }
+
+        Short gananciaDespues = null;
         if (saved.getPrecio() != null && saved.getPrecioCompra() != null && saved.getPrecioCompra() > 0) {
-            short porcentaje = (short) Math.round(
+            gananciaDespues = (short) Math.round(
                     ((saved.getPrecio() - saved.getPrecioCompra()) / saved.getPrecioCompra()) * 100
             );
-            productRepository.actualizarPorcentajeGanancia(saved.getId(), porcentaje);
+            productRepository.actualizarPorcentajeGanancia(saved.getId(), gananciaDespues);
+        }
+
+        BigDecimal compraDespues = toBigDecimal(saved.getPrecioCompra());
+        BigDecimal ventaDespues = toBigDecimal(saved.getPrecio());
+
+        if (cambioPrecio(compraAntes, compraDespues) || cambioPrecio(ventaAntes, ventaDespues)) {
+            UUID usuarioId = entrada.getUsuarioId() != null
+                    ? entrada.getUsuarioId()
+                    : SecurityContextHelper.getUserId();
+
+            HistorialPrecioProducto historialPrecio = HistorialPrecioProducto.builder()
+                    .entradaInventarioDetalleId(detalle.getId())
+                    .productoId(saved.getId())
+                    .usuarioId(usuarioId)
+                    .precioCompra(compraDespues)
+                    .precioCompraAntes(compraAntes)
+                    .precioVenta(ventaDespues)
+                    .precioVentaAntes(ventaAntes)
+                    .porcentajeGanancia(gananciaDespues)
+                    .porcentajeGananciaAntes(gananciaAntes)
+                    .build();
+            historialPrecioProductoRepository.save(historialPrecio);
+
+            registrarBitacoraCambioPrecio(saved, compraAntes, ventaAntes, gananciaAntes,
+                    compraDespues, ventaDespues, gananciaDespues);
         }
 
         HistorialProducto historial = HistorialProducto.builder()
@@ -310,6 +364,52 @@ public class EntradaInventarioServiceImpl implements EntradaInventarioService {
                 .activo(saved.getActivate() != null && saved.getActivate() != 0)
                 .build();
         historialProductoRepository.save(historial);
+    }
+
+    private boolean cambioPrecio(BigDecimal antes, BigDecimal despues) {
+        if (antes == null && despues == null) {
+            return false;
+        }
+        if (antes == null || despues == null) {
+            return true;
+        }
+        return antes.compareTo(despues) != 0;
+    }
+
+    private void registrarBitacoraCambioPrecio(
+            Product producto,
+            BigDecimal compraAntes,
+            BigDecimal ventaAntes,
+            Short gananciaAntes,
+            BigDecimal compraDespues,
+            BigDecimal ventaDespues,
+            Short gananciaDespues) {
+        try {
+            String productoRef = producto.getId() + " (" + producto.getNombre() + ")";
+
+            Map<String, Object> valorAntes = new LinkedHashMap<>();
+            valorAntes.put("producto_id", productoRef);
+            valorAntes.put("precio_compra", compraAntes);
+            valorAntes.put("precio_venta", ventaAntes);
+            valorAntes.put("porcentaje_ganancia", gananciaAntes);
+
+            Map<String, Object> valorDespues = new LinkedHashMap<>();
+            valorDespues.put("producto_id", productoRef);
+            valorDespues.put("precio_compra", compraDespues);
+            valorDespues.put("precio_venta", ventaDespues);
+            valorDespues.put("porcentaje_ganancia", gananciaDespues);
+            valorDespues.put("origen", "entrada inventario");
+
+            BitacoraUsuarioRequest bitacoraRequest = new BitacoraUsuarioRequest();
+            bitacoraRequest.setEvento(BitacoraEvento.ENTRADA_INV_PRECIO.getSigla());
+            bitacoraRequest.setReferenciaId(producto.getId().intValue());
+            bitacoraRequest.setValorAntes(objectMapper.writeValueAsString(valorAntes));
+            bitacoraRequest.setValorDespues(objectMapper.writeValueAsString(valorDespues));
+            bitacoraUsuarioService.save(bitacoraRequest);
+        } catch (Exception e) {
+            log.warn("[ENTRADA-INV] No se pudo registrar bitácora de precio productoId={}: {}",
+                    producto.getId(), e.getMessage());
+        }
     }
 
     private PrecioCompraPreviewDto buildPreview(
