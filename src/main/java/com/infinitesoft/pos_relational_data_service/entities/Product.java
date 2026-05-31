@@ -54,6 +54,10 @@ public class Product {
     @Column(name = "porcentaje_ganancia")
     private Short porcentajeGanancia;
 
+    @Column(name = "existencia")
+    @Builder.Default
+    private Integer existencia = 0;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinTable(
             name = "producto_espejo",
