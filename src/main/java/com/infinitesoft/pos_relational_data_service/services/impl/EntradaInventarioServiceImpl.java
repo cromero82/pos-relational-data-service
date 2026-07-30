@@ -12,6 +12,7 @@ import com.infinitesoft.pos_relational_data_service.repositories.*;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.BitacoraUsuarioService;
 import com.infinitesoft.pos_relational_data_service.services.EntradaInventarioService;
+import com.infinitesoft.pos_relational_data_service.services.MovimientoInventarioService;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
 import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -61,6 +62,9 @@ public class EntradaInventarioServiceImpl implements EntradaInventarioService {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private MovimientoInventarioService movimientoInventarioService;
 
     @Override
     @Transactional
@@ -180,6 +184,13 @@ public class EntradaInventarioServiceImpl implements EntradaInventarioService {
         entrada.setEstado(EntradaInventarioEstado.CONFIRMADA);
         entrada.setFechaConfirmacion(DateUtils.obtenerFechaSistema());
         entradaRepository.save(entrada);
+
+        try {
+            movimientoInventarioService.registrarCompraEgresoTrazabilidad(
+                    entrada, detalles, SecurityContextHelper.getUserId());
+        } catch (Exception e) {
+            log.warn("[ENTRADA-INV] Trazabilidad kardex no registrada entradaId={}: {}", entradaId, e.getMessage());
+        }
 
         log.info("[ENTRADA-INV] Confirmada id={} egresoId={} items={}", entradaId, entrada.getEgresoId(), detalles.size());
         return cargarDetalles(entrada);

@@ -1,6 +1,8 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
 import com.infinitesoft.pos_relational_data_service.dto.ReciboDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoResponseDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboUpdateResult;
 import com.infinitesoft.pos_relational_data_service.entities.Client;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
@@ -72,8 +74,18 @@ public class ReciboController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Recibo> update(@PathVariable Long id, @RequestBody ReciboDto reciboDto) {
-        Recibo updated = reciboService.update(id, reciboDto);
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody ReciboDto reciboDto) {
+        ReciboUpdateResult result = reciboService.update(id, reciboDto);
+        if (result == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (result.isPagoCompletado()) {
+            return ResponseEntity.ok(result.getPagoResponse());
+        }
+        Recibo updated = result.getRecibo();
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
         return ResponseEntity.ok(updated);
     }
 

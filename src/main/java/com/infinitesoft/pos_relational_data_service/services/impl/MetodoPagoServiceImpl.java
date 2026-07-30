@@ -18,4 +18,14 @@ public class MetodoPagoServiceImpl implements MetodoPagoService {
     public List<MetodoPago> findAll() {
         return repository.findAllByOrderByIdAsc();
     }
+
+    @Override
+    public List<MetodoPago> findForEgresos() {
+        return repository.findByVisiblePagosEgresosTrueOrderByIdAsc();
+    }
+
+    @Override
+    public List<MetodoPago> findForTickets() {
+        return repository.findByVisiblePagoTicketsTrueOrderByIdAsc();
+    }
 }

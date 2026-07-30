@@ -37,11 +37,45 @@ public class CorteVenta {
     @Column(name = "ultimo_historial_recibo_id")
     private Long ultimoHistorialReciboId;
 
+    /** Watermark del ledger: último movimiento incluido en este corte. */
+    @Column(name = "ultimo_movimiento_origen_fondos_id")
+    private Long ultimoMovimientoOrigenFondosId;
+
+    /** PENDIENTE | CONFIRMADA */
+    @Column(name = "distribucion_efectivo_estado", length = 20)
+    private String distribucionEfectivoEstado;
+
+    /** Saldo restante en Caja: Efectivo tras distribución (= Base próximo turno). */
+    @Column(name = "base_siguiente_efectivo", precision = 14, scale = 2)
+    private BigDecimal baseSiguienteEfectivo;
+
     @Column(name = "total", precision = 12, scale = 2)
     private BigDecimal total;
 
     @Column(name = "total_sistema", precision = 12, scale = 2)
     private BigDecimal totalSistema;
+
+    @Column(name = "sesion_id")
+    private Long sesionId;
+
+    @Column(name = "fondo_inicial_efectivo", precision = 12, scale = 2)
+    private BigDecimal fondoInicialEfectivo;
+
+    @Column(name = "motivo_desfase", columnDefinition = "TEXT")
+    private String motivoDesfase;
+
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String estado = "creada";
+
+    @Column(length = 200)
+    private String observacion;
+
+    @Column(name = "revisado_por", length = 36)
+    private String revisadoPor;
+
+    @Column(name = "fecha_revision")
+    private LocalDateTime fechaRevision;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "corte_venta_id")

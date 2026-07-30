@@ -37,6 +37,12 @@ public class Egreso {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Proveedor proveedor;
 
+    @Column(name = "metodo_pago_id")
+    private Long metodoPagoId;
+
+    @Column(name = "origen_fondos_id")
+    private Integer origenFondosId;
+
     @PrePersist
     @PreUpdate
     protected void onPrePersistUpdate() {

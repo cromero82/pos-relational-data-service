@@ -16,5 +16,9 @@ public class VentasTipoDTO {
     private Long metodoPagoId;
     private BigDecimal total;
     private BigDecimal totalSistema;
+    private BigDecimal totalVentasSistema;
+    private BigDecimal totalEgresosSistema;
+    private BigDecimal desfase;
+    private Integer motivoDesfaseId;
     private Long corteVentaId;
 }

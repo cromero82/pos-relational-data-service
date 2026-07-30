@@ -19,9 +19,18 @@ public class CorteVentaDTO {
     private LocalDateTime fechaIni;
     private LocalDateTime fechaFin;
     private Long ultimoHistorialReciboId;
+    private Long ultimoMovimientoOrigenFondosId;
+    private String distribucionEfectivoEstado;
+    private BigDecimal baseSiguienteEfectivo;
     private BigDecimal total;
     private BigDecimal totalSistema;
     private List<VentasTipoDTO> ventasTipo;
+    private List<CorteVentaDetalleDTO> detalles;
+    private String estado;
+    private String observacion;
+    private String revisadoPor;
+    private LocalDateTime fechaRevision;
+    private Boolean ultimoVigente;
     private boolean ultimoCorte;
     private boolean actual;
 }

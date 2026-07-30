@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface MetodoPagoRepository extends JpaRepository<MetodoPago, Long> {
     List<MetodoPago> findAllByOrderByIdAsc();
+    List<MetodoPago> findByVisiblePagosEgresosTrueOrderByIdAsc();
+    List<MetodoPago> findByVisiblePagoTicketsTrueOrderByIdAsc();
 }

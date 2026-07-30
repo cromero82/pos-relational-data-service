@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface MetodoPagoService {
     List<MetodoPago> findAll();
+    List<MetodoPago> findForEgresos();
+    List<MetodoPago> findForTickets();
 }

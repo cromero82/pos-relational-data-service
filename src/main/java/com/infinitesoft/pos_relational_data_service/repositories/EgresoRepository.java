@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -38,4 +39,14 @@ public interface EgresoRepository extends JpaRepository<Egreso, Long> {
            "(p IS NOT NULL AND LOWER(p.nombre) LIKE LOWER(CONCAT('%', :texto, '%'))) OR " +
            "(t IS NOT NULL AND LOWER(t.nombre) LIKE LOWER(CONCAT('%', :texto, '%'))))")
     Page<Egreso> searchDescripciones(@Param("texto") String texto, Pageable pageable);
+
+    @Query("SELECT e.metodoPagoId, SUM(e.valor) FROM Egreso e " +
+           "WHERE e.metodoPagoId IS NOT NULL " +
+           "AND (e.fechaCreacion >= :start AND e.fechaCreacion <= :end " +
+           "     OR (e.fecha >= :fechaDesde AND e.fecha <= :fechaHasta)) " +
+           "GROUP BY e.metodoPagoId")
+    List<Object[]> findResumenEgresosPorMetodoPago(@Param("start") LocalDateTime start,
+                                                   @Param("end") LocalDateTime end,
+                                                   @Param("fechaDesde") LocalDate fechaDesde,
+                                                   @Param("fechaHasta") LocalDate fechaHasta);
 }

@@ -1,20 +1,25 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
+import com.infinitesoft.pos_relational_data_service.dto.BaseInicialPendienteDto;
+import com.infinitesoft.pos_relational_data_service.dto.BaseInicialRequest;
+import com.infinitesoft.pos_relational_data_service.dto.BaseInicialResultDto;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaDTO;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoRequest;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoResponse;
-import com.infinitesoft.pos_relational_data_service.dto.VentasTipoDTO;
+import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoPendienteDto;
+import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoRequest;
+import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoResultDto;
+import com.infinitesoft.pos_relational_data_service.dto.FinalizarRevisionCorteRequest;
 import com.infinitesoft.pos_relational_data_service.entities.CorteVenta;
-import com.infinitesoft.pos_relational_data_service.entities.VentasTipo;
 import com.infinitesoft.pos_relational_data_service.services.CorteVentaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,6 +45,55 @@ public class CorteVentaController {
                 .collect(Collectors.toList());
     }
 
+    @GetMapping("/search")
+    public List<CorteVentaDTO> search(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaIni,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin) {
+        return service.search(fechaIni, fechaFin);
+    }
+
+    @GetMapping("/consultar-rango")
+    public ResponseEntity<CorteVentaRangoResponse> consultarRango(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaIni,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin,
+            @RequestParam(defaultValue = "false") boolean ultimoCorte,
+            @RequestParam(defaultValue = "false") boolean actual) {
+
+        CorteVentaRangoRequest request = CorteVentaRangoRequest.builder()
+                .fechaIni(fechaIni)
+                .fechaFin(fechaFin)
+                .ultimoCorte(ultimoCorte)
+                .actual(actual)
+                .build();
+
+        return ResponseEntity.ok(service.consultarRango(request));
+    }
+
+    @GetMapping("/distribucion-pendiente")
+    public ResponseEntity<DistribucionEfectivoPendienteDto> distribucionPendiente() {
+        return ResponseEntity.ok(service.obtenerDistribucionPendiente());
+    }
+
+    @PostMapping("/{id}/distribucion-efectivo")
+    @PreAuthorize("hasRole('admin')")
+    public ResponseEntity<DistribucionEfectivoResultDto> confirmarDistribucion(
+            @PathVariable Long id,
+            @RequestBody DistribucionEfectivoRequest request) {
+        return ResponseEntity.ok(service.confirmarDistribucionEfectivo(id, request));
+    }
+
+    @GetMapping("/base-inicial-pendiente")
+    public ResponseEntity<BaseInicialPendienteDto> baseInicialPendiente() {
+        return ResponseEntity.ok(service.obtenerBaseInicialPendiente());
+    }
+
+    @PostMapping("/base-inicial")
+    @PreAuthorize("hasRole('admin')")
+    public ResponseEntity<BaseInicialResultDto> confirmarBaseInicial(
+            @RequestBody BaseInicialRequest request) {
+        return ResponseEntity.ok(service.confirmarBaseInicial(request));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<CorteVentaDTO> findById(@PathVariable Long id) {
         CorteVenta found = service.findById(id);
@@ -47,13 +101,6 @@ public class CorteVentaController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(service.convertToDTO(found));
-    }
-
-    @GetMapping("/search")
-    public List<CorteVentaDTO> search(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaIni,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin) {
-        return service.search(fechaIni, fechaFin);
     }
 
     @PutMapping("/{id}")
@@ -67,6 +114,7 @@ public class CorteVentaController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('admin')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         boolean deleted = service.delete(id);
         if (!deleted) {
@@ -75,20 +123,11 @@ public class CorteVentaController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/consultar-rango")
-    public ResponseEntity<CorteVentaRangoResponse> consultarRango(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaIni,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin,
-            @RequestParam(defaultValue = "false") boolean ultimoCorte,
-            @RequestParam(defaultValue = "false") boolean actual) {
-        
-        CorteVentaRangoRequest request = CorteVentaRangoRequest.builder()
-                .fechaIni(fechaIni)
-                .fechaFin(fechaFin)
-                .ultimoCorte(ultimoCorte)
-                .actual(actual)
-                .build();
-        
-        return ResponseEntity.ok(service.consultarRango(request));
+    @PutMapping("/{id}/finalizar-revision")
+    @PreAuthorize("hasRole('admin')")
+    public ResponseEntity<CorteVentaDTO> finalizarRevision(
+            @PathVariable Long id,
+            @RequestBody FinalizarRevisionCorteRequest request) {
+        return ResponseEntity.ok(service.finalizarRevision(id, request));
     }
 }

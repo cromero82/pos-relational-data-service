@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -41,10 +42,22 @@ public interface HistorialReciboRepository extends JpaRepository<HistorialRecibo
 
     Optional<HistorialRecibo> findFirstByIdGreaterThanOrderByIdAsc(Long id);
 
-    @Query("SELECT h.metodoPagoId as metodoPagoId, SUM(h.total) as totalSistema FROM HistorialRecibo h " +
+    @Query("SELECT h.metodoPagoId, SUM(h.total) FROM HistorialRecibo h " +
            "WHERE h.fechaCreacion >= :start AND h.fechaCreacion <= :end " +
+           "AND h.estadoId = 2 " +
            "GROUP BY h.metodoPagoId")
     List<Object[]> findResumenVentasPorMetodoPago(LocalDateTime start, LocalDateTime end);
+
+    /**
+     * Ventas del turno abierto: id estrictamente mayor al watermark del último corte.
+     */
+    @Query("SELECT h.metodoPagoId, SUM(h.total) FROM HistorialRecibo h " +
+           "WHERE h.id > :afterId AND h.fechaCreacion <= :end " +
+           "AND h.estadoId = 2 " +
+           "GROUP BY h.metodoPagoId")
+    List<Object[]> findResumenVentasPorMetodoPagoAfterId(
+            @Param("afterId") Long afterId,
+            @Param("end") LocalDateTime end);
 
     @Query("SELECT MAX(h.id) FROM HistorialRecibo h WHERE h.fechaCreacion >= :start AND h.fechaCreacion <= :end")
     Optional<Long> findMaxIdByFechaCreacionBetween(LocalDateTime start, LocalDateTime end);

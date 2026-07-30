@@ -1,11 +1,14 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.dto.ReciboDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoResponseDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboUpdateResult;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
+import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -43,6 +46,12 @@ public class ReciboServiceImpl implements ReciboService {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private DocumentoVentaService documentoVentaService;
+
+    @Autowired
+    private MovimientoInventarioService movimientoInventarioService;
 
     @Override
     public Recibo create(ReciboDto dto) {
@@ -82,10 +91,10 @@ public class ReciboServiceImpl implements ReciboService {
 
     @Override
     @Transactional
-    public Recibo update(Long id, ReciboDto dto) {
-        if (id == null) return null;
+    public ReciboUpdateResult update(Long id, ReciboDto dto) {
+        if (id == null) return ReciboUpdateResult.fromRecibo(null);
         Optional<Recibo> existingOpt = reciboRepository.findById(id);
-        if (existingOpt.isEmpty()) return null;
+        if (existingOpt.isEmpty()) return ReciboUpdateResult.fromRecibo(null);
 
         Recibo existing = existingOpt.get();
         // Update mutable fields, keep id and fechaCreacion
@@ -114,6 +123,18 @@ public class ReciboServiceImpl implements ReciboService {
                     .build();
             HistorialRecibo savedHist = historialReciboService.create(hist);
 
+            DocumentoVenta documentoVenta = null;
+            if (targetEstado == ReciboEstado.PAGADO) {
+                try {
+                    documentoVenta = documentoVentaService.crearDesdeHistorialRecibo(
+                            savedHist, SecurityContextHelper.getUserId());
+                    savedHist.setDocumentoVentaId(documentoVenta.getId());
+                    savedHist.setDocumentoVentaConsecutivo(documentoVenta.getConsecutivo());
+                } catch (Exception e) {
+                    // Sprint 0 SQL pendiente: el pago no debe fallar por documento_venta.
+                }
+            }
+
             // 2) Find the link to the ticket
             Optional<TicketRecibo> ticketReciboOpt = ticketReciboRepository.findFirstByReciboId(id);
 
@@ -134,6 +155,20 @@ public class ReciboServiceImpl implements ReciboService {
                 if (targetEstado == ReciboEstado.PAGADO && d.getProductoId() != null) {
                     productRepository.incrementarVentas(d.getProductoId(), d.getCantidad());
                     productRepository.actualizarFechaUltimaVenta(d.getProductoId(), LocalDate.now());
+                }
+            }
+
+            if (targetEstado == ReciboEstado.PAGADO) {
+                try {
+                    List<HistorialReciboDetalle> detallesHistorial =
+                            historialReciboDetalleService.findEntityListByReciboId(savedHist.getId());
+                    movimientoInventarioService.registrarVentaPos(
+                            savedHist,
+                            documentoVenta != null ? documentoVenta.getId() : null,
+                            detallesHistorial,
+                            SecurityContextHelper.getUserId());
+                } catch (Exception e) {
+                    // Sprint 3 SQL pendiente: el pago no debe fallar por kardex.
                 }
             }
 
@@ -164,11 +199,34 @@ public class ReciboServiceImpl implements ReciboService {
                 }
             }
 
-            // Return null to signal resource removal to controller
-            return null;
+            // Return pago response to controller
+            if (targetEstado == ReciboEstado.PAGADO && documentoVenta != null) {
+                ReciboPagoResponseDto pago = ReciboPagoResponseDto.builder()
+                        .pagado(true)
+                        .historialReciboId(savedHist.getId())
+                        .documentoVentaId(documentoVenta.getId())
+                        .documentoVentaConsecutivo(documentoVenta.getConsecutivo())
+                        .total(savedHist.getTotal())
+                        .fechaCreacion(savedHist.getFechaCreacion())
+                        .metodoPagoId(savedHist.getMetodoPagoId())
+                        .clienteId(savedHist.getClienteId())
+                        .sesionId(savedHist.getSesionId())
+                        .build();
+                return ReciboUpdateResult.fromPago(pago);
+            }
+
+            return ReciboUpdateResult.fromPago(ReciboPagoResponseDto.builder()
+                    .pagado(targetEstado == ReciboEstado.PAGADO)
+                    .historialReciboId(savedHist.getId())
+                    .total(savedHist.getTotal())
+                    .fechaCreacion(savedHist.getFechaCreacion())
+                    .metodoPagoId(savedHist.getMetodoPagoId())
+                    .clienteId(savedHist.getClienteId())
+                    .sesionId(savedHist.getSesionId())
+                    .build());
         }
 
-        return reciboRepository.save(existing);
+        return ReciboUpdateResult.fromRecibo(reciboRepository.save(existing));
     }
 
     @Override

@@ -1,0 +1,55 @@
+package com.infinitesoft.pos_relational_data_service.services;
+
+import com.infinitesoft.pos_relational_data_service.dto.*;
+import com.infinitesoft.pos_relational_data_service.entities.CorteVentaDetalle;
+import com.infinitesoft.pos_relational_data_service.entities.Egreso;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public interface MovimientoOrigenFondosService {
+    BigDecimal calcularSaldo(Integer origenFondosId);
+    List<MovimientoOrigenFondosDto> findByOrigen(Integer origenFondosId);
+    MovimientoOrigenFondosDto registrarEntradaManual(MovimientoEntradaRequest request);
+
+    /**
+     * Entrada de instalación: define la Base del primer corte (origenTipo BASE_INICIAL).
+     */
+    MovimientoOrigenFondosDto registrarBaseInicial(BaseInicialRequest request);
+
+    MovimientoOrigenFondosDto registrarPrestamo(MovimientoPrestamoRequest request);
+    List<MovimientoOrigenFondosDto> registrarTraslado(MovimientoTrasladoRequest request);
+
+    /**
+     * Traslado etiquetado como distribución de un corte (entra en el watermark del corte).
+     */
+    List<MovimientoOrigenFondosDto> registrarTrasladoDistribucion(
+            Integer origenFondosId,
+            Integer origenDestinoId,
+            BigDecimal valor,
+            Long corteVentaId,
+            String observacion
+    );
+
+    /**
+     * Contabiliza en el ledger las ventas del periodo del corte (por medio → origen de fondos).
+     * Idempotente por corte (origenTipo CORTE_VENTA).
+     */
+    void registrarEntradasVentaCorte(Long corteVentaId, List<CorteVentaDetalle> detalles);
+
+    void revertirEntradasVentaCorte(Long corteVentaId);
+
+    MovimientoOrigenFondosDto registrarAjuste(MovimientoAjusteRequest request);
+    MovimientoOrigenFondosDto registrarAjusteCierre(
+            Long metodoPagoId,
+            BigDecimal totalSistema,
+            BigDecimal totalReal,
+            Integer motivoMovimientoId,
+            Long corteVentaId,
+            String observacion
+    );
+    void revertirAjustesCierre(Long corteVentaId);
+    MovimientoOrigenFondosDto registrarSalidaEgreso(Egreso egreso);
+    void revertirMovimientosEgreso(Long egresoId, String observacion);
+    void sincronizarSalidaEgreso(Egreso anterior, Egreso actualizado);
+}

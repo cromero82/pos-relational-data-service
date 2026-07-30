@@ -11,6 +11,8 @@ import java.util.Optional;
 @Repository
 public interface CorteVentaRepository extends JpaRepository<CorteVenta, Long> {
     Optional<CorteVenta> findFirstByOrderByFechaCreacionDesc();
+    Optional<CorteVenta> findFirstByEstadoNotOrderByFechaCreacionDesc(String estado);
+    Optional<CorteVenta> findFirstByEstadoNotOrderByIdDesc(String estado);
 
     List<CorteVenta> findByFechaIniBetweenOrFechaFinBetween(
             LocalDateTime rangeStart1, LocalDateTime rangeEnd1,

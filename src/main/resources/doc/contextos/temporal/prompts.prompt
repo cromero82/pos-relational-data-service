@@ -1,0 +1,194 @@
+================================================
+AJustes bolsillos
+================================================
+- continuando incluso cuando cargo la app (sin desfase) tampoco esta habilitado el boton, cuando hago un desfase y selecciono un motivo de la lista, tampoco esta habilitado. 
+  - por otro lado, he analizado mas acerca del funcionamiento del sistema, pienso en complementar la funcionalidad "Corte de venta" la cual requerira  siguientes requisitos para la aplicacion 
+  Metodo de pago,   Ventas,     Egresos,    MOvimientos,    Neto SIstema,      Total fisico/Real,       Desfase,    Revision
+    - Caja (Efectivo),              
+- QR BANCOLOMBIA
+- NEQUI
+
+Origen Fondos
+- Base para proveedores
+====
+
+- debe haber una seccion para configurar los metodos de pago, todo esto en: ToolbarUserDropdownComponent en el frontend, y en el backend generar nuevo componente, que lleve a una pestaña para administrar metodos de pago, campos estado: valores activo, inactivo, pendiente-desactivacion. campo : file es un icono. el usuario podra elegir uno. necesito que exista una applicacion en el backend que permita subir a la carpeta resource y alli existir una carpete llamada: "media/imagenes" alli se copiaran las imagenes.
+
+===
+no se aplico:
+    2C. c1 para
+    Supongo que ante el error de anulacion, en el momento de la anulacion, se realizan unos movimientos en la tabla. tenerlos en cuenta para el proceso de no realizar NOta credito. hay unos movimientos. pero no te los puedo dar porque ocurre un error. luego de aplicar sprint faltantes nos ocuparemos de ello (genera un archivo md con archivos por solucionar) 
+
+si se aplico:
+1. si
+2. separemos botones: supongo: "Anular/Devolver" y "Editar", anular sera como devolver el total de esa factura al cliente (cliente se arrepiente del total la venta)
+3. pensandolo bien, hay un requisito futuro donde puedan existir mas de 1 caja, al iniciar sesion usuario debe elegir caja, asi sucesivamente, el siguiente usuario solo se puede elegir caja libre, al finalizar sesion, se libera la caja. (por lo que debera hacerse una tabla de dominio: cajas, y en la tabla sesion agregar caja_id). al iniciar sesion tambien debe permitir registrarse cuanto dinero hay en una caja (la cual se deberia registrar en la tabla sesion, con 2 valores caja_monto_inicio y fin), por lo que en el cierre de ventas, debera consultarse los movimientos en efectivo de esa sesion, sumarlos, debera haber un valor global y uno por usuario (en caso de que existan mas de 1 caja, si solo existe 1, no sera necesario, ya que el valor ese el mismo). 
+4. - cajero esta obligado al iniciar sesion a elegir turno y caja, 
+   - usuario administrador esta obligado a elegir turno, pero si elige un turno "Sesion administrativa", entonces no esta obligado a seleccionar caja.
+   - usuario cajero no podra elegir turno "Sesion administrativa"
+   - usuario administrador puede mover dinero entre cuentas de dinero, el cajero podra hacerlo pero solo en las cuentas  a las que tenga permiso.
+   - usuario administrador puede pagar Egresos seleccionando todas las fuentes de ingresos (menos caja, si esta fue ocupada por otro usuario en una sesion activa)
+   - usuario cajero puede pagar Egresos seleccionando todas las fuentes o cuentas a las que tenga permiso.
+   - pienso que debe haber una interfaz basada en permisos para que el administrador gestione permiso de acceso a las cuentas de egreso (o metodos de pago de egresos) (seguramente en http://.../apps/gestion-usuarios/roles) ejemplo: usuario 1. tendra permiso de acceso a "Base para proveedores","Nequi", ETC. )
+     - IDEA DE REFACTOR (COmo se deberia llamar esta entidad? visualmente es un metodo de pago (y en base de datos igual, y para el cliente del software lo ve agradable, pero a nivel de negocios y software POS, asi como familiaridad con sistemas contables, como se suele llamar?)
+   - al realizar venta por ticket siempre estaran disponible todos los medios de pago que esten habilitados 
+5. generar todos los movimientos (ambos en el caso de la anulacion o edicion)
+
+# importante. todo el tema de permisos a cuentas de egresos / metodos de pago funcionara en modo estricto, y seleccion de cajas en modo exclusivo. solo sera valido en modo estricto, es decir: manejo_estricto_cuentas=true. si este es false. cualquier usuario podra mover entre cualquier cuenta y no se tendra en cuenta que usuario puede hacer egreso restando de x cuenta, cualquier usuario logueado en la sesion podra tomar cualquier caja.
+- solo usuario administrador puede modificar el campo manejo_estricto_cuentas.
+ ---
+
+el administrador debe setear 
+.... AQUI MODELAR 2 CAJAS AL INICIAR SESION....
+olvida el termino: sesion administrativa, al final el administrador es otro usuario, que puede iniciar sesion al mismo tiempo, debido a las restricciones de: usuario elige caja "desocupada", para los administradores no sera obligatorio seleccionar caja alguna, por ende: podra ejecutar otras acciones. ....AUNQUE AQUI MODELAR el hecho de ajustar BOLSILLOS O METODOS DE PAGO QUE NO CONTROLA EL CAJERO....
+un egreso solo se paga con la caja correspondiente a la gestionada por un usuario la cual la selecciono al iniciar sesion. 
+4. el usuario invitado no deberia poder acceder de momento a ninguna opcion: tickets, productos, historial tickets, datos del negocio, financiero. solo a otra url que no determinaremos aqui (encarga de cotizar productos)
+
+
+
+
+4Verificar si existe un metodo de pago llamado:al iniciar sesion, ademas de seleccionar un turno, se debe seleccionar 1 "
+4. "movimientos administrativos", debe ser una sesion donde no puede acceder a la funcionalidad "Tickets" y de "Financiero", no podra acceder 
+
+=================================================
+pienso que la opcion B (Facil de auditar), 
+1. si hacer backfill desde el ultimo corte
+2. con respecto a la anulacion tengo 2 dudas 
+a) si la anulacion se hace antes del ultimo corte o aun no se ha realizado corte o cierre deberia tratarse de manera diferente?
+b) desde el punto de vista de uso del sistema, anular una factura puede significar modificar el ticket (quizas se agregan o quitan 1 o varios productos), finalmente puede que se devuelva dinero al cliente o puede que el cliente tenga que agregar algo de dinero. 
+c) ocurrio un escenario donde el operador se equivoco de boton y anulo una factura incorrecta, si ahora el ticket queda abierto (aqui se dice: en edicion, pero podria utilizarse: Abierto), y el usuario decide cancelar la anulacion (es decir dejar como estaba) cual es la recomendacion para estos casos?
+3. si hay desfase en el cierre, el administrador debe seleccionar algun motivo (de una lista seguramente) o crear uno nuevo, ejemplo: "Desconocido", "Error humano: Quizas asignado a medio de pago equivocado" esta lista desplegable podria ubicarse en la columna "Desfase" y no apareceria ninguna lista si No hay desfase.
+
+4. me conviene realizar turnos, deberian un dominio de turnos: 
+"Mañana Semanal"
+"Tarde Semanal"
+"Mañana Domingo/Festivo"
+"Tarde Domingo/Festivo""
+"Dominical completo"
+"Sesion administrativa" (solo para administradores, NO para Cajeros)
+cuando el usuario inicia sesion, debe seleccionar 1 turno. en cualquier caso el cierre se debe hacer con referencia desde el primer movimiento despues del ultimo corte
+
+debatamos las dudas y luego lo seteamos en bolsillos-planificacion.md
+
+
+=================================================================
+   Me llama la atencion la opcion B, Parece simple el calculo, y pienso que es la forma mas transparente de hacerlo, calcularlo y probablemente de mantenerlo (entenderlo), quiero saber mas detalles, tablas, dinamica de calculo, ejemploMe llama la atencion la opcion B, Parece simple el calculo, y pienso que es la forma mas transparente de hacerlo, calcularlo y probablemente de mantenerlo (entenderlo), quiero saber mas detalles, tablas, dinamica de calculo, ejemplos etc. y como seria el refactor (seguimos en modo planing), aunque me gustaria saber si puedes consultar en sistemas POS cual es la practica mas recomendada (diseño de base de datos y procesos)
+===============================================
+   ya funciona, la correccion actual, pero ahora quiero que paremos la implementacion (o modo agente) y volvamos al modo planing, explico lo que encontre y las alternativas a evaluar.
+   Que he probado: he ejecutado, funcionalidad en Financiero, tab: Origenes y bolsillos, clic en: Entrada. Seleccione:  Caja efectivo. diligencie valores y en fin pude ver el movimiento, hasta ahi todo correcto.
+
+eso me hizo reflexionar sobre las funcionalidades: "Cierre de turno" y "Origenes y bolsillos", basicamente se resumen en que no estan conectadas, si realizo movimientos donde altero el valor de una cuenta donde se deposita o almacena dinero (fisica o virtual, ejemplo: Caja efectivo o bolsillo), tambien deberia alterar el cierre de turno, si vendo productos en un ticket, tambien puedo modificar el en cierre de turno y el valor en la funcionalidad: Origenes y bolsillos (o al menos mostrarl dicha actividad) y tambien modificar el valor en la funcionalidad
+para esto siento que en cada funcionalidad deberia haber una columna denotando este cambio, ejemplo en: 
+
+1. Cierre de turno. visualmente en las columnas de la tabla (en la vista):
+Metodo de pago,
+Ventas sistema,
+Egresos sistema,
+neto sistema,
+Total Fisico / Real
+por lo que deberia haber una COlumna "Movimientos", la cual correspondera a la suma de los movimientos provenientes de la funcionalidad: Origenes y bolsillos; por lo que estos movimientos  deben tenerse en cuenta para el calculo del posible desfase. (notese que para la implementacion de este aspecto se deberia registrar en alguna columna o tabla que movimientos fueron tenidos en cuenta en un cierre de turno, un establecimiento podria tener 2 turnos, 1 medio dia y 1 al finalizar el dia por ende los movimientos entre cuentas de la mañana no deberian contabilizarse en la tarde), con respecto a este aspecto de control de movimientos linkeados a cierres ya existe para las "ventas sistema" un campo de referencia: en la tabla corte_venta.ultimo_historial_recibo_id
+
+2. en funcionalidad: Origenes y bolsillos, deberia existir 1 movimiento extra sobre los tickets vendidos hasta el momento (después del último corte)
+========================
+
+- Se debe realizar, cierres el rol cajero no controla ciertas cuentas de flujo dinero (o metodos de pago), especialmente las electronicas, ejemplo: cuenta Bancolombia (QR), por lo que hace necesario agregar un sistema de permisos, actualmente existen rojes: Administrador, cajero, invitado.
+  - pero se debe agregar permisos sobre algunos objetos o funcionalidades. vamos a crear un permiso "generico"
+- 
+  es decir debe habilitarse en la configuracion de usuarios, deberian existir permisos que habiliten esas opciones, que cuentas puede registrar y si puede hacer esos movimientos. por lo que si el cajero realiza un cierre, solo deberia modificar las filas de los metodos de pago a los cuales tiene permiso modificar, guardarse un estado de ese registro, los estados podrian ser: Registrado, Confirmado.
+  cuando el cajero abre esta
+
+3. otro tema es que si, manejo_estricto_cuentas=true, si el usuario es admini
+
+3. una vez
+
+
+2. Luego de vender productos mediante tickets, el valor de dicho metodo de pago no cambio si consulto en "Origenes y bolsillos"
+reflejo dual. movimientos en cierre de turno y movimientos de ventas por tickets en  Origenes y bolsillos.
+
+...
+..complementar pero note algo, puedo ver el valor de intacto de la caja.
+pienso que deberia agregarse
+
+3. cuando inicia turno, pide el valor de la caja (tambien pedir otros??)
+esto lo puedo hacer tambien cuando hago el cierre?
+
+
+
+
+
+
+===================================================
+
+1. la funcionalidad de mover de un metodo de pago a otro deberia estar habilitada en: Egresos, pestaĆ±a: Bolsillos (o algo asi, algo que agrupe metodos de pago y bolsillos), alli ademas de ver los movimientos, deberia permitir mover entre metodos de pago o bolsillos.
+2. por otro lado, cuando se realiza un egreso, se debe seleccionar un metodo de pago (o bolsillo),
+deberia ser un unico elemento: si es una lista desplegable, deberia ser tipo: select list, ejemplo:
+-- "Caja: efectivo"
+-- "Nequi"
+-- "Bancolombia"
+-- ---- "Bolsillo Nomina"
+-- ---- "Arriendo local"
+-- "Base para proveedores"
+-- ....
+y pienso que yo podria elegir un "metodo de pago" o bolsillo, con lo que este habria un campo que determinar este aspecto, supongo un elemento raiz o campo padre_id para saber si un elemento es hijo (como el caso de: "Bolsillo Nomina" es hijo de "Bancolombia".
+
+
+supongo que como un bolsillo puede ser creado por un metodo de pago: tipo electronico.
+
+
+
+=====================================================
+- me decanto por la opcion B, Sin embargo, es importante algunas observaciones
+1. no me quedo claro si los prestamos (ejemplo Juan perez) pueden registrarse,la idea es registrar que el administrador o propietario obtuvo un dinero y que no se intente sacar de otro lugar que quizas no tenga suficiente (ejemplo la caja, o el bolsillo de reserva)
+2. me explica negocio que a veces para pagar alguna factura a proveedor requiere mover el dinero de un metodo de pago a otro, ejemplo: saldo de Nequi a Bancolombia, ya que el proveedor exige hacer un solo pago. el modelo propuesto en opcionB lo permite? como se llama el tipo de movimiento?
+3. puede que una cajita sea fisica o electronica, ejemplo, el administrador puede tener una cuenta de ahorro (lo que aqui se conoce metodo pago transferencia, ya que ellas van a la cuenta de ahorros), por ende el administrador puede decidir si registra en esta app o no que parte del saldo final de un dia se va a mover para una caja o bolsillo (como los bolsillos bancolombia)asociada al negocio, ejemplo: ahorro nomina), ahora si el admin decide no llegar a ese nivel de detalle, debe existir una categoria u opcion rapida en el modelo (y en la vista) para ajustar un metodo de pago (quizas su pareja compro algo con su tarjeta debito y lo movio desde ese bolsillo ahorro nomina), deberia existir algo como: "Pendiente ajustar en extracto del dia"  o tambien: "compras o pagos no asociados a la actividad del negocio / compras personales "
+4. puede que exista una desicion de no utilizar o alimentar los movimientos de las cuentas. (puede que requiera implementarse algun campo boleano en la entidad del establecimiento. algo como : manejo_estricto_cuentas=true/false), con lo que, en tal caso (false) al hacer el cierre, si hay desfaces. se debe poder registrar en la tabla de movimientos (que planteaste), alguna justificacion de porque hubo diferencias (en cada metodo de pago), donde el usuario seleccione (o pueda seguir registrando mas justificacines es decir un CRUD), seeds recomendados: "Pendiente ajustar en extracto del dia", "Otros movimientos personales". y permitir setear el valor correcto (en cada metodo pago o cuenta)
+
+4.1. Para casos manejo_estricto_cuentas=true : No se permitiria realizar un pago desde un origen que no tenga dinero o no alcance (primero deberia registrarse un movimiento ejemplo: traslado de: Nequi a Bancolombia).
+4.2. Para casos manejo_estricto_cuentas=falso :
+	- No se validaria si esa fuente o cuenta tiene saldo, pero se alertaria (warning naranja) diciendo que esa cuenta tiene saldo 0, insuficiente o negativo.
+
+en cualquier caso siempre se debera restar a esa fuente o cuenta de metodo de pago o dinero en caso de registrar cada egreso.
+
+
+
+=======================================
+requiero realizar cambios a nivel de base de datos, backend y frontend para gestionar los metodo_pago y sus movimientos, actualmente en: egresos, dicho registro corresponde naturalmente a un movimiento que restara a los metodos de pago, tengo las siguientes dudas o ideas:
+1. los metodos de pago siguen existiendo, pero me gustaria categorizarlos de una forma para verlos como "bolsillos" o "cajitas" o algo que determine que se trata de: un lugar donde guardo dinero para un objetivo, ejemplo: Arriendo, Factura <<proveedor>>  ejemplo: Factura COLTABACO.
+	- el administrador podra  agregar dinero a ese bolsillo
+	- cuando se debe pagar una factura, un administrador podria sacar dinero de ese bolsillo
+	- un bolsillo tiene un "origen", es decir el dinero pudo venir porque alguien le presto dinero al administrador, ejemplo: Prestamo, JUan Perez, y dicho movimiento podria tener una observacion, ejemplo de observaciones podrian ser:
+		- arrivaron (se presentaron) mas proveedores de lo esperado (es decir no alcanzo el valor planeado, este escenario es importante porque afecta una posible planeacion, es algo que deberia medirse n caso de querer que este sistema POS, ayude a los administradores a calcular un posible bolsillo llamado (algo asi como) "Reserva pago de proveedores", explico a continuacion la idea: en gestion de tiendas de abarrotes se tiene una idea basada en la experiencia que el 20% de las ventas debe ser utilidad y el 80% es par "surtir", es decir pago a proveedores, pero este sistema deberia medir un poco mas ese porcentaje, si empezamos a generar variables en campos de bd (los cuales se alimenten solos) podrian servirnos de  base para determinar ese: 80 / 20. y determinar en un futuro (basando en analisis de datos, tickets, pagos a proveedores, porcentajes de ganancias, egresos, etc) ese valor y categorizar al negocio con el porcentaje promedio o historico (incluso esa cifra deberia aparecer en la vista: Datos del negocio.
+		- Pagaron insumos o servicios no programados
+		- Pago personal (si por ejemplo
+2. metodos de pago o bolsillos, o categorias para esto. es decir hasta que punto modificar la data de los metodos de pago para que sean vistos como metodo de pagos o cuentas de pagos (bolsillos)
+3. una tarjeta de credito (puede ser registrada) como un bolsillo o cuenta para sacar el dinero para pagos
+4. Contabilidad. Debido a que ya se estan realizando movimientos con cuentas, tarjetas, sistemas de bolsillo como NEQUI, para estos tipos de movimientos, DEBE haber un soporte para que un contador pueda entender y realizar su proceso de declaracion de renta del propietario del negocio.
+5. puede que por algun motivo el administrador abandone la idea de dejar de gestionar estas "cuentas" (en terminos contables supongo) o bolsillos, y decida simplemente ingresar dinero a uno como tal y registrar alguna categoria o motivo "AJuste personal faltante" (es decir de su plata personal agrego dinero para organizar el sistema), "Perdida de movimientos por motivo personal" con lo que no recuerda como fue gestionado su bolsillo o "Perdida de movimiento por posible falla de sistema", quizas a esa hora de la noche los sistemas bancarios (cuenta de ahorro, nequi u otro) esta haciendo un mantenimiento y no esta generando un saldo correcto, en estos casos, se deberia dejar constancia de que valor deberia estar registrado en el sistema ycual es el valor actual (algo similar a DESFACES en la funcionalidad: CIERRE DE TURN)
+
+que alternativas podriamos manejar para realizar el cambio? recuerda que estamos en modo planing. no apliquemos cambios de momento.
+Manteniendo la mayor simplicidad posible para la gestion de ventanas y funcionalidad para el operador, pero suficiente contablemente y que cumpla los requisitos de la dian
+
+------------------------
+
+Metodos de pago: actualmente tiene 3 registros:
+id=2, Bancolombia - QR, id=3 Nequi, id=1 Efectivo,
+modificaciones columnas de la tabla:
+- agrega campo "descripcion_egreso"
+- quita el campo: es_base_proveedores
+- agrega: visible_pago_tickets
+- agrega: campo monto (alli colocaremos el dinero de ejemplo: caja, base de proveedores, para los registros NEQUI y QR Bancolombia, es una forma de saber cuando tinero esta almacenado alli)
+con lo que cada campo: visible_pago_tickets, visible_pago_egresos (ya existente) indicara en donde aparecera (si al pagar ticket o registrar egreso, o en ambas funcionalidades)
+
+MOdificaciones a los registros:
+- crea un nuevo (supongo id=4) con valores en propiedades:
+	registro.descripcion = "Efectivo: base para proveedores",
+	registro.descripcion_egreso ="Efectivo: base para proveedores" ,
+	visible_pago_tickets=false,
+	visible_pago_egresos = true,
+- modifica: id=1, descripcion_egreso="Caja: Efectivo", visible_pago_tickets = visible_pago_egresos = true
+
+descripcion_egreso debe mostrarse en la funcionalidad egreso
+
+de esta forma mostrar los metodos de pago en cada funcionalidad dependiendo del campo y ademas en el corte de ventas: Arqueo , debera verificarsen todos lo metodos de pago (con la diferencia de que los: visible_pago_tickets, seran tenidos en cuenta para registrar las ventas, mientras que, los: visible_pago_egresos, deberan tener un conteo para verificar si la de sus egresos egresos - la cifra inicial pactada, es correcta, si hay o no desface y de igual forma se puede setear cuando se dejara en esa "caja" para el siguiente dia. en caso de que la base para proveedores
+... aqui logica de la base, historico, etc, movimientos
+

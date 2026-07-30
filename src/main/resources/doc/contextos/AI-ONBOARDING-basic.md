@@ -4,6 +4,16 @@
 Documento de contexto para una IA que vaya a trabajar en cualquiera de los
 repos del **Sistema POS Infinito** 
 
+## 0. Plan maestro de implementación (2026-06 — APROBADO)
+
+Roadmap consolidado de la sesión de planeación (ventas, inventario kardex, finanzas, backup pg_dump, roles):
+
+**Leer primero:** `infinito-ai-front/.cursor/rules/movimientos-almacen/POS-PLAN-MAESTRO.md`
+
+Hijos por dominio: `ventas-trazabilidad-dian-plan.md`, `inventario-planificacion.md`, `finanzas-egresos-resumen-planificacion.md`, `entradas-almacen.md` (implementado).
+
+Scripts SQL nuevos van en: `pos-relational-data-service/src/main/resources/doc/contextos/database/` (orden en plan maestro §7 Sprint 0).
+
 ## 1. TL;DR
 - Sistema POS para tiendas de abarrotes colombianas, distribucion **local**
   (sin nube). Stack OSS para evitar lios de licencia.

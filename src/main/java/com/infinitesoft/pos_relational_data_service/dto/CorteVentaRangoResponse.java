@@ -27,6 +27,21 @@ public class CorteVentaRangoResponse {
     @Builder
     public static class VentasTipoResumenDTO {
         private Long metodoPagoId;
+        /** Ventas POS netas del periodo (solo pagadas). */
+        private BigDecimal totalVentasSistema;
+        /** Egresos registrados con este medio de pago. */
+        private BigDecimal totalEgresosSistema;
+        /**
+         * Otros movimientos del ledger (traslados, entradas manuales, ajustes).
+         * No incluye SALIDA_EGRESO ni ENTRADA_VENTA (columnas propias).
+         */
+        private BigDecimal totalMovimientosSistema;
+        /**
+         * Base provisional del turno: total físico declarado en el corte anterior
+         * (hasta existir Distribución de efectivo / BASE_TURNO).
+         */
+        private BigDecimal base;
+        /** Neto sistema = base + ventas − egresos + movimientos. */
         private BigDecimal totalSistema;
     }
 }

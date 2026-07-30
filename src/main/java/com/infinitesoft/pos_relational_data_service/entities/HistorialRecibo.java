@@ -48,6 +48,15 @@ public class HistorialRecibo {
     @Column(name = "monto_recibido", nullable = false, precision = 10, scale = 2)
     private BigDecimal montoRecibido;
 
+    @Column(name = "documento_venta_id")
+    private Long documentoVentaId;
+
+    @Transient
+    private String documentoVentaConsecutivo;
+
+    @Transient
+    private Boolean restaurado;
+
     @PrePersist
     protected void onPrePersist() {
         if (fechaCreacion == null) {

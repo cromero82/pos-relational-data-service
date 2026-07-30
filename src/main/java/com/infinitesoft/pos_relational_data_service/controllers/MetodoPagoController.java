@@ -18,7 +18,15 @@ public class MetodoPagoController {
     private MetodoPagoService service;
 
     @GetMapping
-    public List<MetodoPago> findAll() {
+    public List<MetodoPago> findAll(
+            @RequestParam(required = false) Boolean paraEgresos,
+            @RequestParam(required = false) Boolean paraTickets) {
+        if (Boolean.TRUE.equals(paraEgresos)) {
+            return service.findForEgresos();
+        }
+        if (Boolean.TRUE.equals(paraTickets)) {
+            return service.findForTickets();
+        }
         return service.findAll();
     }
 }
