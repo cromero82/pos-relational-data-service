@@ -20,7 +20,7 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
 
     List<MovimientoOrigenFondos> findByOrigenFondosIdOrderByFechaCreacionDescIdDesc(Integer origenFondosId);
 
-    List<MovimientoOrigenFondos> findByOrigenTipoAndOrigenIdOrderByIdAsc(String origenTipo, Long origenId);
+    List<MovimientoOrigenFondos> findByOrigenTipoAndIdReferenciaOrderByIdAsc(String origenTipo, Long idReferencia);
 
     Optional<MovimientoOrigenFondos> findFirstByOrigenTipoOrderByIdAsc(String origenTipo);
 
@@ -30,6 +30,12 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
 
     @Query("SELECT MAX(m.id) FROM MovimientoOrigenFondos m")
     Optional<Long> findMaxId();
+
+    @Query("SELECT MIN(m.fechaCreacion) FROM MovimientoOrigenFondos m WHERE m.id > :afterId")
+    Optional<LocalDateTime> findMinFechaCreacionByIdGreaterThan(@Param("afterId") Long afterId);
+
+    @Query("SELECT MAX(m.fechaCreacion) FROM MovimientoOrigenFondos m WHERE m.id > :afterId")
+    Optional<LocalDateTime> findMaxFechaCreacionByIdGreaterThan(@Param("afterId") Long afterId);
 
     @Query("SELECT MAX(m.id) FROM MovimientoOrigenFondos m "
             + "WHERE m.fechaCreacion >= :start AND m.fechaCreacion <= :end")

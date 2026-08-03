@@ -71,8 +71,12 @@ public class MovimientoOrigenFondos {
     @Column(name = "origen_tipo", length = 30)
     private String origenTipo;
 
-    @Column(name = "origen_id")
-    private Long origenId;
+    /**
+     * Id de la entidad de negocio asociada (egreso.id, corte_venta.id, …).
+     * Null en movimientos sin referencia externa (traslados, BASE_INICIAL, etc.).
+     */
+    @Column(name = "id_referencia")
+    private Long idReferencia;
 
     @Column(name = "grupo_traslado_id", length = 36)
     private String grupoTrasladoId;

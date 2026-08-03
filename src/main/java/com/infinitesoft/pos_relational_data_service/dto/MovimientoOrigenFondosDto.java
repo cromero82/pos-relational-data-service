@@ -30,6 +30,9 @@ public class MovimientoOrigenFondosDto {
     private BigDecimal valorSistema;
     private BigDecimal valorReal;
     private String origenTipo;
+    /** Id egreso / corte_venta / etc. según origenTipo. */
+    private Long idReferencia;
+    /** @deprecated usar {@link #idReferencia}; se mantiene por compatibilidad JSON. */
     private Long origenId;
     private String grupoTrasladoId;
 }

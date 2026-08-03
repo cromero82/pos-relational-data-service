@@ -42,6 +42,12 @@ public interface HistorialReciboRepository extends JpaRepository<HistorialRecibo
 
     Optional<HistorialRecibo> findFirstByIdGreaterThanOrderByIdAsc(Long id);
 
+    @Query("SELECT MIN(h.fechaCreacion) FROM HistorialRecibo h WHERE h.id > :afterId")
+    Optional<LocalDateTime> findMinFechaCreacionByIdGreaterThan(@Param("afterId") Long afterId);
+
+    @Query("SELECT MAX(h.fechaCreacion) FROM HistorialRecibo h WHERE h.id > :afterId")
+    Optional<LocalDateTime> findMaxFechaCreacionByIdGreaterThan(@Param("afterId") Long afterId);
+
     @Query("SELECT h.metodoPagoId, SUM(h.total) FROM HistorialRecibo h " +
            "WHERE h.fechaCreacion >= :start AND h.fechaCreacion <= :end " +
            "AND h.estadoId = 2 " +

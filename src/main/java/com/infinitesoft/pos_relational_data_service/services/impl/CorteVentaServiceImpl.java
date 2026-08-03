@@ -504,10 +504,18 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 posteriorHistorialRecibo = historialReciboRepository.findFirstByOrderByFechaCreacionAsc();
             }
 
-            if (posteriorHistorialRecibo.isPresent()) {
-                response.setFechaIni(posteriorHistorialRecibo.get().getFechaCreacion());
+            // Desde = primera actividad del turno abierto (venta o movimiento de O.F.).
+            LocalDateTime primeraVenta = posteriorHistorialRecibo
+                    .map(HistorialRecibo::getFechaCreacion)
+                    .orElse(null);
+            LocalDateTime primerMovimiento = movimientoOrigenFondosRepository
+                    .findMinFechaCreacionByIdGreaterThan(movimientoAfterId)
+                    .orElse(null);
+            LocalDateTime fechaIniTurno = minDateTime(primeraVenta, primerMovimiento);
+            if (fechaIniTurno != null) {
+                response.setFechaIni(fechaIniTurno);
             } else if (ultimoCorteVentaRef != null) {
-                // Sin ventas aún: el periodo de egresos/movimientos arranca al cierre del corte anterior.
+                // Sin actividad aún: el periodo arranca al cierre del corte anterior.
                 response.setFechaIni(ultimoCorteVentaRef.getFechaFin());
             } else if (movimientoAfterId != null && movimientoAfterId > 0L) {
                 // Instalación: periodo arranca en la fecha de la inversión inicial.
@@ -516,13 +524,18 @@ public class CorteVentaServiceImpl implements CorteVentaService {
             }
 
             if (request.isActual()) {
-                Optional<HistorialRecibo> ultimoHistorialRecibo =
-                        historialReciboRepository.findFirstByOrderByFechaCreacionDesc();
-                if (ultimoHistorialRecibo.isPresent()
-                        && ultimoHistorialRecibo.get().getId() > historialAfterId) {
-                    response.setFechaFin(ultimoHistorialRecibo.get().getFechaCreacion());
+                // Hasta = última actividad del turno (venta o movimiento), no solo el último ticket.
+                LocalDateTime ultimaVenta = historialReciboRepository
+                        .findMaxFechaCreacionByIdGreaterThan(historialAfterId)
+                        .orElse(null);
+                LocalDateTime ultimoMovimiento = movimientoOrigenFondosRepository
+                        .findMaxFechaCreacionByIdGreaterThan(movimientoAfterId)
+                        .orElse(null);
+                LocalDateTime fechaFinTurno = maxDateTime(ultimaVenta, ultimoMovimiento);
+                if (fechaFinTurno != null) {
+                    response.setFechaFin(fechaFinTurno);
                 } else if (response.getFechaIni() != null) {
-                    // Sin tickets nuevos: no reutilizar la fecha del último ticket del corte anterior.
+                    // Sin actividad nueva: no reutilizar la fecha del último ticket del corte anterior.
                     response.setFechaFin(DateUtils.obtenerFechaSistema());
                 }
             } else {
@@ -632,6 +645,26 @@ public class CorteVentaServiceImpl implements CorteVentaService {
         }
 
         return response;
+    }
+
+    private static LocalDateTime minDateTime(LocalDateTime a, LocalDateTime b) {
+        if (a == null) {
+            return b;
+        }
+        if (b == null) {
+            return a;
+        }
+        return a.isBefore(b) ? a : b;
+    }
+
+    private static LocalDateTime maxDateTime(LocalDateTime a, LocalDateTime b) {
+        if (a == null) {
+            return b;
+        }
+        if (b == null) {
+            return a;
+        }
+        return a.isAfter(b) ? a : b;
     }
 
     private Map<Long, BigDecimal> toResumenMap(List<Object[]> rows) {

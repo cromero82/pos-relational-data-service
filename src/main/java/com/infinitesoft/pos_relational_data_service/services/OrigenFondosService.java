@@ -11,5 +11,7 @@ public interface OrigenFondosService {
     List<OrigenFondosArbolItemDto> findArbol();
     List<OrigenFondosArbolItemDto> findArbolParaEgreso();
     OrigenFondosDto findById(Integer id);
+
+    /** Método de pago del O.F. o ancestro; {@code null} si la cuenta no tiene medio vinculado. */
     Long resolverMetodoPagoId(Integer origenFondosId);
 }

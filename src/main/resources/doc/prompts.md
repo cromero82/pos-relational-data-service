@@ -36,7 +36,7 @@ Caja General
 30000 TOTAL PARCIAL
 
 
-* Movimientos
+* 2. Movimientos
 de caja:efectivo a: caja menor, valor: 30000
 
 ahora: al actualizarse la vista
@@ -65,36 +65,17 @@ de hecho nisiquiera deberia existir ese metodo de pago.
 
 podrias revisarlo hasta este punto (aun no he realizado el cierre)
 
-=====================================
 
-TEMP:
-perfecto, ahora.
-requiereo que en movimientos, cuando aparezca un tipo: ENTRADA_VENTA, se note con un color de fondo resaltando este registro. y al final en Columna "Detalle" (justo a la derecha (alineacion a derecha) aparezca un voton "Ver" y pueda cargar los detalles de ese corte de ventas.
+========================
+otro aspecto visual es en  la funcionalidad : Origenes de fondos.
+vamos a optimizar los bolsillos "hijos":
+vamos a hacerlos un poco mas pequeños (las fuentes y el alto, la idea es disminuir espacio , ejemplo el espacio entre el borde  superior e inferior con la primer y ultimo texto disminuirlo tambien) me agrada que sean verticales. pregunto para que es esa linea que se ve: _______
+?
+en Origenes de fondos hijos no vamos a mostrar resumen de movimientos (visualmente), para estos casos el usuario tendra la tabla.
+te adjunto imagen de verticalmente como se ve el Origen de fondo padre y los 2 hijos que tiene el : Bancolombia - QR
 
+en pantallas verticalmente pequeñas no es posible ver la tabla de movimientos. y una razon es los origenes de fondos que son hijos, estan ocupando un algo espacio.  y luego vemos para que la tabla
 
-================
-
-TEMP ( PARA ver el registro resaltado en el historial)
-en el app cuya url es: /apps/tickets/historial
-es decir "Historial de Ventas" en el listado de items de las ventas: infinito-ai-front/src/app/pages/apps/ventas/historial-ventas/historial-ventas.component.html:50
-quiero que ...
-
-
-
-====================================
-al repetir la prueba todo se comporta igual, pero en funcionalidad: DIstribucion de efectivo, aparece el saldo 250000. la distribucion ahora es: 
-base: 160000
-caja menor: 60000
-caja general: 30000
-
-revisa si los movimientos son correctos, 
-Observacion:
-- al finalizar distribucion, cierra sesion. al iniciar sesion en el siguiente turno.
-- voy directamente a "Origenes de fondos" y en caja:Efectivo :
-  - 160000 movimientos
-  - 40000 (tickets sin corte)
-  - total parcial: 200000
-es extraño porque no he vendido nada (que cueste 40000)
 
 =========================
 1. MOvimientos paso 1.
@@ -125,7 +106,7 @@ a continuacion cierre de ventas
 y luego se ejecuta inmediatamente : DIstribucion de efectivo.
 Tras el cierre, reparte el efectivo de Caja: Efectivo hacia Caja Menor y Caja General. Lo que quede será la Base del próximo turno.
 
-Saldo actual: $100,000
+Saldo actual: 250000
 diligencio los inputs:
 Base: 60000
 Caja menor: 40000

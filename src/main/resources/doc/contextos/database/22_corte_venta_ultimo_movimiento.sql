@@ -1,6 +1,7 @@
 -- Watermark de ledger para cierre de turno (espejo de ultimo_historial_recibo_id).
 -- Periodo de "Movimientos" del siguiente corte: id > ultimo_movimiento_origen_fondos_id.
 -- Incluye AJUSTE_CIERRE del propio corte (origen_tipo=CIERRE, origen_id=corte.id).
+-- Nota: 27 renombra origen_id → id_referencia; este UPDATE corre antes del rename.
 
 ALTER TABLE corte_venta
     ADD COLUMN IF NOT EXISTS ultimo_movimiento_origen_fondos_id BIGINT;

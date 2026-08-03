@@ -6,10 +6,12 @@ import com.infinitesoft.pos_relational_data_service.entities.CorteVentaDetalle;
 import com.infinitesoft.pos_relational_data_service.entities.Egreso;
 import com.infinitesoft.pos_relational_data_service.entities.Establecimiento;
 import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFondos;
+import com.infinitesoft.pos_relational_data_service.entities.Proveedor;
 import com.infinitesoft.pos_relational_data_service.entities.enums.TipoMovimientoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.repositories.OrigenFondosRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MotivoMovimientoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MovimientoOrigenFondosRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.ProveedorRepository;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.EstablecimientoService;
 import com.infinitesoft.pos_relational_data_service.services.MovimientoOrigenFondosService;
@@ -36,6 +38,9 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
 
     @Autowired
     private MotivoMovimientoRepository motivoRepository;
+
+    @Autowired
+    private ProveedorRepository proveedorRepository;
 
     @Autowired
     private EstablecimientoService establecimientoService;
@@ -288,7 +293,7 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
             return;
         }
         if (!movimientoRepository
-                .findByOrigenTipoAndOrigenIdOrderByIdAsc(ORIGEN_TIPO_CORTE_VENTA, corteVentaId)
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_CORTE_VENTA, corteVentaId)
                 .isEmpty()) {
             return;
         }
@@ -332,12 +337,12 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
             return;
         }
         if (!movimientoRepository
-                .findByOrigenTipoAndOrigenIdOrderByIdAsc(ORIGEN_TIPO_CORTE_VENTA_REVERSO, corteVentaId)
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_CORTE_VENTA_REVERSO, corteVentaId)
                 .isEmpty()) {
             return;
         }
         List<MovimientoOrigenFondos> entradas = movimientoRepository
-                .findByOrigenTipoAndOrigenIdOrderByIdAsc(ORIGEN_TIPO_CORTE_VENTA, corteVentaId)
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_CORTE_VENTA, corteVentaId)
                 .stream()
                 .filter(m -> m.getTipoMovimiento() == TipoMovimientoOrigenFondos.ENTRADA_VENTA)
                 .collect(Collectors.toList());
@@ -357,7 +362,7 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                     .observacion("Reverso ventas por eliminación del cierre #" + corteVentaId)
                     .valorSistema(entrada.getValorSistema())
                     .origenTipo(ORIGEN_TIPO_CORTE_VENTA_REVERSO)
-                    .origenId(corteVentaId)
+                    .idReferencia(corteVentaId)
                     .build();
             movimientoRepository.save(reverso);
         }
@@ -451,13 +456,13 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
             return;
         }
         if (!movimientoRepository
-                .findByOrigenTipoAndOrigenIdOrderByIdAsc("CIERRE_REVERSO", corteVentaId)
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc("CIERRE_REVERSO", corteVentaId)
                 .isEmpty()) {
             return;
         }
 
         List<MovimientoOrigenFondos> ajustes = movimientoRepository
-                .findByOrigenTipoAndOrigenIdOrderByIdAsc("CIERRE", corteVentaId)
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc("CIERRE", corteVentaId)
                 .stream()
                 .filter(m -> m.getTipoMovimiento() == TipoMovimientoOrigenFondos.AJUSTE_CIERRE)
                 .collect(Collectors.toList());
@@ -480,7 +485,7 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                     .valorSistema(ajuste.getValorReal())
                     .valorReal(ajuste.getValorSistema())
                     .origenTipo("CIERRE_REVERSO")
-                    .origenId(corteVentaId)
+                    .idReferencia(corteVentaId)
                     .build();
             movimientoRepository.save(reverso);
         }
@@ -529,7 +534,7 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
             return;
         }
         List<MovimientoOrigenFondos> salidas = movimientoRepository
-                .findByOrigenTipoAndOrigenIdOrderByIdAsc("EGRESO", egresoId)
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc("EGRESO", egresoId)
                 .stream()
                 .filter(m -> m.getTipoMovimiento() == TipoMovimientoOrigenFondos.SALIDA_EGRESO)
                 .collect(Collectors.toList());
@@ -589,17 +594,39 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
     }
 
     private String buildObservacionEgreso(Egreso egreso) {
+        // Formato: "Egreso #1: Cocacola (observación opcional)"
         StringBuilder sb = new StringBuilder("Egreso");
         if (egreso.getId() != null) {
             sb.append(" #").append(egreso.getId());
         }
-        if (egreso.getProveedor() != null && egreso.getProveedor().getNombre() != null) {
-            sb.append(" — ").append(egreso.getProveedor().getNombre());
+        String proveedorNombre = resolveProveedorNombre(egreso);
+        if (proveedorNombre != null && !proveedorNombre.isBlank()) {
+            sb.append(": ").append(proveedorNombre.trim());
         }
         if (egreso.getDescripcion() != null && !egreso.getDescripcion().isBlank()) {
-            sb.append(": ").append(egreso.getDescripcion().trim());
+            sb.append(" (").append(egreso.getDescripcion().trim()).append(")");
         }
         return sb.toString();
+    }
+
+    /**
+     * El FE suele enviar solo {@code proveedor: { id }}, sin nombre.
+     * Hay que resolver el nombre desde BD.
+     */
+    private String resolveProveedorNombre(Egreso egreso) {
+        if (egreso == null || egreso.getProveedor() == null) {
+            return null;
+        }
+        Proveedor p = egreso.getProveedor();
+        if (p.getNombre() != null && !p.getNombre().isBlank()) {
+            return p.getNombre();
+        }
+        if (p.getId() == null) {
+            return null;
+        }
+        return proveedorRepository.findById(p.getId())
+                .map(Proveedor::getNombre)
+                .orElse(null);
     }
 
     private MovimientoOrigenFondos persistirMovimiento(
@@ -615,7 +642,7 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
             BigDecimal valorSistema,
             BigDecimal valorReal,
             String origenTipo,
-            Long origenId,
+            Long idReferencia,
             String grupoTrasladoId
     ) {
         if (impacto.compareTo(BigDecimal.ZERO) < 0) {
@@ -643,7 +670,7 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 .valorSistema(valorSistema)
                 .valorReal(valorReal)
                 .origenTipo(origenTipo)
-                .origenId(origenId)
+                .idReferencia(idReferencia)
                 .grupoTrasladoId(grupoTrasladoId)
                 .build();
         return movimientoRepository.save(entity);
@@ -718,7 +745,8 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 .valorSistema(m.getValorSistema())
                 .valorReal(m.getValorReal())
                 .origenTipo(m.getOrigenTipo())
-                .origenId(m.getOrigenId())
+                .idReferencia(m.getIdReferencia())
+                .origenId(m.getIdReferencia())
                 .grupoTrasladoId(m.getGrupoTrasladoId())
                 .build();
     }

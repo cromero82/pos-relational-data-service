@@ -70,6 +70,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_corte_detalle_metodo
     WHERE metodo_pago_id IS NOT NULL;
 
 -- Históricos: conservar el agregado que ya estaba persistido en ventas_tipo.
+-- BEGIN/COMMIT: con autocommit de psql, ON COMMIT DROP borraba la temp al instante.
+BEGIN;
+
 CREATE TEMP TABLE cortes_legacy_b8 ON COMMIT DROP AS
 SELECT cv.id
 FROM corte_venta cv
@@ -125,3 +128,5 @@ SET estado = 'revisada',
     revisado_por = COALESCE(cv.revisado_por, cv.usuario_id),
     fecha_revision = COALESCE(cv.fecha_revision, cv.fecha_creacion)
 WHERE cv.id IN (SELECT id FROM cortes_legacy_b8);
+
+COMMIT;

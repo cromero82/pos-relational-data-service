@@ -51,6 +51,11 @@ public class OrigenFondosServiceImpl implements OrigenFondosService {
         return cuentaRepository.findById(id).map(this::toDto).orElse(null);
     }
 
+    /**
+     * Resuelve el método de pago asociado a la cuenta (o a un ancestro).
+     * Puede ser {@code null}: hay orígenes (p. ej. Caja Menor / General) sin medio de pago;
+     * el egreso/movimiento prima por {@code origenFondosId}.
+     */
     @Override
     public Long resolverMetodoPagoId(Integer origenFondosId) {
         if (origenFondosId == null) {
@@ -72,8 +77,7 @@ public class OrigenFondosServiceImpl implements OrigenFondosService {
             }
             actual = cuentaRepository.findById(parentId).orElse(null);
         }
-        throw new IllegalArgumentException(
-                "No se pudo determinar el método de pago para la cuenta seleccionada.");
+        return null;
     }
 
     private List<OrigenFondosArbolItemDto> flattenArbol(List<OrigenFondos> cuentas, boolean soloVisibleEgreso) {
@@ -127,11 +131,7 @@ public class OrigenFondosServiceImpl implements OrigenFondosService {
         String tipoCodigo = cuenta.getTipoOrigenFondos() != null ? cuenta.getTipoOrigenFondos().getCodigo() : null;
         Long metodoPagoId = cuenta.getMetodoPagoId();
         if (metodoPagoId == null && cuenta.getParentOrigenFondosId() != null) {
-            try {
-                metodoPagoId = resolverMetodoPagoId(cuenta.getId());
-            } catch (IllegalArgumentException ignored) {
-                metodoPagoId = null;
-            }
+            metodoPagoId = resolverMetodoPagoId(cuenta.getId());
         }
         return OrigenFondosArbolItemDto.builder()
                 .id(cuenta.getId())

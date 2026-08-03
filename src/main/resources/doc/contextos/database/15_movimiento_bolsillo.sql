@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS movimiento_bolsillo (
     valor_sistema           NUMERIC(14, 2),
     valor_real              NUMERIC(14, 2),
     origen_tipo             VARCHAR(30),
-    origen_id               BIGINT,
+    origen_id               BIGINT, -- renombrado a id_referencia en 27_movimiento_id_referencia.sql
     grupo_traslado_id       VARCHAR(36),
     -- Solo la pata de salida (impacto < 0) exige destino; la entrada puede ser NULL.
     CONSTRAINT chk_movimiento_traslado_destino

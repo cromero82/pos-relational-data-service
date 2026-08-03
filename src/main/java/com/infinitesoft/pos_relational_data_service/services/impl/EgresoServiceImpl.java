@@ -43,12 +43,13 @@ public class EgresoServiceImpl implements EgresoService {
     @Autowired
     private EstadisticaFinancieraService estadisticaFinancieraService;
 
+    /**
+     * El método de pago es opcional (derivado del O.F. si existe).
+     * Prima {@code origenFondosId}; cuentas como Caja Menor no tienen medio de pago.
+     */
     private void validarMetodoPago(Egreso egreso) {
-        if (egreso.getProveedor() == null) {
-            return;
-        }
         if (egreso.getMetodoPagoId() == null) {
-            throw new IllegalArgumentException("Debe indicar el origen de pago del egreso.");
+            return;
         }
         MetodoPago metodoPago = metodoPagoRepository.findById(egreso.getMetodoPagoId())
                 .orElseThrow(() -> new IllegalArgumentException("Método de pago no encontrado."));
@@ -69,8 +70,8 @@ public class EgresoServiceImpl implements EgresoService {
         if (Boolean.FALSE.equals(cuenta.getVisibleEnEgreso())) {
             throw new IllegalArgumentException("La cuenta seleccionada no está habilitada para egresos.");
         }
-        Long metodoPagoId = origenFondosService.resolverMetodoPagoId(egreso.getOrigenFondosId());
-        egreso.setMetodoPagoId(metodoPagoId);
+        // Nullable: no todas las cuentas tienen método de pago vinculado.
+        egreso.setMetodoPagoId(origenFondosService.resolverMetodoPagoId(egreso.getOrigenFondosId()));
     }
 
     @Override
