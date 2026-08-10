@@ -105,6 +105,43 @@ Scripts:
 Los históricos migrados quedan `revisada`; los nuevos cierres de cajero nacen
 `creada` y los creados por admin nacen `revisada`.
 
+## Post-B8 — Watermarks, distribución, base inicial, id_referencia (2026-07/08)
+
+```bash
+# Migración completa prod → dian-v2 (idempotente en lo posible; omite 25_repair)
+./apply-migrate-prod-to-dian-v2.sh
+# o con URL: ./apply-migrate-prod-to-dian-v2.sh "$DB_URL"
+```
+
+Scripts (después de `20`):
+
+| SQL | Efecto | Apply helper |
+|-----|--------|----------------|
+| `21_fix_traslado_destino_check.sql` | CHECK destino en traslados | `apply-fix-traslado-destino.sh` |
+| `22_corte_venta_ultimo_movimiento.sql` | `ultimo_movimiento_origen_fondos_id` | `apply-corte-watermark-movimientos.sh` |
+| `23_distribucion_efectivo.sql` | `base_siguiente_efectivo` + distribución | `apply-distribucion-efectivo.sh` |
+| `24_base_inicial_caja.sql` | Motivo/base inicial instalación | `apply-base-inicial-caja.sh` |
+| `25_repair_entrada_venta_corte1.sql` | Repair puntual de prueba — **no** en migrate prod | — |
+| `26_unlink_caja_menor_metodo_pago.sql` | Caja Menor sin `metodo_pago_id` | `apply-unlink-caja-menor-mp.sh` |
+| `27_movimiento_id_referencia.sql` | `origen_id` → `id_referencia` | (incluido en migrate) |
+
+Contexto de dominio: `../AI-HANDOFF-FINANZAS-2026-08.md`.
+
+## Reset operativo de prueba (no es migración de schema)
+
+Vacía transacciones (movimientos OF, egresos, cortes, tickets, stats…) y **conserva catálogos**.
+
+```bash
+# Canónico v2 — ver instructivo (DBeaver Auto-commit ON)
+bash /Users/carlosromero/Documents/dev/repos/prompts-general-pos/apply-reset-tablas-financieras-transaccionales.sh
+# o:
+psql "$DB_URL" -v ON_ERROR_STOP=1 \
+  -f /Users/carlosromero/Documents/dev/repos/prompts-general-pos/reset-tablas-financieras-transaccionales-v2.sql
+```
+
+Docs: `prompts-general-pos/RESET-TABLAS-FINANCIERAS-TRANSACCIONALES.md`.  
+Tras reset: logout + login **admin** → modal base inicial (si `BASE_INICIAL=0` y sin cortes).
+
 ## Sprint 5+ (pendiente en repo)
 - `12_backup_registro.sql`
 

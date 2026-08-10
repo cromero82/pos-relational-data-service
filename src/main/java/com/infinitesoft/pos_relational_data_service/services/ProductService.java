@@ -11,6 +11,13 @@ public interface ProductService {
     Page<Product> getAll(String barcodeOrName, Pageable pageable);
     Page<Product> search(String query, Pageable pageable);
     Page<Product> busquedaSmart(String query, Pageable pageable, boolean unicamenteActivos);
+
+    /**
+     * Búsqueda smart; si {@code coincidirTodaPalabraIndividual} es true, cada palabra del query
+     * debe aparecer como palabra completa (no subcadena) en nombre o código de barras.
+     */
+    Page<Product> busquedaSmart(String query, Pageable pageable, boolean unicamenteActivos,
+                                boolean coincidirTodaPalabraIndividual);
     Page<Product> getByName(String name, Pageable pageable);
     Page<Product> busquedaPorFiltros(List<FilterRequest> filtros, Pageable pageable, String campoOrdenamiento, String orden, String query);
     Optional<Product> getByBarcode(String barcode);

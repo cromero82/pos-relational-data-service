@@ -46,11 +46,16 @@ public class MetodoPago {
     @Column(name = "monto", precision = 12, scale = 2)
     private BigDecimal monto;
 
+    @Column(name = "plantilla_notificacion_pago", columnDefinition = "TEXT")
+    private String plantillaNotificacionPago;
+
     @PrePersist
     @PreUpdate
     protected void onPrePersistUpdate() {
         String descripcionEgresoOriginal = this.descripcionEgreso;
+        String plantillaOriginal = this.plantillaNotificacionPago;
         StringUtils.convertStringsToUpperCase(this);
         this.descripcionEgreso = descripcionEgresoOriginal;
+        this.plantillaNotificacionPago = plantillaOriginal;
     }
 }

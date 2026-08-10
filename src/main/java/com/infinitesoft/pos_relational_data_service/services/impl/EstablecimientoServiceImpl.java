@@ -50,6 +50,12 @@ public class EstablecimientoServiceImpl implements EstablecimientoService {
         if (dto.getManejoEstrictoCuentas() != null) {
             entity.setManejoEstrictoCuentas(dto.getManejoEstrictoCuentas());
         }
+        if (dto.getReferenciaCuentaQr() != null) {
+            entity.setReferenciaCuentaQr(dto.getReferenciaCuentaQr());
+        }
+        if (dto.getEmailAlertaPagos() != null) {
+            entity.setEmailAlertaPagos(dto.getEmailAlertaPagos());
+        }
         return toDto(repository.save(entity));
     }
 
@@ -79,6 +85,8 @@ public class EstablecimientoServiceImpl implements EstablecimientoService {
                 .telefono(e.getTelefono())
                 .email(e.getEmail())
                 .manejoEstrictoCuentas(e.getManejoEstrictoCuentas())
+                .referenciaCuentaQr(e.getReferenciaCuentaQr())
+                .emailAlertaPagos(e.getEmailAlertaPagos())
                 .build();
     }
 }

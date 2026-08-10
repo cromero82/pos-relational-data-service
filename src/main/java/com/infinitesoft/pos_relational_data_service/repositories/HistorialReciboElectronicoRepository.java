@@ -1,0 +1,12 @@
+package com.infinitesoft.pos_relational_data_service.repositories;
+
+import com.infinitesoft.pos_relational_data_service.entities.HistorialReciboElectronico;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface HistorialReciboElectronicoRepository
+        extends JpaRepository<HistorialReciboElectronico, Long> {
+
+    Optional<HistorialReciboElectronico> findByHistorialReciboId(Long historialReciboId);
+}

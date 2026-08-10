@@ -53,8 +53,8 @@ public class ProductServiceImpl implements ProductService {
             return productRepository.findAll(sorted);
         }
 
-        String query = barcodeOrName.toUpperCase().trim();
-        String[] words = query.split("\\s+");
+        String query = normalizeProductSearchQuery(barcodeOrName);
+        String[] words = query.trim().split("\\s+");
 
         if (words.length < 2) {
             return productRepository.searchActiveByBarcodeOrNombreContaining(query, sorted);
@@ -98,11 +98,21 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Page<Product> busquedaSmart(String query, Pageable pageable, boolean unicamenteActivos) {
+        return busquedaSmart(query, pageable, unicamenteActivos, false);
+    }
+
+    @Override
+    public Page<Product> busquedaSmart(String query, Pageable pageable, boolean unicamenteActivos,
+                                       boolean coincidirTodaPalabraIndividual) {
         if (query == null || query.isBlank()) {
             return unicamenteActivos ? productRepository.findAllActive(withNameAsc(pageable)) : productRepository.findAll(withNameAsc(pageable));
         }
 
-        String q = query.trim().toUpperCase();
+        if (coincidirTodaPalabraIndividual) {
+            return busquedaCoincidirTodaPalabraIndividual(query, pageable, unicamenteActivos);
+        }
+
+        String q = normalizeProductSearchQuery(query);
         Pageable sorted = withNameAsc(pageable);
 
         // 1. Intento búsqueda normal (completa)
@@ -111,7 +121,7 @@ public class ProductServiceImpl implements ProductService {
             return results;
         }
 
-        String[] words = q.split("\\s+");
+        String[] words = q.trim().split("\\s+");
         if (words.length > 1) {
             // 2. Lógica de unión de palabras
             // Intentar uniendo palabras progresivamente
@@ -236,8 +246,8 @@ public class ProductServiceImpl implements ProductService {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
             if (query != null && !query.isBlank()) {
-                String q = query.trim().toUpperCase();
-                String[] words = q.split("\\s+");
+                String q = normalizeProductSearchQuery(query);
+                String[] words = q.trim().split("\\s+");
 
                 Predicate smartPredicate;
 
@@ -711,5 +721,79 @@ public class ProductServiceImpl implements ProductService {
             // Log error or handle silently to not disrupt main flow
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Colapsa 2+ espacios seguidos a uno solo y pasa a mayúsculas.
+     * No hace trim: un espacio simple al inicio/fin se conserva (p. ej. "ron " → "RON ").
+     */
+    private static String normalizeProductSearchQuery(String query) {
+        if (query == null) {
+            return null;
+        }
+        return query.replaceAll("\\s{2,}", " ").toUpperCase();
+    }
+
+    /**
+     * Cada palabra del query debe coincidir como palabra completa en nombre o barcode
+     * (p. ej. "RON" no coincide con "APRONAX" ni "CORONA").
+     */
+    private Page<Product> busquedaCoincidirTodaPalabraIndividual(String query, Pageable pageable,
+                                                                boolean unicamenteActivos) {
+        String normalized = normalizeProductSearchQuery(query);
+        String[] words = normalized == null ? new String[0] : normalized.trim().split("\\s+");
+        List<String> significant = new ArrayList<>();
+        for (String word : words) {
+            if (word != null && !word.isBlank()) {
+                significant.add(word);
+            }
+        }
+        if (significant.isEmpty()) {
+            return unicamenteActivos
+                    ? productRepository.findAllActive(withNameAsc(pageable))
+                    : productRepository.findAll(withNameAsc(pageable));
+        }
+
+        Pageable sorted = withNameAsc(pageable);
+        Specification<Product> spec = (root, criteriaQuery, cb) -> {
+            List<Predicate> andWords = new ArrayList<>();
+            for (String word : significant) {
+                andWords.add(cb.or(
+                        wholeWordLike(cb, root.get("nombre"), word),
+                        wholeWordLike(cb, root.get("barcode"), word)
+                ));
+            }
+            Predicate wordsMatch = cb.and(andWords.toArray(new Predicate[0]));
+            if (unicamenteActivos) {
+                return cb.and(cb.notEqual(root.get("activate"), 0), wordsMatch);
+            }
+            return wordsMatch;
+        };
+        return productRepository.findAll(spec, sorted);
+    }
+
+    /** Coincide palabra completa delimitada por espacios o extremos del texto. */
+    private static Predicate wholeWordLike(javax.persistence.criteria.CriteriaBuilder cb,
+                                           javax.persistence.criteria.Path<String> field,
+                                           String word) {
+        String w = escapeLikeMeta(word);
+        javax.persistence.criteria.Expression<String> upper = cb.upper(field);
+        char esc = '\\';
+        return cb.or(
+                cb.equal(upper, w),
+                cb.like(upper, w + " %", esc),
+                cb.like(upper, "% " + w + " %", esc),
+                cb.like(upper, "% " + w, esc)
+        );
+    }
+
+    private static String escapeLikeMeta(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 }

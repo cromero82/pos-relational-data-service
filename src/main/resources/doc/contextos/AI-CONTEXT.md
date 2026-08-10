@@ -1,9 +1,12 @@
 # AI Context - pos-relational-data-service (ms negocio)
 
-> Antes de tocar este repo: **lee tambien**
-> `C:\dev\repos\logs-infinito\docs\AI-ONBOARDING.md`. Aqui solo va lo
-> especifico de este microservicio. El contexto global del sistema POS
-> y la migracion a InfluxDB esta alli.
+> **2026-08:** Contexto general del POS → [`AI-ONBOARDING-basic.md`](./AI-ONBOARDING-basic.md).  
+> Finanzas / movimientos / orígenes / reset → [`AI-HANDOFF-FINANZAS-2026-08.md`](./AI-HANDOFF-FINANZAS-2026-08.md).  
+> Monitor / HAR del FE (Angular) → [`AI-HANDOFF-MONITOR-2026-08.md`](./AI-HANDOFF-MONITOR-2026-08.md).  
+> Este archivo queda enfocado en **monitoreo backend → InfluxDB** (no confundir con el botón **Monitor** del FE ni con finanzas).
+
+> Antes de tocar logs: si existe el repo `logs-infinito`, leer también su
+> onboarding. Aquí solo va lo específico de este microservicio respecto a Influx.
 
 ## Que es
 

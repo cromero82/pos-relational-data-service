@@ -18,4 +18,6 @@ public class EstablecimientoDto {
     private String telefono;
     private String email;
     private Boolean manejoEstrictoCuentas;
+    private String referenciaCuentaQr;
+    private String emailAlertaPagos;
 }

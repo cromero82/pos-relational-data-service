@@ -5,12 +5,16 @@ import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoResponseDto;
 import com.infinitesoft.pos_relational_data_service.dto.ReciboUpdateResult;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
+import com.infinitesoft.pos_relational_data_service.repositories.ClientRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboElectronicoRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.MetodoPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,10 +52,22 @@ public class ReciboServiceImpl implements ReciboService {
     private ProductRepository productRepository;
 
     @Autowired
+    private HistorialReciboElectronicoRepository historialReciboElectronicoRepository;
+
+    @Autowired
+    private MetodoPagoRepository metodoPagoRepository;
+
+    @Autowired
     private DocumentoVentaService documentoVentaService;
 
     @Autowired
     private MovimientoInventarioService movimientoInventarioService;
+
+    @Autowired
+    private ClientRepository clientRepository;
+
+    @Value("${app.id-usuario-anonimo:1}")
+    private Long idUsuarioAnonimo;
 
     @Override
     public Recibo create(ReciboDto dto) {
@@ -98,7 +114,7 @@ public class ReciboServiceImpl implements ReciboService {
 
         Recibo existing = existingOpt.get();
         // Update mutable fields, keep id and fechaCreacion
-        existing.setClienteId(dto.getClienteId());
+        existing.setClienteId(resolverClienteIdActualizacion(existing.getClienteId(), dto.getClienteId()));
         existing.setEstadoId(dto.getEstadoId());
         existing.setMetodoPagoId(dto.getMetodoPagoId());
         // Preserve existing sesionId if not provided in the update payload
@@ -122,6 +138,9 @@ public class ReciboServiceImpl implements ReciboService {
                     .montoRecibido(existing.getMontoRecibido())
                     .build();
             HistorialRecibo savedHist = historialReciboService.create(hist);
+            if (targetEstado == ReciboEstado.PAGADO) {
+                registrarPendienteConfirmacionElectronica(savedHist, existing);
+            }
 
             DocumentoVenta documentoVenta = null;
             if (targetEstado == ReciboEstado.PAGADO) {
@@ -247,5 +266,94 @@ public class ReciboServiceImpl implements ReciboService {
         // 4) Finally delete the recibo itself
         reciboRepository.deleteById(id);
         return true;
+    }
+
+    /**
+     * Ventas QR (sigla QR / Bancolombia): deja pendiente de confirmación por email bancario.
+     * Best-effort: no debe tumbar el pago si falla.
+     */
+    private void registrarPendienteConfirmacionElectronica(HistorialRecibo hist, Recibo recibo) {
+        try {
+            if (hist == null || hist.getId() == null || hist.getMetodoPagoId() == null) {
+                return;
+            }
+            if (historialReciboElectronicoRepository.findByHistorialReciboId(hist.getId()).isPresent()) {
+                return;
+            }
+            Optional<MetodoPago> mpOpt = metodoPagoRepository.findById(hist.getMetodoPagoId());
+            if (mpOpt.isEmpty()) {
+                return;
+            }
+            MetodoPago mp = mpOpt.get();
+            String sigla = mp.getSigla() != null ? mp.getSigla().trim().toUpperCase() : "";
+            String desc = mp.getDescripcion() != null ? mp.getDescripcion().toUpperCase() : "";
+            boolean esQrElectronico = "QR".equals(sigla) || desc.contains("BANCOLOMBIA");
+            if (!esQrElectronico) {
+                return;
+            }
+            historialReciboElectronicoRepository.save(HistorialReciboElectronico.builder()
+                    .historialReciboId(hist.getId())
+                    .sesionId(hist.getSesionId())
+                    .metodoPagoId(hist.getMetodoPagoId())
+                    .montoEsperado(hist.getTotal())
+                    .estado("CREADA")
+                    .nombreCliente(resolverNombreClienteTicket(recibo, hist))
+                    .build());
+        } catch (Exception ignored) {
+            // Feature no crítica
+        }
+    }
+
+    private Long resolverClienteIdActualizacion(Long actual, Long dtoClienteId) {
+        if (dtoClienteId == null) {
+            return actual;
+        }
+        if (esClienteAnonimo(dtoClienteId) && !esClienteAnonimo(actual)) {
+            return actual;
+        }
+        return dtoClienteId;
+    }
+
+    private boolean esClienteAnonimo(Long clienteId) {
+        if (clienteId == null) {
+            return true;
+        }
+        return idUsuarioAnonimo != null && clienteId.equals(idUsuarioAnonimo);
+    }
+
+    private String resolverNombreClienteTicket(Recibo recibo, HistorialRecibo hist) {
+        Long clienteId = hist != null && hist.getClienteId() != null
+                ? hist.getClienteId()
+                : (recibo != null ? recibo.getClienteId() : null);
+        if (!esClienteAnonimo(clienteId)) {
+            Optional<Client> clientOpt = clientRepository.findById(clienteId);
+            if (clientOpt.isPresent()) {
+                String nombre = clientOpt.get().getNombre();
+                if (nombre != null && !nombre.isBlank() && !esNombreAnonimo(nombre)) {
+                    return nombre.trim();
+                }
+            }
+        }
+        if (recibo == null || recibo.getId() == null) {
+            return null;
+        }
+        Optional<TicketRecibo> tr = ticketReciboRepository.findFirstByReciboId(recibo.getId());
+        if (tr.isEmpty() || tr.get().getTicketId() == null) {
+            return null;
+        }
+        Ticket ticket = ticketService.findById(tr.get().getTicketId());
+        if (ticket == null || ticket.getNombre() == null || ticket.getNombre().isBlank()) {
+            return null;
+        }
+        String nombreTicket = ticket.getNombre().trim();
+        if (nombreTicket.matches("(?i)ticket\\s*\\d+")) {
+            return null;
+        }
+        return nombreTicket;
+    }
+
+    private static boolean esNombreAnonimo(String nombre) {
+        String n = nombre.trim();
+        return n.equalsIgnoreCase("anonimo") || n.equalsIgnoreCase("anónimo");
     }
 }

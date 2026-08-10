@@ -197,6 +197,25 @@ public class TicketServiceImpl implements TicketService {
         Ticket ticket = findById(ticketId);
         if (ticket == null) return null;
 
+        // 1b. Un cliente no anónimo solo puede estar en un ticket de la sesión.
+        if (ticket.getSessionId() != null
+                && idUsuarioAnonimo != null
+                && !clienteId.equals(idUsuarioAnonimo)) {
+            List<Object[]> enSesion = ticketRepository.findTicketsWithNonAnonClienteBySessionId(
+                    ticket.getSessionId(), idUsuarioAnonimo);
+            for (Object[] row : enSesion) {
+                if (row == null || row.length < 6 || row[0] == null || row[5] == null) {
+                    continue;
+                }
+                Long otherTicketId = ((Number) row[0]).longValue();
+                Long otherClienteId = ((Number) row[5]).longValue();
+                if (!otherTicketId.equals(ticketId) && otherClienteId.equals(clienteId)) {
+                    throw new IllegalArgumentException(
+                            "Ya existe un ticket asignado a este cliente");
+                }
+            }
+        }
+
         // 2. Obtener el vínculo ticket_recibo para obtener el recibo_id
         com.infinitesoft.pos_relational_data_service.entities.TicketRecibo tr = ticketReciboService.findFirstByTicketId(ticketId);
         if (tr != null && tr.getReciboId() != null) {

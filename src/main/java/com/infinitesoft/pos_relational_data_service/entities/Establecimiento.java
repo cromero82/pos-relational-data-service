@@ -53,6 +53,14 @@ public class Establecimiento {
     @Builder.Default
     private Boolean manejoEstrictoCuentas = false;
 
+    /** Últimos 4 dígitos cuenta QR (alertas bancarias). */
+    @Column(name = "referencia_cuenta_qr", length = 4)
+    private String referenciaCuentaQr;
+
+    /** Correo configurado para alertas de consignación. */
+    @Column(name = "email_alerta_pagos", length = 255)
+    private String emailAlertaPagos;
+
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private LocalDateTime fechaCreacion;
 

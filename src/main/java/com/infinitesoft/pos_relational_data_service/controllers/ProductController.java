@@ -61,10 +61,11 @@ public class ProductController {
             @RequestParam(name = "query") String query,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "false") boolean unicamenteActivos
+            @RequestParam(defaultValue = "false") boolean unicamenteActivos,
+            @RequestParam(defaultValue = "false") boolean coincidirTodaPalabraIndividual
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        return productService.busquedaSmart(query, pageable, unicamenteActivos);
+        return productService.busquedaSmart(query, pageable, unicamenteActivos, coincidirTodaPalabraIndividual);
     }
 
     @PostMapping("/busquedaPorFiltros")
