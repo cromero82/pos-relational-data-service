@@ -34,7 +34,7 @@ public class AuthClient {
 
     public AuthClient(
             WebClient.Builder webClientBuilder,
-            @Value("${auth.service.host:http://localhost:8081}") String serviceHost,
+            @Value("${auth.service.base-url:${auth.service.host:http://localhost:8081}}") String serviceHost,
             @Value("${auth.service.base-path:/auth}") String basePath,
             @Value("${auth.service.timeout-ms:5000}") long timeoutMs,
             @Value("${auth.service.path.validate:/validate}") String validatePath,
