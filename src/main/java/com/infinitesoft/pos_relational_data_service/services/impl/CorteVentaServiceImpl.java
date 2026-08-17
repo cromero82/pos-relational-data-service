@@ -24,6 +24,7 @@ import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaRepos
 import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.EgresoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MotivoMovimientoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MovimientoOrigenFondosRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.OrigenFondosRepository;
@@ -62,6 +63,9 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
     @Autowired
     private HistorialReciboRepository historialReciboRepository;
+
+    @Autowired
+    private HistorialReciboPagoRepository historialReciboPagoRepository;
 
     @Autowired
     private EgresoRepository egresoRepository;
@@ -574,11 +578,11 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 // Watermark por id: no recontar tickets ya incluidos en el corte anterior.
                 LocalDateTime finVentasWatermark = finEgresos;
                 ventasPorMedio = toResumenMap(
-                        historialReciboRepository.findResumenVentasPorMetodoPagoAfterId(
+                        historialReciboPagoRepository.findResumenVentasPorMetodoPagoAfterId(
                                 historialAfterId, finVentasWatermark));
             } else {
                 ventasPorMedio = toResumenMap(
-                        historialReciboRepository.findResumenVentasPorMetodoPago(
+                        historialReciboPagoRepository.findResumenVentasPorMetodoPago(
                                 response.getFechaIni(), finVentas));
             }
             Map<Long, BigDecimal> egresosPorMedio = toResumenMap(

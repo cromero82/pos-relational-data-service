@@ -2,12 +2,14 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.dto.HistorialDocumentosDto;
 import com.infinitesoft.pos_relational_data_service.dto.MotivoOperacionRequestDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoLineaDto;
 import com.infinitesoft.pos_relational_data_service.dto.RestaurarTicketResponseDto;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.DocumentoVentaEstado;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.DocumentoVentaRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.EdicionReciboRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.NotaAjusteDocumentoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
@@ -41,6 +43,9 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Autowired
     private HistorialReciboRepository repository;
+
+    @Autowired
+    private HistorialReciboPagoRepository historialReciboPagoRepository;
 
     @Autowired
     private ProductRepository productRepository;
@@ -296,9 +301,11 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
     }
 
     @Override
+    @Transactional
     public boolean delete(Long id) {
         if (id == null) return false;
         if (!repository.existsById(id)) return false;
+        historialReciboPagoRepository.deleteByHistorialReciboId(id);
         repository.deleteById(id);
         return true;
     }
@@ -589,6 +596,21 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
         // 7. Delete original HistorialRecibo and its details
         historialReciboDetalleService.deleteByReciboId(historialReciboId);
+        historialReciboPagoRepository.deleteByHistorialReciboId(historialReciboId);
         repository.delete(historial);
+    }
+
+    @Override
+    public List<ReciboPagoLineaDto> findPagosByHistorialId(Long historialReciboId) {
+        if (historialReciboId == null) {
+            return List.of();
+        }
+        return historialReciboPagoRepository.findByHistorialReciboIdOrderByOrdenAsc(historialReciboId)
+                .stream()
+                .map(p -> ReciboPagoLineaDto.builder()
+                        .metodoPagoId(p.getMetodoPagoId())
+                        .monto(p.getMonto())
+                        .build())
+                .collect(Collectors.toList());
     }
 }

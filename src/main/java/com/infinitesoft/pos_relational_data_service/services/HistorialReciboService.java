@@ -24,4 +24,5 @@ public interface HistorialReciboService {
     void moveToEdition(Long historialReciboId, Long sesionId);
     HistorialDocumentosDto getDocumentos(Long historialReciboId);
     RestaurarTicketResponseDto restaurarTicket(Long historialReciboId, Long sesionId, MotivoOperacionRequestDto request);
+    java.util.List<com.infinitesoft.pos_relational_data_service.dto.ReciboPagoLineaDto> findPagosByHistorialId(Long historialReciboId);
 }

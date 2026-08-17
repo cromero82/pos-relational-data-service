@@ -22,4 +22,6 @@ public class ReciboPagoResponseDto {
     private Long metodoPagoId;
     private Long clienteId;
     private Long sesionId;
+    /** Desglose de cobro persistido (1–N). */
+    private java.util.List<ReciboPagoLineaDto> pagos;
 }

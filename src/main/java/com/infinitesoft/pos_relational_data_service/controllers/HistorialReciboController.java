@@ -2,6 +2,7 @@ package com.infinitesoft.pos_relational_data_service.controllers;
 
 import com.infinitesoft.pos_relational_data_service.dto.HistorialDocumentosDto;
 import com.infinitesoft.pos_relational_data_service.dto.MotivoOperacionRequestDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoLineaDto;
 import com.infinitesoft.pos_relational_data_service.dto.RestaurarTicketResponseDto;
 import com.infinitesoft.pos_relational_data_service.entities.HistorialRecibo;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
@@ -55,6 +56,15 @@ public class HistorialReciboController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(found);
+    }
+
+    @GetMapping("/{id}/pagos")
+    public ResponseEntity<List<ReciboPagoLineaDto>> findPagos(@PathVariable Long id) {
+        HistorialRecibo found = service.findById(id);
+        if (found == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(service.findPagosByHistorialId(id));
     }
 
     @PutMapping("/{id}")

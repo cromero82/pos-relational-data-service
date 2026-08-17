@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -30,4 +31,10 @@ public class ReciboDto {
     private BigDecimal montoRecibido;
 
     private Long reciboIdPadre;
+
+    /**
+     * Desglose de cobro (1–3 medios). Si viene vacío/null al pagar, se crea una línea
+     * con {@code metodoPagoId} + {@code total}.
+     */
+    private List<ReciboPagoLineaDto> pagos;
 }

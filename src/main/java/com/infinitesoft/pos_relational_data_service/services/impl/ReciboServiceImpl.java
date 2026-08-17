@@ -1,12 +1,14 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.dto.ReciboDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoLineaDto;
 import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoResponseDto;
 import com.infinitesoft.pos_relational_data_service.dto.ReciboUpdateResult;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.ClientRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboElectronicoRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MetodoPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
@@ -19,9 +21,15 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class ReciboServiceImpl implements ReciboService {
@@ -53,6 +61,9 @@ public class ReciboServiceImpl implements ReciboService {
 
     @Autowired
     private HistorialReciboElectronicoRepository historialReciboElectronicoRepository;
+
+    @Autowired
+    private HistorialReciboPagoRepository historialReciboPagoRepository;
 
     @Autowired
     private MetodoPagoRepository metodoPagoRepository;
@@ -116,7 +127,6 @@ public class ReciboServiceImpl implements ReciboService {
         // Update mutable fields, keep id and fechaCreacion
         existing.setClienteId(resolverClienteIdActualizacion(existing.getClienteId(), dto.getClienteId()));
         existing.setEstadoId(dto.getEstadoId());
-        existing.setMetodoPagoId(dto.getMetodoPagoId());
         // Preserve existing sesionId if not provided in the update payload
         if (dto.getSesionId() != null) {
             existing.setSesionId(dto.getSesionId());
@@ -127,7 +137,18 @@ public class ReciboServiceImpl implements ReciboService {
 
         // Determine target estado
         ReciboEstado targetEstado = ReciboEstado.fromId(existing.getEstadoId());
+        if (targetEstado != ReciboEstado.PAGADO && targetEstado != ReciboEstado.ANULADO) {
+            existing.setMetodoPagoId(dto.getMetodoPagoId());
+        }
         if (targetEstado == ReciboEstado.PAGADO || targetEstado == ReciboEstado.ANULADO) {
+            List<ReciboPagoLineaDto> lineasPago = List.of();
+            if (targetEstado == ReciboEstado.PAGADO) {
+                lineasPago = resolverYValidarLineasPago(dto);
+                existing.setMetodoPagoId(resolverMetodoPagoPrimario(lineasPago));
+            } else {
+                existing.setMetodoPagoId(dto.getMetodoPagoId());
+            }
+
             // 1) Copy Recibo to HistorialRecibo (using the just-updated fields)
             HistorialRecibo hist = HistorialRecibo.builder()
                     .clienteId(existing.getClienteId())
@@ -139,7 +160,8 @@ public class ReciboServiceImpl implements ReciboService {
                     .build();
             HistorialRecibo savedHist = historialReciboService.create(hist);
             if (targetEstado == ReciboEstado.PAGADO) {
-                registrarPendienteConfirmacionElectronica(savedHist, existing);
+                persistirLineasPago(savedHist.getId(), lineasPago);
+                registrarPendienteConfirmacionElectronica(savedHist, existing, lineasPago);
             }
 
             DocumentoVenta documentoVenta = null;
@@ -230,6 +252,7 @@ public class ReciboServiceImpl implements ReciboService {
                         .metodoPagoId(savedHist.getMetodoPagoId())
                         .clienteId(savedHist.getClienteId())
                         .sesionId(savedHist.getSesionId())
+                        .pagos(lineasPago)
                         .build();
                 return ReciboUpdateResult.fromPago(pago);
             }
@@ -242,6 +265,7 @@ public class ReciboServiceImpl implements ReciboService {
                     .metodoPagoId(savedHist.getMetodoPagoId())
                     .clienteId(savedHist.getClienteId())
                     .sesionId(savedHist.getSesionId())
+                    .pagos(targetEstado == ReciboEstado.PAGADO ? lineasPago : null)
                     .build());
         }
 
@@ -270,37 +294,130 @@ public class ReciboServiceImpl implements ReciboService {
 
     /**
      * Ventas QR (sigla QR / Bancolombia): deja pendiente de confirmación por email bancario.
+     * En mixto, el monto esperado es solo el tramo QR (no el total del ticket).
      * Best-effort: no debe tumbar el pago si falla.
      */
-    private void registrarPendienteConfirmacionElectronica(HistorialRecibo hist, Recibo recibo) {
+    private void registrarPendienteConfirmacionElectronica(
+            HistorialRecibo hist, Recibo recibo, List<ReciboPagoLineaDto> lineasPago) {
         try {
-            if (hist == null || hist.getId() == null || hist.getMetodoPagoId() == null) {
+            if (hist == null || hist.getId() == null) {
                 return;
             }
             if (historialReciboElectronicoRepository.findByHistorialReciboId(hist.getId()).isPresent()) {
                 return;
             }
-            Optional<MetodoPago> mpOpt = metodoPagoRepository.findById(hist.getMetodoPagoId());
-            if (mpOpt.isEmpty()) {
+            for (ReciboPagoLineaDto linea : lineasPago) {
+                if (linea.getMetodoPagoId() == null) {
+                    continue;
+                }
+                Optional<MetodoPago> mpOpt = metodoPagoRepository.findById(linea.getMetodoPagoId());
+                if (mpOpt.isEmpty()) {
+                    continue;
+                }
+                MetodoPago mp = mpOpt.get();
+                String sigla = mp.getSigla() != null ? mp.getSigla().trim().toUpperCase() : "";
+                String desc = mp.getDescripcion() != null ? mp.getDescripcion().toUpperCase() : "";
+                boolean esQrElectronico = "QR".equals(sigla) || desc.contains("BANCOLOMBIA");
+                if (!esQrElectronico) {
+                    continue;
+                }
+                historialReciboElectronicoRepository.save(HistorialReciboElectronico.builder()
+                        .historialReciboId(hist.getId())
+                        .sesionId(hist.getSesionId())
+                        .metodoPagoId(linea.getMetodoPagoId())
+                        .montoEsperado(linea.getMonto())
+                        .estado("CREADA")
+                        .nombreCliente(resolverNombreClienteTicket(recibo, hist))
+                        .build());
                 return;
             }
-            MetodoPago mp = mpOpt.get();
-            String sigla = mp.getSigla() != null ? mp.getSigla().trim().toUpperCase() : "";
-            String desc = mp.getDescripcion() != null ? mp.getDescripcion().toUpperCase() : "";
-            boolean esQrElectronico = "QR".equals(sigla) || desc.contains("BANCOLOMBIA");
-            if (!esQrElectronico) {
-                return;
-            }
-            historialReciboElectronicoRepository.save(HistorialReciboElectronico.builder()
-                    .historialReciboId(hist.getId())
-                    .sesionId(hist.getSesionId())
-                    .metodoPagoId(hist.getMetodoPagoId())
-                    .montoEsperado(hist.getTotal())
-                    .estado("CREADA")
-                    .nombreCliente(resolverNombreClienteTicket(recibo, hist))
-                    .build());
         } catch (Exception ignored) {
             // Feature no crítica
+        }
+    }
+
+    private static final int MAX_MEDIOS_PAGO = 3;
+
+    private List<ReciboPagoLineaDto> resolverYValidarLineasPago(ReciboDto dto) {
+        BigDecimal total = dto.getTotal() != null
+                ? dto.getTotal().setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        if (total.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El total del recibo debe ser mayor a cero.");
+        }
+
+        List<ReciboPagoLineaDto> raw = dto.getPagos();
+        List<ReciboPagoLineaDto> lineas = new ArrayList<>();
+        if (raw != null) {
+            for (ReciboPagoLineaDto p : raw) {
+                if (p == null || p.getMetodoPagoId() == null || p.getMonto() == null) {
+                    continue;
+                }
+                BigDecimal monto = p.getMonto().setScale(2, RoundingMode.HALF_UP);
+                if (monto.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+                lineas.add(ReciboPagoLineaDto.builder()
+                        .metodoPagoId(p.getMetodoPagoId())
+                        .monto(monto)
+                        .build());
+            }
+        }
+
+        if (lineas.isEmpty()) {
+            if (dto.getMetodoPagoId() == null) {
+                throw new IllegalArgumentException("Debe indicar metodoPagoId o pagos[].");
+            }
+            lineas.add(ReciboPagoLineaDto.builder()
+                    .metodoPagoId(dto.getMetodoPagoId())
+                    .monto(total)
+                    .build());
+        }
+
+        if (lineas.size() > MAX_MEDIOS_PAGO) {
+            throw new IllegalArgumentException("Máximo " + MAX_MEDIOS_PAGO + " medios de pago por ticket.");
+        }
+
+        Set<Long> vistos = new HashSet<>();
+        for (ReciboPagoLineaDto l : lineas) {
+            if (!vistos.add(l.getMetodoPagoId())) {
+                throw new IllegalArgumentException("No se permite el mismo método de pago más de una vez.");
+            }
+            if (!metodoPagoRepository.existsById(l.getMetodoPagoId())) {
+                throw new IllegalArgumentException("Método de pago inválido: id=" + l.getMetodoPagoId());
+            }
+        }
+
+        BigDecimal suma = lineas.stream()
+                .map(ReciboPagoLineaDto::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+        if (suma.compareTo(total) != 0) {
+            throw new IllegalArgumentException(
+                    "La suma de pagos (" + suma + ") debe igualar el total del ticket (" + total + ").");
+        }
+        return lineas;
+    }
+
+    /** Medio primario: mayor monto; empate favorece efectivo (id=1). */
+    private Long resolverMetodoPagoPrimario(List<ReciboPagoLineaDto> lineas) {
+        return lineas.stream()
+                .max(Comparator
+                        .comparing(ReciboPagoLineaDto::getMonto)
+                        .thenComparing(l -> Long.valueOf(1).equals(l.getMetodoPagoId()) ? 1 : 0))
+                .map(ReciboPagoLineaDto::getMetodoPagoId)
+                .orElseThrow();
+    }
+
+    private void persistirLineasPago(Long historialReciboId, List<ReciboPagoLineaDto> lineas) {
+        short orden = 1;
+        for (ReciboPagoLineaDto l : lineas) {
+            historialReciboPagoRepository.save(HistorialReciboPago.builder()
+                    .historialReciboId(historialReciboId)
+                    .metodoPagoId(l.getMetodoPagoId())
+                    .monto(l.getMonto())
+                    .orden(orden++)
+                    .build());
         }
     }
 
