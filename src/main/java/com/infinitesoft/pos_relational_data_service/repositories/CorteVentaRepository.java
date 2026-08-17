@@ -19,4 +19,6 @@ public interface CorteVentaRepository extends JpaRepository<CorteVenta, Long> {
             LocalDateTime rangeStart2, LocalDateTime rangeEnd2);
 
     List<CorteVenta> findByFechaIniGreaterThanEqualAndFechaIniLessThanEqual(LocalDateTime start, LocalDateTime end);
+
+    List<CorteVenta> findByIdIn(List<Long> ids);
 }

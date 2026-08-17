@@ -31,6 +31,7 @@
 | `prompts-general-pos/RESET-TABLAS-FINANCIERAS-TRANSACCIONALES.md` | Reset prueba + gotchas DBeaver |
 | `prompts-general-pos/reset-tablas-financieras-transaccionales-v2.sql` | SQL canónico truncate |
 | `prompts-general-pos/MIGRATE-PROD-TO-DIAN-V2.md` | Migración schema |
+| `prompts-general-pos/MULTIPAGO-MEDIOS-POR-TICKET.md` | Cobro 2–3 medios / corte por líneas |
 | `infinito-ai-front/.cursor/rules/movimientos-almacen/ONBOARDING-FINANZAS-ORIGENES-CIERRES.md` | Onboarding FE (julio; delta → handoff Ago) |
 | `infinito-ai-front/.cursor/rules/movimientos-almacen/POS-PLAN-MAESTRO.md` | Roadmap |
 
@@ -72,6 +73,7 @@ Stack FE: Angular 21.x (paquete histórico Vex).
 
 ```text
 metodo_pago              = tender del ticket (efectivo, Nequi, QR…)
+historial_recibo_pago    = líneas de cobro multipago (SUM = total; corte agrega desde aquí)
 origen_fondos            = cuenta/wallet donde vive el dinero  ← PRIMA en egresos
 movimiento_origen_fondos = ledger (saldo = SUM(impacto))
 ```
@@ -88,7 +90,8 @@ movimiento_origen_fondos = ledger (saldo = SUM(impacto))
 - Egreso **sin** método de pago obligatorio (Caja Menor / General)
 - Reset prueba v2 (egreso + stats + flujo_dinero + aserción BASE_INICIAL)
 
-**Pendiente producto:** CRUD orígenes; permisos estricto; multi-caja; DIAN; idempotencia edit egreso; anulación ticket↔ledger; visibilidad en cierre de egresos sin MP.
+**Pendiente producto:** permisos estricto; multi-caja; emisión XML DIAN (`PaymentMeans`); idempotencia edit egreso; anulación ticket↔ledger; visibilidad en cierre de egresos sin MP.
+**Hecho (ago 2026):** multipago operativo — ver `prompts-general-pos/MULTIPAGO-MEDIOS-POR-TICKET.md`.
 
 Detalle: handoff finanzas.
 

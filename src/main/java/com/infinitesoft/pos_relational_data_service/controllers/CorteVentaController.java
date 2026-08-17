@@ -94,6 +94,11 @@ public class CorteVentaController {
         return ResponseEntity.ok(service.confirmarBaseInicial(request));
     }
 
+    @GetMapping("/by-ids")
+    public List<CorteVentaDTO> findByIds(@RequestParam("ids") List<Long> ids) {
+        return service.findByIds(ids);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<CorteVentaDTO> findById(@PathVariable Long id) {
         CorteVenta found = service.findById(id);

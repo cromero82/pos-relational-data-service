@@ -47,6 +47,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -688,6 +689,29 @@ public class CorteVentaServiceImpl implements CorteVentaService {
         return repository.findByFechaIniGreaterThanEqualAndFechaIniLessThanEqual(fechaIni, fechaFin)
                 .stream()
                 .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<CorteVentaDTO> findByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> distinct = ids.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (distinct.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Map<Long, CorteVentaDTO> byId = repository.findByIdIn(distinct).stream()
+                .map(this::convertToDTO)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(CorteVentaDTO::getId, d -> d, (a, b) -> a));
+        // Conservar el orden pedido por el cliente.
+        return distinct.stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 

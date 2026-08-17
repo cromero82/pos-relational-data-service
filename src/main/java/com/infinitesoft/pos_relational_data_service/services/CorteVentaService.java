@@ -25,6 +25,7 @@ public interface CorteVentaService {
     CorteVentaDTO finalizarRevision(Long id, FinalizarRevisionCorteRequest request);
     CorteVentaRangoResponse consultarRango(CorteVentaRangoRequest request);
     List<CorteVentaDTO> search(LocalDateTime fechaIni, LocalDateTime fechaFin);
+    List<CorteVentaDTO> findByIds(List<Long> ids);
     DistribucionEfectivoPendienteDto obtenerDistribucionPendiente();
     DistribucionEfectivoResultDto confirmarDistribucionEfectivo(Long corteId, DistribucionEfectivoRequest request);
     BaseInicialPendienteDto obtenerBaseInicialPendiente();
