@@ -49,13 +49,19 @@ public class MetodoPago {
     @Column(name = "plantilla_notificacion_pago", columnDefinition = "TEXT")
     private String plantillaNotificacionPago;
 
+    /** PaymentMeansCode DIAN (ej. 10=Efectivo). Null si no aplica a tickets. */
+    @Column(name = "codigo_dian_payment_means", length = 3)
+    private String codigoDianPaymentMeans;
+
     @PrePersist
     @PreUpdate
     protected void onPrePersistUpdate() {
         String descripcionEgresoOriginal = this.descripcionEgreso;
         String plantillaOriginal = this.plantillaNotificacionPago;
+        String codigoDianOriginal = this.codigoDianPaymentMeans;
         StringUtils.convertStringsToUpperCase(this);
         this.descripcionEgreso = descripcionEgresoOriginal;
         this.plantillaNotificacionPago = plantillaOriginal;
+        this.codigoDianPaymentMeans = codigoDianOriginal;
     }
 }

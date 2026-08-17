@@ -125,6 +125,9 @@ Scripts (después de `20`):
 | `26_unlink_caja_menor_metodo_pago.sql` | Caja Menor sin `metodo_pago_id` | `apply-unlink-caja-menor-mp.sh` |
 | `27_movimiento_id_referencia.sql` | `origen_id` → `id_referencia` | (incluido en migrate) |
 | `28_origen_fondos_estado_archivar.sql` | `estado` ACTIVO/ARCHIVADO + unique nombre hermanos | `apply-origen-fondos-estado-archivar.sh` |
+| `30_historial_recibo_pago.sql` | Multipago: `historial_recibo_pago` + `metodo_pago.codigo_dian_payment_means` + backfill 1:1 | (incluido en migrate) |
+
+> Nota: `28_confirmacion_pagos_electronicos.sql` / `29_notificacion_email_archivada.sql` son de pagos QR/email; no forman parte del wrapper OF. El multipago es **`30_`**.
 
 Contexto de dominio: `../AI-HANDOFF-FINANZAS-2026-08.md`.
 
