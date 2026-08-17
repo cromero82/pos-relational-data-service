@@ -68,7 +68,7 @@ public class MovimientoOrigenFondos {
     @Column(name = "valor_real", precision = 14, scale = 2)
     private BigDecimal valorReal;
 
-    @Column(name = "origen_tipo", length = 30)
+    @Column(name = "origen_tipo", length = 80)
     private String origenTipo;
 
     /**

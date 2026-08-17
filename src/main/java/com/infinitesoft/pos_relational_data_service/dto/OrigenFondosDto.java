@@ -21,6 +21,7 @@ public class OrigenFondosDto {
     private Boolean visibleEnEgreso;
     private Boolean requiereConciliacion;
     private Boolean activo;
+    private String estado;
     private Integer orden;
     private String color;
     private String notas;

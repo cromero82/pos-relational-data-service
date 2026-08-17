@@ -57,6 +57,13 @@ public class OrigenFondos {
     @Builder.Default
     private Boolean activo = true;
 
+    /**
+     * ACTIVO | ARCHIVADO. Archivado ⇒ activo=false (oculto en árbol/listas).
+     */
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String estado = "ACTIVO";
+
     @Column(nullable = false)
     @Builder.Default
     private Integer orden = 0;

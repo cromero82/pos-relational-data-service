@@ -124,6 +124,7 @@ Scripts (después de `20`):
 | `25_repair_entrada_venta_corte1.sql` | Repair puntual de prueba — **no** en migrate prod | — |
 | `26_unlink_caja_menor_metodo_pago.sql` | Caja Menor sin `metodo_pago_id` | `apply-unlink-caja-menor-mp.sh` |
 | `27_movimiento_id_referencia.sql` | `origen_id` → `id_referencia` | (incluido en migrate) |
+| `28_origen_fondos_estado_archivar.sql` | `estado` ACTIVO/ARCHIVADO + unique nombre hermanos | `apply-origen-fondos-estado-archivar.sh` |
 
 Contexto de dominio: `../AI-HANDOFF-FINANZAS-2026-08.md`.
 

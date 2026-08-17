@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
+import com.infinitesoft.pos_relational_data_service.dto.CrearOrigenHijoRequest;
 import com.infinitesoft.pos_relational_data_service.dto.OrigenFondosArbolItemDto;
 import com.infinitesoft.pos_relational_data_service.dto.OrigenFondosDto;
 import com.infinitesoft.pos_relational_data_service.services.OrigenFondosService;
@@ -41,5 +42,17 @@ public class OrigenFondosController {
     @GetMapping("/{id}")
     public OrigenFondosDto findById(@PathVariable Integer id) {
         return service.findById(id);
+    }
+
+    @PostMapping("/hijo")
+    @PreAuthorize("hasRole('admin')")
+    public OrigenFondosDto crearHijo(@RequestBody CrearOrigenHijoRequest request) {
+        return service.crearHijo(request);
+    }
+
+    @PostMapping("/{id}/archivar")
+    @PreAuthorize("hasRole('admin')")
+    public OrigenFondosDto archivar(@PathVariable Integer id) {
+        return service.archivar(id);
     }
 }

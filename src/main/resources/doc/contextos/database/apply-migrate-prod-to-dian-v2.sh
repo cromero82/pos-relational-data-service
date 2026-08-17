@@ -39,7 +39,8 @@ for f in \
   23_distribucion_efectivo.sql \
   24_base_inicial_caja.sql \
   26_unlink_caja_menor_metodo_pago.sql \
-  27_movimiento_id_referencia.sql
+  27_movimiento_id_referencia.sql \
+  28_origen_fondos_estado_archivar.sql
 do
   echo ">>> $f"
   psql "$DB" -v ON_ERROR_STOP=1 -f "$DIR/$f"
