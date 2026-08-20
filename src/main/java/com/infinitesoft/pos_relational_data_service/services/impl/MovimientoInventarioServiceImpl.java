@@ -1,5 +1,6 @@
 package com.infinitesoft.pos_relational_data_service.services.impl;
 
+import com.infinitesoft.pos_relational_data_service.dto.CastigoCarteraInventarioResult;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.TipoConsecutivoDocumento;
 import com.infinitesoft.pos_relational_data_service.repositories.*;
@@ -157,6 +158,105 @@ public class MovimientoInventarioServiceImpl implements MovimientoInventarioServ
         }
 
         log.info("[KARDEX] COMPRA_EGRESO entradaId={} consecutivo={}", entrada.getId(), consecutivo);
+    }
+
+    @Override
+    @Transactional
+    public CastigoCarteraInventarioResult registrarCastigoCartera(
+            Long reciboId,
+            Long cuentaPorCobrarId,
+            List<ReciboDetalle> detalles,
+            UUID usuarioId,
+            String motivoTexto) {
+        if (reciboId == null || detalles == null || detalles.isEmpty()) {
+            return new CastigoCarteraInventarioResult(null, BigDecimal.ZERO);
+        }
+        TipoMovimientoInventario tipo = requireTipo("CASTIGO_CARTERA");
+        if (movimientoRepository.existsByReciboIdAndTipoMovimientoId(reciboId, tipo.getId())) {
+            return movimientoRepository.findFirstByReciboIdAndTipoMovimientoId(reciboId, tipo.getId())
+                    .map(m -> new CastigoCarteraInventarioResult(m.getId(), BigDecimal.ZERO))
+                    .orElse(new CastigoCarteraInventarioResult(null, BigDecimal.ZERO));
+        }
+
+        String consecutivo = consecutivoDocumentoService.nextConsecutivo(TipoConsecutivoDocumento.MOV_INVENTARIO);
+        int anio = Year.now().getValue();
+        String motivo = motivoTexto != null && !motivoTexto.isBlank()
+                ? motivoTexto
+                : "Castigo cartera CxC #" + (cuentaPorCobrarId != null ? cuentaPorCobrarId : "?");
+
+        MovimientoInventario movimiento = MovimientoInventario.builder()
+                .consecutivo(consecutivo)
+                .anio(anio)
+                .tipoMovimientoId(tipo.getId())
+                .estado("CONFIRMADA")
+                .usuarioId(usuarioId)
+                .reciboId(reciboId)
+                .motivoTexto(motivo)
+                .build();
+        movimiento = movimientoRepository.save(movimiento);
+
+        BigDecimal valorCosto = BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP);
+        for (ReciboDetalle linea : detalles) {
+            if (linea.getProductoId() == null || linea.getCantidad() == null || linea.getCantidad() <= 0) {
+                continue;
+            }
+            BigDecimal cantidad = BigDecimal.valueOf(linea.getCantidad());
+            Product producto = productRepository.findById(linea.getProductoId()).orElse(null);
+            if (producto == null) {
+                continue;
+            }
+
+            BigDecimal costoUnit = resolverCostoUnitario(producto);
+            valorCosto = valorCosto.add(costoUnit.multiply(cantidad)
+                    .setScale(2, java.math.RoundingMode.HALF_UP));
+
+            int existenciaActual = producto.getExistencia() != null ? producto.getExistencia() : 0;
+            int nuevaExistencia = existenciaActual - linea.getCantidad();
+            producto.setExistencia(nuevaExistencia);
+            Product saved = productRepository.save(producto);
+            if (saved.getBarcode() != null && !saved.getBarcode().isBlank()) {
+                productService.evictProductCacheByBarcode(saved.getBarcode());
+            }
+
+            MovimientoInventarioDetalle detalle = detalleRepository.save(MovimientoInventarioDetalle.builder()
+                    .movimientoId(movimiento.getId())
+                    .productoId(linea.getProductoId())
+                    .cantidad(cantidad)
+                    .direccionLinea("SALIDA")
+                    .motivoLinea("CASTIGO_CARTERA")
+                    .build());
+
+            kardexRepository.save(InventarioKardex.builder()
+                    .productoId(linea.getProductoId())
+                    .movimientoDetalleId(detalle.getId())
+                    .fechaHecho(movimiento.getFechaHecho())
+                    .cantidadSalida(cantidad)
+                    .saldoResultante(BigDecimal.valueOf(nuevaExistencia))
+                    .usuarioId(usuarioId)
+                    .build());
+        }
+
+        log.info(
+                "[KARDEX] CASTIGO_CARTERA reciboId={} cxcId={} consecutivo={} costo={}",
+                reciboId, cuentaPorCobrarId, consecutivo, valorCosto);
+        return new CastigoCarteraInventarioResult(movimiento.getId(), valorCosto);
+    }
+
+    /**
+     * Costo unitario: precio_compra si &gt; 0; si no, ~85% del precio de venta (subtotal/cant no aplica).
+     */
+    private static BigDecimal resolverCostoUnitario(Product producto) {
+        Double compra = producto.getPrecioCompra();
+        if (compra != null && compra > 0) {
+            return BigDecimal.valueOf(compra).setScale(2, java.math.RoundingMode.HALF_UP);
+        }
+        Double venta = producto.getPrecio();
+        if (venta != null && venta > 0) {
+            return BigDecimal.valueOf(venta)
+                    .multiply(BigDecimal.valueOf(0.85))
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
     private void registrarMovimiento(

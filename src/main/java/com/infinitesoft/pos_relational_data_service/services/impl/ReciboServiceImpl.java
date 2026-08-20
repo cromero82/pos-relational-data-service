@@ -274,6 +274,161 @@ public class ReciboServiceImpl implements ReciboService {
 
     @Override
     @Transactional
+    public ReciboPagoResponseDto liquidarComoVentaDesdeCxc(
+            Long reciboId, List<ReciboPagoLineaDto> lineasPago) {
+        if (reciboId == null) {
+            throw new IllegalArgumentException("Debe indicar el recibo a liquidar.");
+        }
+        Recibo existing = reciboRepository.findById(reciboId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Recibo no encontrado: " + reciboId));
+
+        List<ReciboPagoLineaDto> lineas = validarLineasPagoLiquidacionCxc(
+                existing.getTotal(), lineasPago);
+        existing.setEstadoId(ReciboEstado.PAGADO.getId());
+        existing.setMetodoPagoId(resolverMetodoPagoPrimario(lineas));
+        existing.setMontoRecibido(existing.getTotal());
+
+        HistorialRecibo hist = HistorialRecibo.builder()
+                .clienteId(existing.getClienteId())
+                .estadoId(ReciboEstado.PAGADO.getId())
+                .metodoPagoId(existing.getMetodoPagoId())
+                .sesionId(existing.getSesionId())
+                .total(existing.getTotal())
+                .montoRecibido(existing.getMontoRecibido())
+                .build();
+        HistorialRecibo savedHist = historialReciboService.create(hist);
+        persistirLineasPago(savedHist.getId(), lineas);
+        // Sin pendiente electrónico: el dinero ya entró vía ENTRADA_COBRANZA por abono.
+
+        DocumentoVenta documentoVenta = null;
+        try {
+            documentoVenta = documentoVentaService.crearDesdeHistorialRecibo(
+                    savedHist, SecurityContextHelper.getUserId());
+            savedHist.setDocumentoVentaId(documentoVenta.getId());
+            savedHist.setDocumentoVentaConsecutivo(documentoVenta.getConsecutivo());
+        } catch (Exception e) {
+            // Sprint 0 SQL pendiente: la liquidación no debe fallar por documento_venta.
+        }
+
+        Optional<TicketRecibo> ticketReciboOpt = ticketReciboRepository.findFirstByReciboId(reciboId);
+
+        List<ReciboDetalle> detalles = reciboDetalleService.findEntityListByReciboId(existing.getId());
+        for (ReciboDetalle d : detalles) {
+            HistorialReciboDetalle hd = HistorialReciboDetalle.builder()
+                    .reciboId(savedHist.getId())
+                    .productoId(d.getProductoId())
+                    .cantidad(d.getCantidad())
+                    .subtotal(d.getSubtotal())
+                    .fechaCreacion(d.getFechaCreacion())
+                    .usuarioCreacion(d.getUsuarioCreacion())
+                    .build();
+            historialReciboDetalleService.create(hd);
+
+            if (d.getProductoId() != null) {
+                productRepository.incrementarVentas(d.getProductoId(), d.getCantidad());
+                productRepository.actualizarFechaUltimaVenta(d.getProductoId(), LocalDate.now());
+            }
+        }
+
+        try {
+            List<HistorialReciboDetalle> detallesHistorial =
+                    historialReciboDetalleService.findEntityListByReciboId(savedHist.getId());
+            movimientoInventarioService.registrarVentaPos(
+                    savedHist,
+                    documentoVenta != null ? documentoVenta.getId() : null,
+                    detallesHistorial,
+                    SecurityContextHelper.getUserId());
+        } catch (Exception e) {
+            // Sprint 3 SQL pendiente: no tumbar liquidación por kardex.
+        }
+
+        reciboDetalleService.deleteByReciboId(existing.getId());
+
+        Optional<EdicionRecibo> edicionReciboOpt = edicionReciboService.findByReciboId(reciboId);
+        if (edicionReciboOpt.isPresent()) {
+            EdicionRecibo edicionRecibo = edicionReciboOpt.get();
+            edicionRecibo.setHistorialReciboId(savedHist.getId());
+            edicionRecibo.setReciboId(null);
+            edicionReciboService.update(edicionRecibo.getId(), edicionRecibo);
+        }
+
+        if (ticketReciboOpt.isPresent()) {
+            ticketReciboRepository.delete(ticketReciboOpt.get());
+        }
+
+        // Recibo vivo ya migrado; el caller (CxC) debe soltar FK recibo_id antes de borrar.
+        reciboRepository.save(existing);
+
+        return ReciboPagoResponseDto.builder()
+                .pagado(true)
+                .historialReciboId(savedHist.getId())
+                .documentoVentaId(documentoVenta != null ? documentoVenta.getId() : null)
+                .documentoVentaConsecutivo(
+                        documentoVenta != null ? documentoVenta.getConsecutivo() : null)
+                .total(savedHist.getTotal())
+                .fechaCreacion(savedHist.getFechaCreacion())
+                .metodoPagoId(savedHist.getMetodoPagoId())
+                .clienteId(savedHist.getClienteId())
+                .sesionId(savedHist.getSesionId())
+                .pagos(lineas)
+                .build();
+    }
+
+    /**
+     * Valida líneas de liquidación CxC: suma = total; permite N líneas y repetir medio
+     * (un abono = una línea en historial).
+     */
+    private List<ReciboPagoLineaDto> validarLineasPagoLiquidacionCxc(
+            BigDecimal totalRaw, List<ReciboPagoLineaDto> raw) {
+        BigDecimal total = totalRaw != null
+                ? totalRaw.setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        if (total.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(
+                    "El total del ticket debe ser mayor a cero para liquidar la CxC.");
+        }
+        if (raw == null || raw.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "No hay abonos para armar el desglose de pago del historial.");
+        }
+        List<ReciboPagoLineaDto> lineas = new ArrayList<>();
+        for (ReciboPagoLineaDto p : raw) {
+            if (p == null || p.getMetodoPagoId() == null || p.getMonto() == null) {
+                continue;
+            }
+            BigDecimal monto = p.getMonto().setScale(2, RoundingMode.HALF_UP);
+            if (monto.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            if (!metodoPagoRepository.existsById(p.getMetodoPagoId())) {
+                throw new IllegalArgumentException(
+                        "Método de pago inválido: id=" + p.getMetodoPagoId());
+            }
+            lineas.add(ReciboPagoLineaDto.builder()
+                    .metodoPagoId(p.getMetodoPagoId())
+                    .monto(monto)
+                    .build());
+        }
+        if (lineas.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "No hay abonos válidos para liquidar la CxC.");
+        }
+        BigDecimal suma = lineas.stream()
+                .map(ReciboPagoLineaDto::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+        if (suma.compareTo(total) != 0) {
+            throw new IllegalArgumentException(
+                    "La suma de abonos (" + suma + ") debe igualar el total del ticket ("
+                            + total + "). Si abrió con abono inicial, asegúrese de haber "
+                            + "indicado el medio de pago al crear el crédito.");
+        }
+        return lineas;
+    }
+
+    @Override
+    @Transactional
     public boolean delete(Long id) {
         if (id == null) return false;
         if (!reciboRepository.existsById(id)) return false;

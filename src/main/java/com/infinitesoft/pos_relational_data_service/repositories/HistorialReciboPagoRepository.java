@@ -18,11 +18,13 @@ public interface HistorialReciboPagoRepository extends JpaRepository<HistorialRe
 
     /**
      * Ventas pagadas (estadoId=2) agregadas por medio desde líneas de cobro.
+     * Excluye liquidaciones CxC (ya contabilizadas como ENTRADA_COBRANZA en OF).
      */
     @Query("SELECT p.metodoPagoId, SUM(p.monto) FROM HistorialReciboPago p, HistorialRecibo h "
             + "WHERE p.historialReciboId = h.id "
             + "AND h.fechaCreacion >= :start AND h.fechaCreacion <= :end "
             + "AND h.estadoId = 2 "
+            + "AND NOT EXISTS (SELECT 1 FROM CuentaPorCobrar c WHERE c.historialReciboId = h.id) "
             + "GROUP BY p.metodoPagoId")
     List<Object[]> findResumenVentasPorMetodoPago(
             @Param("start") LocalDateTime start,
@@ -32,6 +34,7 @@ public interface HistorialReciboPagoRepository extends JpaRepository<HistorialRe
             + "WHERE p.historialReciboId = h.id "
             + "AND h.id > :afterId AND h.fechaCreacion <= :end "
             + "AND h.estadoId = 2 "
+            + "AND NOT EXISTS (SELECT 1 FROM CuentaPorCobrar c WHERE c.historialReciboId = h.id) "
             + "GROUP BY p.metodoPagoId")
     List<Object[]> findResumenVentasPorMetodoPagoAfterId(
             @Param("afterId") Long afterId,

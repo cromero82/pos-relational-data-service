@@ -133,7 +133,8 @@ Scripts (después de `20`):
 | `38_duenos_clasificacion_movimiento.sql` | Raíz **Dueños** + `Cuenta del dueño`; `clasificacion_operativa` / `periodo_cierre_id` en ledger | (incluido en migrate) |
 | `39_egreso_from_movimiento.sql` | `egreso.from_movimiento_origen_fondos_id` (Formalizar egreso sin doble resta banco) | (incluido en migrate) |
 | `40_rename_para_ordenar_sin_clasificar.sql` | OF «Para ordenar» → **Sin Clasificar** | (incluido en migrate) |
-| `41_cxc_abrir_desde_ticket.sql` | `client.correo` + CxC `recibo_id`/`ticket_id` (abrir crédito desde ticket) | (incluido en migrate) |
+| `42_cxc_total_ticket_sync.sql` | CxC `total_ticket` + sync al mutar ítems | (incluido en migrate) |
+| `43_cxc_anular_castigar.sql` | CxC `CASTIGADA` + traza cierre + tipo `CASTIGO_CARTERA` | (incluido en migrate) |
 
 **Formalizar egreso (smoke):** Orígenes → Sin Clasificar → fila `MOVIMIENTO BANCO POR IDENTIFICAR` → «Formalizar egreso» → proveedor → POST con `fromMovimientoOrigenFondosId`. Esperado: egreso + `SALIDA_EGRESO` solo en bolsa; banco sin 2ª resta; reintento → error idempotente.
 

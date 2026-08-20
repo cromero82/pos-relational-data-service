@@ -10,4 +10,9 @@ public interface MovimientoInventarioRepository extends JpaRepository<Movimiento
     boolean existsByHistorialReciboIdAndTipoMovimientoId(Long historialReciboId, Long tipoMovimientoId);
 
     boolean existsByEntradaInventarioIdAndTipoMovimientoId(Long entradaInventarioId, Long tipoMovimientoId);
+
+    boolean existsByReciboIdAndTipoMovimientoId(Long reciboId, Long tipoMovimientoId);
+
+    java.util.Optional<MovimientoInventario> findFirstByReciboIdAndTipoMovimientoId(
+            Long reciboId, Long tipoMovimientoId);
 }

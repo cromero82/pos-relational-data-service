@@ -2,33 +2,53 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.dto.AbonoCxcDto;
 import com.infinitesoft.pos_relational_data_service.dto.AbrirCuentaPorCobrarRequest;
+import com.infinitesoft.pos_relational_data_service.dto.CastigoCarteraInventarioResult;
+import com.infinitesoft.pos_relational_data_service.dto.CerrarCuentaPorCobrarRequest;
 import com.infinitesoft.pos_relational_data_service.dto.CuentaPorCobrarDto;
 import com.infinitesoft.pos_relational_data_service.dto.MovimientoOrigenFondosDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoLineaDto;
+import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoResponseDto;
 import com.infinitesoft.pos_relational_data_service.dto.RegistrarAbonoCxcRequest;
+import com.infinitesoft.pos_relational_data_service.dto.SincronizarCxCTicketRequest;
 import com.infinitesoft.pos_relational_data_service.entities.AbonoCxc;
 import com.infinitesoft.pos_relational_data_service.entities.Client;
 import com.infinitesoft.pos_relational_data_service.entities.CuentaPorCobrar;
 import com.infinitesoft.pos_relational_data_service.entities.MetodoPago;
+import com.infinitesoft.pos_relational_data_service.entities.MotivoOperacion;
 import com.infinitesoft.pos_relational_data_service.entities.OrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
+import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalle;
+import com.infinitesoft.pos_relational_data_service.entities.TicketRecibo;
 import com.infinitesoft.pos_relational_data_service.repositories.AbonoCxcRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ClientRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.CuentaPorCobrarRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MetodoPagoRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.MotivoOperacionRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.OrigenFondosRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketRepository;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.CuentaPorCobrarService;
+import com.infinitesoft.pos_relational_data_service.services.MovimientoInventarioService;
 import com.infinitesoft.pos_relational_data_service.services.MovimientoOrigenFondosService;
+import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
+import com.infinitesoft.pos_relational_data_service.services.ReciboService;
+import com.infinitesoft.pos_relational_data_service.services.TicketService;
+import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,7 +56,9 @@ import java.util.stream.Collectors;
 public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
 
     private static final List<String> ESTADOS_VIGENTES = Arrays.asList("ABIERTA", "PARCIAL");
-    private static final List<String> ESTADOS_ARCHIVADOS = Arrays.asList("PAGADA", "ANULADA");
+    private static final List<String> ESTADOS_ARCHIVADOS = Arrays.asList("PAGADA", "ANULADA", "CASTIGADA");
+    private static final String MOTIVO_ANULAR = "CXC_ANULAR_SIN_ABONOS";
+    private static final String MOTIVO_CASTIGO = "CXC_CASTIGO_CARTERA";
 
     @Autowired
     private CuentaPorCobrarRepository cuentaPorCobrarRepository;
@@ -54,13 +76,32 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
     private TicketRepository ticketRepository;
 
     @Autowired
+    private TicketReciboRepository ticketReciboRepository;
+
+    @Autowired
     private MetodoPagoRepository metodoPagoRepository;
 
     @Autowired
     private OrigenFondosRepository origenFondosRepository;
 
     @Autowired
+    private MotivoOperacionRepository motivoOperacionRepository;
+
+    @Autowired
     private MovimientoOrigenFondosService movimientoOrigenFondosService;
+
+    @Autowired
+    private ReciboDetalleService reciboDetalleService;
+
+    @Autowired
+    private MovimientoInventarioService movimientoInventarioService;
+
+    @Autowired
+    @Lazy
+    private ReciboService reciboService;
+
+    @Autowired
+    private TicketService ticketService;
 
     @Override
     @Transactional
@@ -171,12 +212,28 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 .clienteId(cliente.getId())
                 .montoOriginal(saldoCredito)
                 .saldoPendiente(saldoCredito)
+                .totalTicket(totalTicket)
                 .estado("ABIERTA")
                 .observacion(buildObservacionApertura(trimToNull(request.getObservacion()), totalTicket, abono, saldoCredito))
                 .usuarioId(SecurityContextHelper.getUserId())
                 .build();
 
         CuentaPorCobrar saved = cuentaPorCobrarRepository.save(entity);
+
+        if (abono.compareTo(BigDecimal.ZERO) > 0) {
+            if (request.getMetodoPagoId() == null) {
+                throw new IllegalArgumentException(
+                        "Debe indicar el medio de pago del abono inicial.");
+            }
+            registrarAbonoInterno(
+                    saved,
+                    abono,
+                    request.getMetodoPagoId(),
+                    request.getOrigenFondosId(),
+                    "Abono inicial al abrir CxC #" + saved.getId()
+            );
+        }
+
         log.info(
                 "CxC abierta id={} recibo={} ticket={} cliente={} total={} abono={} saldoCredito={}",
                 saved.getId(), saved.getReciboId(), saved.getTicketId(),
@@ -251,6 +308,93 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
 
     @Override
     @Transactional
+    public CuentaPorCobrarDto sincronizarTotalTicket(Long ticketId, SincronizarCxCTicketRequest request) {
+        if (ticketId == null) {
+            throw new IllegalArgumentException("Debe indicar el ticket.");
+        }
+        if (request == null || request.getTotalTicket() == null) {
+            throw new IllegalArgumentException("Debe indicar el total del ticket.");
+        }
+        BigDecimal nuevoTotal = request.getTotalTicket();
+        if (nuevoTotal.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El total del ticket no puede ser negativo.");
+        }
+
+        CuentaPorCobrar cxc = cuentaPorCobrarRepository
+                .findFirstByTicketIdAndEstadoInOrderByIdDesc(ticketId, ESTADOS_VIGENTES)
+                .orElse(null);
+        if (cxc == null) {
+            return null;
+        }
+
+        BigDecimal totalAnterior = cxc.getTotalTicket();
+        if (totalAnterior == null) {
+            totalAnterior = cxc.getMontoOriginal() != null ? cxc.getMontoOriginal() : BigDecimal.ZERO;
+        }
+
+        BigDecimal delta = nuevoTotal.subtract(totalAnterior);
+        if (delta.compareTo(BigDecimal.ZERO) == 0) {
+            if (cxc.getTotalTicket() == null) {
+                cxc.setTotalTicket(nuevoTotal);
+                cxc = cuentaPorCobrarRepository.save(cxc);
+            }
+            return toDto(cxc);
+        }
+
+        BigDecimal original = cxc.getMontoOriginal() != null ? cxc.getMontoOriginal() : BigDecimal.ZERO;
+        BigDecimal saldo = cxc.getSaldoPendiente() != null ? cxc.getSaldoPendiente() : BigDecimal.ZERO;
+        BigDecimal abonado = original.subtract(saldo);
+        if (abonado.compareTo(BigDecimal.ZERO) < 0) {
+            abonado = BigDecimal.ZERO;
+        }
+
+        BigDecimal nuevoSaldo = saldo.add(delta);
+        if (nuevoSaldo.compareTo(BigDecimal.ZERO) < 0) {
+            nuevoSaldo = BigDecimal.ZERO;
+        }
+        BigDecimal nuevoOriginal = abonado.add(nuevoSaldo);
+
+        // ck_cxc_montos: monto_original > 0
+        if (nuevoOriginal.compareTo(BigDecimal.ZERO) <= 0) {
+            log.info(
+                    "CxC sync ticket={} total={} delta={}: sin monto crédito positivo; solo actualiza total_ticket",
+                    ticketId, nuevoTotal, delta);
+            cxc.setTotalTicket(nuevoTotal);
+            if (cxc.getReciboId() != null) {
+                reciboRepository.findById(cxc.getReciboId()).ifPresent(r -> {
+                    r.setTotal(nuevoTotal);
+                    reciboRepository.save(r);
+                });
+            }
+            return toDto(cuentaPorCobrarRepository.save(cxc));
+        }
+
+        cxc.setMontoOriginal(nuevoOriginal);
+        cxc.setSaldoPendiente(nuevoSaldo);
+        cxc.setTotalTicket(nuevoTotal);
+        if (nuevoSaldo.compareTo(BigDecimal.ZERO) > 0) {
+            cxc.setEstado(abonado.compareTo(BigDecimal.ZERO) > 0 ? "PARCIAL" : "ABIERTA");
+        }
+        // saldo 0 por reducción de ticket: no marcar PAGADA (sigue vigente si re-agrega ítems)
+
+        if (cxc.getReciboId() != null) {
+            Recibo recibo = reciboRepository.findById(cxc.getReciboId()).orElse(null);
+            if (recibo != null) {
+                recibo.setTotal(nuevoTotal);
+                reciboRepository.save(recibo);
+            }
+        }
+
+        CuentaPorCobrar saved = cuentaPorCobrarRepository.save(cxc);
+        log.info(
+                "CxC sync id={} ticket={} total {}→{} delta={} original={} saldo={}",
+                saved.getId(), ticketId, totalAnterior, nuevoTotal, delta,
+                nuevoOriginal, nuevoSaldo);
+        return toDto(saved);
+    }
+
+    @Override
+    @Transactional
     public AbonoCxcDto registrarAbono(Long cuentaId, RegistrarAbonoCxcRequest request) {
         if (cuentaId == null) {
             throw new IllegalArgumentException("Debe indicar la cuenta por cobrar.");
@@ -279,15 +423,51 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                     "El abono (" + monto + ") supera el saldo pendiente (" + saldo + ").");
         }
 
-        MetodoPago mp = metodoPagoRepository.findById(request.getMetodoPagoId())
+        AbonoCxc savedAbono = registrarAbonoInterno(
+                cxc,
+                monto,
+                request.getMetodoPagoId(),
+                request.getOrigenFondosId(),
+                trimToNull(request.getObservacion())
+        );
+
+        BigDecimal nuevoSaldo = saldo.subtract(monto);
+        cxc.setSaldoPendiente(nuevoSaldo);
+        if (nuevoSaldo.compareTo(BigDecimal.ZERO) == 0) {
+            cxc.setEstado("PAGADA");
+            formalizarTicketSiLiquidada(cxc);
+        } else {
+            cxc.setEstado("PARCIAL");
+            cuentaPorCobrarRepository.save(cxc);
+        }
+
+        MetodoPago mp = metodoPagoRepository.findById(savedAbono.getMetodoPagoId()).orElse(null);
+        log.info(
+                "Abono CxC id={} cuenta={} monto={} saldoNuevo={} estado={}",
+                savedAbono.getId(), cxc.getId(), monto, nuevoSaldo, cxc.getEstado());
+        return toAbonoDto(savedAbono, mp);
+    }
+
+    /**
+     * Persiste abono + ENTRADA_COBRANZA. Si {@code aplicarASaldo} es false (abono inicial),
+     * no toca saldo/estado: ya quedaron fijados al abrir.
+     */
+    private AbonoCxc registrarAbonoInterno(
+            CuentaPorCobrar cxc,
+            BigDecimal monto,
+            Long metodoPagoId,
+            Integer origenFondosId,
+            String observacion
+    ) {
+        MetodoPago mp = metodoPagoRepository.findById(metodoPagoId)
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Método de pago no encontrado: " + request.getMetodoPagoId()));
+                        "Método de pago no encontrado: " + metodoPagoId));
 
         OrigenFondos origen;
-        if (request.getOrigenFondosId() != null) {
-            origen = origenFondosRepository.findById(request.getOrigenFondosId())
+        if (origenFondosId != null) {
+            origen = origenFondosRepository.findById(origenFondosId)
                     .orElseThrow(() -> new IllegalArgumentException(
-                            "Origen de fondos no encontrado: " + request.getOrigenFondosId()));
+                            "Origen de fondos no encontrado: " + origenFondosId));
         } else {
             origen = origenFondosRepository.findByMetodoPagoId(mp.getId())
                     .orElseThrow(() -> new IllegalArgumentException(
@@ -299,8 +479,8 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 ? clientRepository.findById(cxc.getClienteId()).orElse(null)
                 : null;
         String tercero = cliente != null ? cliente.getNombre() : null;
-        String obs = trimToNull(request.getObservacion());
-        if (obs == null) {
+        String obs = observacion;
+        if (obs == null || obs.isBlank()) {
             obs = "Abono CxC #" + cxc.getId()
                     + (tercero != null ? " · " + tercero : "");
         }
@@ -324,21 +504,64 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
         );
         savedAbono.setMovimientoOrigenFondosId(mov.getId());
         savedAbono = abonoCxcRepository.save(savedAbono);
+        return savedAbono;
+    }
 
-        BigDecimal nuevoSaldo = saldo.subtract(monto);
-        cxc.setSaldoPendiente(nuevoSaldo);
-        if (nuevoSaldo.compareTo(BigDecimal.ZERO) == 0) {
-            cxc.setEstado("PAGADA");
-        } else {
-            cxc.setEstado("PARCIAL");
+    /**
+     * Opción B: saldo 0 → archivar ticket a historial+VTA con pagos = abonos;
+     * cierra el ticket vivo para que una compra nueva abra ticket nuevo.
+     */
+    private void formalizarTicketSiLiquidada(CuentaPorCobrar cxc) {
+        if (cxc.getReciboId() == null) {
+            cuentaPorCobrarRepository.save(cxc);
+            log.warn("CxC #{} PAGADA sin reciboId; no se formaliza ticket", cxc.getId());
+            return;
         }
-        cuentaPorCobrarRepository.save(cxc);
+
+        List<AbonoCxc> abonos = abonoCxcRepository
+                .findByCuentaPorCobrarIdOrderByFechaAbonoAscIdAsc(cxc.getId());
+        List<ReciboPagoLineaDto> lineas = new ArrayList<>();
+        for (AbonoCxc a : abonos) {
+            if (a.getMonto() == null || a.getMetodoPagoId() == null) {
+                continue;
+            }
+            lineas.add(ReciboPagoLineaDto.builder()
+                    .metodoPagoId(a.getMetodoPagoId())
+                    .monto(a.getMonto().setScale(2, RoundingMode.HALF_UP))
+                    .build());
+        }
+
+        Long reciboId = cxc.getReciboId();
+        Long ticketId = cxc.getTicketId();
+
+        ReciboPagoResponseDto pago = reciboService.liquidarComoVentaDesdeCxc(reciboId, lineas);
+
+        cxc.setHistorialReciboId(pago.getHistorialReciboId());
+        cxc.setDocumentoVentaId(pago.getDocumentoVentaId());
+        cuentaPorCobrarRepository.saveAndFlush(cxc);
+        cuentaPorCobrarRepository.detachReciboYTicket(cxc.getId());
+        cxc.setReciboId(null);
+        cxc.setTicketId(null);
+
+        // Solo desvincular de UI; no borrar ticket/recibo (FK). liquidar ya quitó ticket_recibo.
+        if (ticketId != null) {
+            Optional<TicketRecibo> tr = ticketReciboRepository.findFirstByTicketId(ticketId);
+            if (tr.isPresent()) {
+                ticketReciboRepository.delete(tr.get());
+                ticketReciboRepository.flush();
+            }
+        }
+        if (reciboId != null) {
+            Optional<TicketRecibo> trR = ticketReciboRepository.findFirstByReciboId(reciboId);
+            if (trR.isPresent()) {
+                ticketReciboRepository.delete(trR.get());
+                ticketReciboRepository.flush();
+            }
+        }
 
         log.info(
-                "Abono CxC id={} cuenta={} monto={} saldoNuevo={} estado={} movOF={}",
-                savedAbono.getId(), cxc.getId(), monto, nuevoSaldo, cxc.getEstado(),
-                mov.getId());
-        return toAbonoDto(savedAbono, mp);
+                "CxC #{} liquidada → historial={} docVenta={} ticketDesvinculado={}",
+                cxc.getId(), pago.getHistorialReciboId(), pago.getDocumentoVentaId(), ticketId);
     }
 
     @Override
@@ -351,6 +574,164 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 .stream()
                 .map(this::toAbonoDto)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public CuentaPorCobrarDto anular(Long cuentaId, CerrarCuentaPorCobrarRequest request) {
+        CuentaPorCobrar cxc = requireVigente(cuentaId);
+        long abonos = abonoCxcRepository.countByCuentaPorCobrarId(cxc.getId());
+        if (abonos > 0) {
+            throw new IllegalArgumentException(
+                    "No se puede anular: la cuenta #" + cxc.getId()
+                            + " ya tiene " + abonos + " abono(s). Use castigo de cartera o cobre el saldo.");
+        }
+
+        MotivoOperacion motivo = resolverMotivo(
+                request != null ? request.getMotivoOperacionId() : null,
+                MOTIVO_ANULAR);
+        String texto = request != null ? trimToNull(request.getMotivoTexto()) : null;
+        if (texto == null) {
+            texto = motivo.getNombre();
+        }
+
+        aplicarCierreTraza(cxc, "ANULADA", motivo, texto, null, null);
+        // Ticket sigue vivo: el cajero puede cobrar de contado.
+        log.info("CxC #{} ANULADA (0 abonos). Ticket {} sigue disponible.", cxc.getId(), cxc.getTicketId());
+        return toDto(cxc);
+    }
+
+    @Override
+    @Transactional
+    public CuentaPorCobrarDto castigar(Long cuentaId, CerrarCuentaPorCobrarRequest request) {
+        CuentaPorCobrar cxc = requireVigente(cuentaId);
+        String texto = request != null ? trimToNull(request.getMotivoTexto()) : null;
+        if (texto == null) {
+            throw new IllegalArgumentException(
+                    "Debe indicar el motivo del castigo de cartera (traza obligatoria).");
+        }
+        MotivoOperacion motivo = resolverMotivo(
+                request.getMotivoOperacionId(),
+                MOTIVO_CASTIGO);
+
+        Long reciboId = cxc.getReciboId();
+        Long ticketId = cxc.getTicketId();
+        Long movInvId = null;
+        BigDecimal valorCosto = BigDecimal.ZERO;
+
+        if (reciboId != null) {
+            List<ReciboDetalle> detalles = reciboDetalleService.findEntityListByReciboId(reciboId);
+            try {
+                CastigoCarteraInventarioResult inv = movimientoInventarioService.registrarCastigoCartera(
+                        reciboId,
+                        cxc.getId(),
+                        detalles,
+                        SecurityContextHelper.getUserId(),
+                        "Castigo CxC #" + cxc.getId() + " · " + texto);
+                if (inv != null) {
+                    movInvId = inv.getMovimientoInventarioId();
+                    valorCosto = inv.getValorPerdidaCosto() != null
+                            ? inv.getValorPerdidaCosto()
+                            : BigDecimal.ZERO;
+                }
+            } catch (Exception e) {
+                log.warn("CxC #{} castigo: fallo inventario (¿SQL 43 / CASTIGO_CARTERA?): {}",
+                        cxc.getId(), e.getMessage());
+                throw new IllegalStateException(
+                        "No se pudo registrar la salida de inventario del castigo: " + e.getMessage(), e);
+            }
+        }
+
+        aplicarCierreTraza(cxc, "CASTIGADA", motivo, texto, movInvId, valorCosto);
+
+        // Suelta FKs en BD. No borramos recibo ni ticket (FK); solo el vínculo ticket_recibo
+        // para que el ticket deje de listarse en POS.
+        int detached = cuentaPorCobrarRepository.detachReciboYTicket(cxc.getId());
+        if (detached < 1) {
+            log.warn("CxC #{} castigo: detachReciboYTicket no actualizó filas", cxc.getId());
+        }
+        cxc.setReciboId(null);
+        cxc.setTicketId(null);
+        desvincularTicketTrasCastigo(reciboId, ticketId);
+
+        // Recargar estado limpio tras clearAutomatically del @Modifying
+        CuentaPorCobrar refreshed = cuentaPorCobrarRepository.findById(cxc.getId()).orElse(cxc);
+        log.info(
+                "CxC #{} CASTIGADA movInv={} costo={} saldoCastigado={}",
+                refreshed.getId(), movInvId, valorCosto, refreshed.getSaldoPendiente());
+        return toDto(refreshed);
+    }
+
+    private CuentaPorCobrar requireVigente(Long cuentaId) {
+        if (cuentaId == null) {
+            throw new IllegalArgumentException("Debe indicar la cuenta por cobrar.");
+        }
+        CuentaPorCobrar cxc = cuentaPorCobrarRepository.findById(cuentaId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Cuenta por cobrar no encontrada: " + cuentaId));
+        if (!ESTADOS_VIGENTES.contains(cxc.getEstado())) {
+            throw new IllegalArgumentException(
+                    "La cuenta #" + cuentaId + " no está vigente (estado " + cxc.getEstado() + ").");
+        }
+        return cxc;
+    }
+
+    private MotivoOperacion resolverMotivo(Long motivoId, String codigoDefault) {
+        if (motivoId != null) {
+            return motivoOperacionRepository.findById(motivoId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Motivo de operación no encontrado: " + motivoId));
+        }
+        return motivoOperacionRepository.findByCodigoAndActivoTrue(codigoDefault)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Motivo " + codigoDefault + " no configurado. Ejecute SQL 43_cxc_anular_castigar.sql."));
+    }
+
+    private void aplicarCierreTraza(
+            CuentaPorCobrar cxc,
+            String estado,
+            MotivoOperacion motivo,
+            String texto,
+            Long movimientoInventarioId,
+            BigDecimal valorPerdidaCosto
+    ) {
+        UUID userId = SecurityContextHelper.getUserId();
+        cxc.setEstado(estado);
+        cxc.setFechaCierre(DateUtils.obtenerFechaSistema());
+        cxc.setUsuarioCierreId(userId);
+        cxc.setMotivoOperacionId(motivo != null ? motivo.getId() : null);
+        cxc.setMotivoCierreTexto(texto);
+        if (movimientoInventarioId != null) {
+            cxc.setMovimientoInventarioId(movimientoInventarioId);
+        }
+        if (valorPerdidaCosto != null) {
+            cxc.setValorPerdidaCosto(valorPerdidaCosto);
+        }
+        String obs = trimToNull(cxc.getObservacion());
+        String marca = estado + " · " + texto;
+        cxc.setObservacion(obs == null ? marca : obs + " · " + marca);
+        cuentaPorCobrarRepository.save(cxc);
+    }
+
+    /**
+     * Quita el ticket de la UI (borra ticket_recibo). No elimina filas ticket/recibo
+     * para no pelear con FK {@code fk_cxc_ticket} / {@code fk_cxc_recibo}.
+     */
+    private void desvincularTicketTrasCastigo(Long reciboId, Long ticketId) {
+        if (reciboId != null) {
+            Optional<TicketRecibo> tr = ticketReciboRepository.findFirstByReciboId(reciboId);
+            if (tr.isPresent()) {
+                ticketReciboRepository.delete(tr.get());
+                ticketReciboRepository.flush();
+            }
+        }
+        if (ticketId != null) {
+            Optional<TicketRecibo> trTicket = ticketReciboRepository.findFirstByTicketId(ticketId);
+            if (trTicket.isPresent()) {
+                ticketReciboRepository.delete(trTicket.get());
+                ticketReciboRepository.flush();
+            }
+        }
     }
 
     private AbonoCxcDto toAbonoDto(AbonoCxc entity) {
@@ -382,6 +763,9 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
     }
 
     private CuentaPorCobrarDto toDto(CuentaPorCobrar entity, Client cliente) {
+        long abonos = entity.getId() != null
+                ? abonoCxcRepository.countByCuentaPorCobrarId(entity.getId())
+                : 0L;
         return CuentaPorCobrarDto.builder()
                 .id(entity.getId())
                 .historialReciboId(entity.getHistorialReciboId())
@@ -395,8 +779,14 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 .fechaOrigen(entity.getFechaOrigen())
                 .montoOriginal(entity.getMontoOriginal())
                 .saldoPendiente(entity.getSaldoPendiente())
+                .totalTicket(entity.getTotalTicket())
                 .estado(entity.getEstado())
                 .observacion(entity.getObservacion())
+                .fechaCierre(entity.getFechaCierre())
+                .motivoCierreTexto(entity.getMotivoCierreTexto())
+                .movimientoInventarioId(entity.getMovimientoInventarioId())
+                .valorPerdidaCosto(entity.getValorPerdidaCosto())
+                .cantidadAbonos(abonos)
                 .build();
     }
 

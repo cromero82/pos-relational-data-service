@@ -21,6 +21,13 @@ public class AbrirCuentaPorCobrarRequest {
     /** Abono de contado al abrir (puede ser 0 = todo a crédito). */
     private BigDecimal abono;
     /**
+     * Medio del abono inicial. Obligatorio si {@code abono} &gt; 0
+     * (queda en {@code abono_cxc} y alimenta historial multipago al liquidar).
+     */
+    private Long metodoPagoId;
+    /** Opcional: override de origen de fondos del abono inicial. */
+    private Integer origenFondosId;
+    /**
      * Saldo que queda a crédito (= totalTicket − abono, o el monto declarado).
      * Es el {@code monto_original} / {@code saldo_pendiente} de la CxC.
      */

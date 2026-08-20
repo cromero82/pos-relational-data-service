@@ -21,6 +21,14 @@ public class CuentaPorCobrarDto {
     private LocalDateTime fechaOrigen;
     private BigDecimal montoOriginal;
     private BigDecimal saldoPendiente;
+    /** Total ticket sincronizado (suma productos). */
+    private BigDecimal totalTicket;
     private String estado;
     private String observacion;
+    private LocalDateTime fechaCierre;
+    private String motivoCierreTexto;
+    private Long movimientoInventarioId;
+    private BigDecimal valorPerdidaCosto;
+    /** Abonos registrados (incl. abono inicial). Anular solo si 0. */
+    private Long cantidadAbonos;
 }

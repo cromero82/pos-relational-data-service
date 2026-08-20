@@ -10,4 +10,8 @@ import java.util.List;
 public interface AbonoCxcRepository extends JpaRepository<AbonoCxc, Long> {
 
     List<AbonoCxc> findByCuentaPorCobrarIdOrderByFechaAbonoDescIdDesc(Long cuentaPorCobrarId);
+
+    List<AbonoCxc> findByCuentaPorCobrarIdOrderByFechaAbonoAscIdAsc(Long cuentaPorCobrarId);
+
+    long countByCuentaPorCobrarId(Long cuentaPorCobrarId);
 }

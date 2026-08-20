@@ -46,6 +46,13 @@ public class CuentaPorCobrar {
     @Column(name = "saldo_pendiente", nullable = false, precision = 12, scale = 2)
     private BigDecimal saldoPendiente;
 
+    /**
+     * Total del ticket sincronizado (suma productos). Sirve para calcular delta
+     * al agregar/quitar ítems mientras la CxC sigue vigente.
+     */
+    @Column(name = "total_ticket", precision = 12, scale = 2)
+    private BigDecimal totalTicket;
+
     @Column(nullable = false, length = 20)
     private String estado;
 
@@ -54,6 +61,24 @@ public class CuentaPorCobrar {
 
     @Column(name = "usuario_id")
     private UUID usuarioId;
+
+    @Column(name = "fecha_cierre")
+    private LocalDateTime fechaCierre;
+
+    @Column(name = "usuario_cierre_id")
+    private UUID usuarioCierreId;
+
+    @Column(name = "motivo_operacion_id")
+    private Long motivoOperacionId;
+
+    @Column(name = "motivo_cierre_texto", columnDefinition = "TEXT")
+    private String motivoCierreTexto;
+
+    @Column(name = "movimiento_inventario_id")
+    private Long movimientoInventarioId;
+
+    @Column(name = "valor_perdida_costo", precision = 12, scale = 2)
+    private BigDecimal valorPerdidaCosto;
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private LocalDateTime fechaCreacion;
