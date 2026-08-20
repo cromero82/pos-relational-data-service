@@ -59,6 +59,48 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<MovimientoOrigenFondosDto> findCandidatosFormalizarEgreso(
+            List<Integer> origenFondosIds,
+            BigDecimal valor
+    ) {
+        if (origenFondosIds == null || origenFondosIds.isEmpty()) {
+            return List.of();
+        }
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El valor debe ser mayor a cero.");
+        }
+        return movimientoRepository.findCandidatosFormalizarEgreso(origenFondosIds, valor)
+                .stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MovimientoOrigenFondosDto> findPorClasificacion(
+            String clasificacionOperativa,
+            LocalDate desde,
+            LocalDate hasta
+    ) {
+        if (desde == null || hasta == null) {
+            throw new IllegalArgumentException("desde y hasta son obligatorios");
+        }
+        if (hasta.isBefore(desde)) {
+            throw new IllegalArgumentException("hasta no puede ser anterior a desde");
+        }
+        String clasif = null;
+        if (clasificacionOperativa != null && !clasificacionOperativa.isBlank()) {
+            clasif = normalizarClasificacionOperativa(clasificacionOperativa);
+        }
+        return movimientoRepository
+                .findPorClasificacionOperativa(clasif, desde, hasta)
+                .stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
     public static final String ORIGEN_TIPO_BASE_INICIAL = "BASE_INICIAL";
     public static final String CODIGO_MOTIVO_INVERSION_INICIAL = "INVERSION_INICIAL_BASE";
 
@@ -95,6 +137,42 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
         return toDto(saved);
     }
 
+    public static final String ORIGEN_TIPO_ABONO_CXC = "ABONO_CXC";
+
+    @Override
+    @Transactional
+    public MovimientoOrigenFondosDto registrarEntradaCobranza(
+            Integer origenFondosId,
+            BigDecimal monto,
+            Long abonoCxcId,
+            String terceroNombre,
+            String observacion
+    ) {
+        validarValorPositivo(monto);
+        OrigenFondos cuenta = requireOrigen(origenFondosId);
+        LocalDate fecha = DateUtils.obtenerFechaSistema().toLocalDate();
+        MovimientoOrigenFondos saved = persistirMovimiento(
+                cuenta,
+                null,
+                TipoMovimientoOrigenFondos.ENTRADA_COBRANZA,
+                monto,
+                monto,
+                fecha,
+                terceroNombre,
+                null,
+                observacion,
+                null,
+                null,
+                ORIGEN_TIPO_ABONO_CXC,
+                abonoCxcId,
+                null
+        );
+        return toDto(saved);
+    }
+
+    /**
+     * Entrada de instalación: define la Base del primer corte (origenTipo BASE_INICIAL).
+     */
     @Override
     @Transactional
     public MovimientoOrigenFondosDto registrarBaseInicial(BaseInicialRequest request) {
@@ -173,6 +251,7 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
 
         LocalDate fecha = request.getFecha() != null ? request.getFecha() : DateUtils.obtenerFechaSistema().toLocalDate();
         String grupoId = UUID.randomUUID().toString();
+        String clasificacion = normalizarClasificacionOperativa(request.getClasificacionOperativa());
 
         MovimientoOrigenFondos salida = persistirMovimiento(
                 origen,
@@ -188,7 +267,8 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 null,
                 "TRASLADO",
                 null,
-                grupoId
+                grupoId,
+                clasificacion
         );
 
         MovimientoOrigenFondos entrada = persistirMovimiento(
@@ -205,7 +285,8 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 null,
                 "TRASLADO",
                 null,
-                grupoId
+                grupoId,
+                clasificacion
         );
 
         List<MovimientoOrigenFondosDto> resultado = new ArrayList<>();
@@ -508,6 +589,9 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 ? egreso.getFecha()
                 : DateUtils.obtenerFechaSistema().toLocalDate();
         String observacion = buildObservacionEgreso(egreso);
+        String clasificacion = egreso.getFromMovimientoOrigenFondosId() != null
+                ? "GASTO_NEGOCIO"
+                : null;
         MovimientoOrigenFondos saved = persistirMovimiento(
                 cuenta,
                 null,
@@ -522,7 +606,8 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 null,
                 "EGRESO",
                 egreso.getId(),
-                null
+                null,
+                clasificacion
         );
         return toDto(saved);
     }
@@ -645,6 +730,42 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
             Long idReferencia,
             String grupoTrasladoId
     ) {
+        return persistirMovimiento(
+                cuenta,
+                origenDestinoId,
+                tipo,
+                valor,
+                impacto,
+                fecha,
+                terceroNombre,
+                motivoMovimientoId,
+                observacion,
+                valorSistema,
+                valorReal,
+                origenTipo,
+                idReferencia,
+                grupoTrasladoId,
+                null
+        );
+    }
+
+    private MovimientoOrigenFondos persistirMovimiento(
+            OrigenFondos cuenta,
+            Integer origenDestinoId,
+            TipoMovimientoOrigenFondos tipo,
+            BigDecimal valor,
+            BigDecimal impacto,
+            LocalDate fecha,
+            String terceroNombre,
+            Integer motivoMovimientoId,
+            String observacion,
+            BigDecimal valorSistema,
+            BigDecimal valorReal,
+            String origenTipo,
+            Long idReferencia,
+            String grupoTrasladoId,
+            String clasificacionOperativa
+    ) {
         if (impacto.compareTo(BigDecimal.ZERO) < 0) {
             validarSalidaSuficiente(cuenta.getId(), impacto.abs());
         }
@@ -672,8 +793,28 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 .origenTipo(origenTipo)
                 .idReferencia(idReferencia)
                 .grupoTrasladoId(grupoTrasladoId)
+                .clasificacionOperativa(clasificacionOperativa)
                 .build();
         return movimientoRepository.save(entity);
+    }
+
+    private static String normalizarClasificacionOperativa(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String c = raw.trim().toUpperCase();
+        switch (c) {
+            case "CUENTA_PERSONAL":
+            case "ANTICIPO_SALARIO":
+            case "VALE_EMPLEADO":
+            case "GASTO_NEGOCIO":
+            case "OTRO_LEGALIZADO":
+                return c;
+            default:
+                throw new IllegalArgumentException(
+                        "clasificacionOperativa inválida: " + raw
+                                + " (use CUENTA_PERSONAL|ANTICIPO_SALARIO|VALE_EMPLEADO|GASTO_NEGOCIO|OTRO_LEGALIZADO)");
+        }
     }
 
     private void validarSalidaSuficiente(Integer cuentaId, BigDecimal valor) {
@@ -748,6 +889,8 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 .idReferencia(m.getIdReferencia())
                 .origenId(m.getIdReferencia())
                 .grupoTrasladoId(m.getGrupoTrasladoId())
+                .clasificacionOperativa(m.getClasificacionOperativa())
+                .periodoCierreId(m.getPeriodoCierreId())
                 .build();
     }
 }

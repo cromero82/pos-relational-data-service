@@ -14,4 +14,6 @@ public class MotivoMovimientoDto {
     private Boolean sistema;
     private Boolean activo;
     private Integer orden;
+    /** TRASLADO_OF | REGISTRAR_DOCUMENTO | AJUSTE_CIERRE | REVISAR */
+    private String accionEsperada;
 }

@@ -51,6 +51,14 @@ public class HistorialRecibo {
     @Column(name = "documento_venta_id")
     private Long documentoVentaId;
 
+    /**
+     * TRUE si se creó vía Ticket rápido (VARIOSPROD).
+     * Ocultar en establecimientos RESPONSABLE_IVA.
+     */
+    @Column(name = "ticket_rapido", nullable = false)
+    @Builder.Default
+    private Boolean ticketRapido = false;
+
     @Transient
     private String documentoVentaConsecutivo;
 

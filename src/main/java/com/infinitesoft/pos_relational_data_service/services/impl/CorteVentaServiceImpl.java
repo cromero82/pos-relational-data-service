@@ -194,9 +194,30 @@ public class CorteVentaServiceImpl implements CorteVentaService {
         if (delta == null && total != null && totalSistema != null) {
             delta = total.subtract(totalSistema);
         }
-        if (delta != null && delta.compareTo(BigDecimal.ZERO) != 0 && motivoDesfaseId == null) {
+        boolean hayDesfase = delta != null && delta.compareTo(BigDecimal.ZERO) != 0;
+        if (hayDesfase && motivoDesfaseId == null) {
             throw new IllegalArgumentException(
                     "Debe indicar el motivo del desfase para el medio de pago id=" + metodoPagoId);
+        }
+        if (!hayDesfase || motivoDesfaseId == null) {
+            return;
+        }
+        MotivoMovimiento motivo = motivoMovimientoRepository.findById(motivoDesfaseId).orElse(null);
+        if (motivo == null) {
+            throw new IllegalArgumentException(
+                    "Motivo de desfase inválido id=" + motivoDesfaseId);
+        }
+        String accion = motivo.getAccionEsperada() != null
+                ? motivo.getAccionEsperada().trim().toUpperCase()
+                : "";
+        // REGISTRAR_DOCUMENTO = ir a documentar; no cierra el corte con AJUSTE_CIERRE.
+        if ("REGISTRAR_DOCUMENTO".equals(accion)) {
+            throw new IllegalArgumentException(
+                    "El motivo «" + motivo.getNombre()
+                            + "» exige registrar el egreso/movimiento faltante, "
+                            + "volver a consultar el rango y, si aún hay diferencia, "
+                            + "usar otro motivo (p. ej. error de conteo). Medio id="
+                            + metodoPagoId);
         }
     }
 

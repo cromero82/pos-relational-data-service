@@ -269,6 +269,7 @@ public class OrigenFondosServiceImpl implements OrigenFondosService {
                 .color(cuenta.getColor())
                 .orden(cuenta.getOrden())
                 .saldo(saldo)
+                .naturaleza(cuenta.getNaturaleza() != null ? cuenta.getNaturaleza().name() : null)
                 .build();
     }
 

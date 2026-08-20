@@ -43,6 +43,13 @@ public class Egreso {
     @Column(name = "origen_fondos_id")
     private Integer origenFondosId;
 
+    /**
+     * Movimiento OF (p.ej. entrada en Para ordenar por email) que se formaliza.
+     * La salida de caja del egreso sale de ese OF; no resta de nuevo el banco.
+     */
+    @Column(name = "from_movimiento_origen_fondos_id")
+    private Long fromMovimientoOrigenFondosId;
+
     @PrePersist
     @PreUpdate
     protected void onPrePersistUpdate() {

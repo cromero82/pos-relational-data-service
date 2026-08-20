@@ -80,4 +80,15 @@ public class MovimientoOrigenFondos {
 
     @Column(name = "grupo_traslado_id", length = 36)
     private String grupoTrasladoId;
+
+    /**
+     * CUENTA_PERSONAL | ANTICIPO_SALARIO | VALE_EMPLEADO | GASTO_NEGOCIO | OTRO_LEGALIZADO.
+     * Tag de negocio (qué es) distinto del OF (dónde está la plata).
+     */
+    @Column(name = "clasificacion_operativa", length = 40)
+    private String clasificacionOperativa;
+
+    /** Reserva cierre de periodo operativo (mensual). Null = abierto. */
+    @Column(name = "periodo_cierre_id")
+    private Integer periodoCierreId;
 }

@@ -35,6 +35,7 @@ public class MotivoMovimientoController {
                 .sistema(m.getSistema())
                 .activo(m.getActivo())
                 .orden(m.getOrden())
+                .accionEsperada(m.getAccionEsperada())
                 .build();
     }
 }

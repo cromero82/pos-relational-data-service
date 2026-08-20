@@ -15,4 +15,9 @@ public class MovimientoTrasladoRequest {
     private BigDecimal valor;
     private LocalDate fecha;
     private String observacion;
+    /**
+     * Opcional: CUENTA_PERSONAL | ANTICIPO_SALARIO | VALE_EMPLEADO | GASTO_NEGOCIO | OTRO_LEGALIZADO.
+     * Se guarda en ambas piernas del traslado (contrato para DnD/legalizar).
+     */
+    private String clasificacionOperativa;
 }

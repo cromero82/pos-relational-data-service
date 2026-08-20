@@ -41,7 +41,15 @@ for f in \
   26_unlink_caja_menor_metodo_pago.sql \
   27_movimiento_id_referencia.sql \
   28_origen_fondos_estado_archivar.sql \
-  30_historial_recibo_pago.sql
+  30_historial_recibo_pago.sql \
+  34_ticket_rapido_origen_y_backfill.sql \
+  35_desfase_motivos_accion.sql \
+  36_notificacion_legalizar.sql \
+  37_cxc_abonos_schema.sql \
+  38_duenos_clasificacion_movimiento.sql \
+  39_egreso_from_movimiento.sql \
+  40_rename_para_ordenar_sin_clasificar.sql \
+  41_cxc_abrir_desde_ticket.sql
 do
   echo ">>> $f"
   psql "$DB" -v ON_ERROR_STOP=1 -f "$DIR/$f"

@@ -109,6 +109,10 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         if (historialRecibo.getEstadoId() == null) {
             historialRecibo.setEstadoId(ReciboEstado.PAGADO.getId());
         }
+        historialRecibo.setTicketRapido(true);
+        if (historialRecibo.getMontoRecibido() == null && historialRecibo.getTotal() != null) {
+            historialRecibo.setMontoRecibido(historialRecibo.getTotal());
+        }
         // 1) Save the HistorialRecibo first
         HistorialRecibo saved = repository.save(historialRecibo);
 
@@ -135,6 +139,28 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                 .subtotal(subtotal)
                 .build();
         historialReciboDetalleService.create(detalle);
+
+        // 4) Línea de pago (fuente del corte) — un medio
+        if (saved.getMetodoPagoId() == null) {
+            throw new IllegalArgumentException("Ticket rápido requiere metodoPagoId.");
+        }
+        if (subtotal.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Ticket rápido requiere total > 0.");
+        }
+        historialReciboPagoRepository.save(HistorialReciboPago.builder()
+                .historialReciboId(saved.getId())
+                .metodoPagoId(saved.getMetodoPagoId())
+                .monto(subtotal)
+                .orden((short) 1)
+                .build());
+
+        // 5) Documento VTA- (trazabilidad)
+        DocumentoVenta doc = documentoVentaService.crearDesdeHistorialRecibo(
+                saved, SecurityContextHelper.getUserId());
+        if (doc != null) {
+            saved.setDocumentoVentaId(doc.getId());
+            saved.setDocumentoVentaConsecutivo(doc.getConsecutivo());
+        }
 
         return saved;
     }

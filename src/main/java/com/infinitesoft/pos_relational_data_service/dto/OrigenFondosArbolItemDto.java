@@ -23,4 +23,6 @@ public class OrigenFondosArbolItemDto {
     private String color;
     private Integer orden;
     private BigDecimal saldo;
+    /** FISICA | ELECTRONICA | MIXTA */
+    private String naturaleza;
 }

@@ -126,6 +126,18 @@ Scripts (después de `20`):
 | `27_movimiento_id_referencia.sql` | `origen_id` → `id_referencia` | (incluido en migrate) |
 | `28_origen_fondos_estado_archivar.sql` | `estado` ACTIVO/ARCHIVADO + unique nombre hermanos | `apply-origen-fondos-estado-archivar.sh` |
 | `30_historial_recibo_pago.sql` | Multipago: `historial_recibo_pago` + `metodo_pago.codigo_dian_payment_means` + backfill 1:1 | (incluido en migrate) |
+| `34_ticket_rapido_origen_y_backfill.sql` | Flag `ticket_rapido` + backfill pagos | (incluido en migrate) |
+| `35_desfase_motivos_accion.sql` | `accion_esperada` + `MOVIMIENTO_NO_REGISTRADO` | (incluido en migrate) |
+| `36_notificacion_legalizar.sql` | Clasificación notif. email + motivos LEGALIZAR_* | (incluido en migrate) |
+| `37_cxc_abonos_schema.sql` | `cuenta_por_cobrar` + `abono_cxc` (UI luego) | (incluido en migrate) |
+| `38_duenos_clasificacion_movimiento.sql` | Raíz **Dueños** + `Cuenta del dueño`; `clasificacion_operativa` / `periodo_cierre_id` en ledger | (incluido en migrate) |
+| `39_egreso_from_movimiento.sql` | `egreso.from_movimiento_origen_fondos_id` (Formalizar egreso sin doble resta banco) | (incluido en migrate) |
+| `40_rename_para_ordenar_sin_clasificar.sql` | OF «Para ordenar» → **Sin Clasificar** | (incluido en migrate) |
+| `41_cxc_abrir_desde_ticket.sql` | `client.correo` + CxC `recibo_id`/`ticket_id` (abrir crédito desde ticket) | (incluido en migrate) |
+
+**Formalizar egreso (smoke):** Orígenes → Sin Clasificar → fila `MOVIMIENTO BANCO POR IDENTIFICAR` → «Formalizar egreso» → proveedor → POST con `fromMovimientoOrigenFondosId`. Esperado: egreso + `SALIDA_EGRESO` solo en bolsa; banco sin 2ª resta; reintento → error idempotente.
+
+**Núcleo ingresos:** dashboard = Ventas sistema. Glosario: `prompts-general-pos/GLOSARIO-NUCLEO-FINANCIERO.md`. Canónico de corte: `corte_venta_detalle`.
 
 > Nota: `28_confirmacion_pagos_electronicos.sql` / `29_notificacion_email_archivada.sql` son de pagos QR/email; no forman parte del wrapper OF. El multipago es **`30_`**.
 

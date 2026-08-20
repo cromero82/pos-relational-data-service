@@ -36,4 +36,8 @@ public class MotivoMovimiento {
     @Column(nullable = false)
     @Builder.Default
     private Integer orden = 0;
+
+    /** TRASLADO_OF | REGISTRAR_DOCUMENTO | AJUSTE_CIERRE | REVISAR */
+    @Column(name = "accion_esperada", length = 40)
+    private String accionEsperada;
 }

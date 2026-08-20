@@ -3,9 +3,12 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 import com.infinitesoft.pos_relational_data_service.entities.OrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.Egreso;
 import com.infinitesoft.pos_relational_data_service.entities.MetodoPago;
+import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFondos;
+import com.infinitesoft.pos_relational_data_service.entities.enums.TipoMovimientoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.repositories.OrigenFondosRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.EgresoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MetodoPagoRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.MovimientoOrigenFondosRepository;
 import com.infinitesoft.pos_relational_data_service.services.OrigenFondosService;
 import com.infinitesoft.pos_relational_data_service.services.EgresoService;
 import com.infinitesoft.pos_relational_data_service.services.EstadisticaFinancieraService;
@@ -18,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -39,6 +43,9 @@ public class EgresoServiceImpl implements EgresoService {
 
     @Autowired
     private MovimientoOrigenFondosService movimientoOrigenFondosService;
+
+    @Autowired
+    private MovimientoOrigenFondosRepository movimientoOrigenFondosRepository;
 
     @Autowired
     private EstadisticaFinancieraService estadisticaFinancieraService;
@@ -78,6 +85,7 @@ public class EgresoServiceImpl implements EgresoService {
     @Transactional
     public Egreso create(Egreso egreso) {
         log.info("Iniciando servicio EgresoServiceImpl - Método: create - Egreso: {}", egreso);
+        aplicarFormalizarDesdeMovimiento(egreso);
         validarOrigenFondos(egreso);
         validarMetodoPago(egreso);
 
@@ -89,6 +97,58 @@ public class EgresoServiceImpl implements EgresoService {
         ajustarEstadisticas(requestDate);
 
         return saved;
+    }
+
+    /**
+     * Formalizar egreso: el dinero ya está en Para ordenar (u otra bolsa por identificar).
+     * Fuerza {@code origenFondosId} = OF del movimiento (impacto +) y evita doble resta del banco.
+     */
+    private void aplicarFormalizarDesdeMovimiento(Egreso egreso) {
+        Long movId = egreso.getFromMovimientoOrigenFondosId();
+        if (movId == null) {
+            return;
+        }
+        egresoRepository.findByFromMovimientoOrigenFondosId(movId).ifPresent(existing -> {
+            throw new IllegalArgumentException(
+                    "Ese movimiento ya fue formalizado como egreso #" + existing.getId());
+        });
+        MovimientoOrigenFondos mov = movimientoOrigenFondosRepository.findById(movId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Movimiento de origen de fondos no encontrado: " + movId));
+        if (mov.getImpacto() == null || mov.getImpacto().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(
+                    "Solo se puede formalizar un movimiento con impacto positivo (entrada a la bolsa).");
+        }
+        String origenTipo = mov.getOrigenTipo() != null ? mov.getOrigenTipo().trim().toUpperCase() : "";
+        if (!"MOVIMIENTO BANCO POR IDENTIFICAR".equals(origenTipo)) {
+            throw new IllegalArgumentException(
+                    "Solo movimientos «por identificar» se pueden formalizar como egreso (origenTipo="
+                            + mov.getOrigenTipo() + ").");
+        }
+        if (mov.getTipoMovimiento() != TipoMovimientoOrigenFondos.TRASLADO
+                && mov.getTipoMovimiento() != TipoMovimientoOrigenFondos.ENTRADA_MANUAL) {
+            throw new IllegalArgumentException(
+                    "Tipo de movimiento no formalizable: " + mov.getTipoMovimiento());
+        }
+        egreso.setOrigenFondosId(mov.getOrigenFondosId());
+        if (egreso.getValor() == null || egreso.getValor().compareTo(BigDecimal.ZERO) <= 0) {
+            egreso.setValor(mov.getValor());
+        }
+        StringBuilder desc = new StringBuilder();
+        if (egreso.getDescripcion() != null && !egreso.getDescripcion().isBlank()) {
+            desc.append(egreso.getDescripcion().trim());
+        }
+        if (mov.getIdReferencia() != null) {
+            if (desc.length() > 0) {
+                desc.append(" · ");
+            }
+            desc.append("Notif #").append(mov.getIdReferencia());
+        }
+        desc.append(" · Formalizado mov #").append(mov.getId());
+        egreso.setDescripcion(desc.toString());
+        log.info(
+                "Formalizar egreso desde mov={} of={} valor={} notifRef={}",
+                movId, mov.getOrigenFondosId(), egreso.getValor(), mov.getIdReferencia());
     }
 
     @Override

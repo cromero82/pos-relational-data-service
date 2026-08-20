@@ -32,6 +32,7 @@
 | `prompts-general-pos/reset-tablas-financieras-transaccionales-v2.sql` | SQL canónico truncate |
 | `prompts-general-pos/MIGRATE-PROD-TO-DIAN-V2.md` | Migración schema |
 | `prompts-general-pos/MULTIPAGO-MEDIOS-POR-TICKET.md` | Cobro 2–3 medios / corte por líneas |
+| `prompts-general-pos/GLOSARIO-NUCLEO-FINANCIERO.md` | Ventas / Esperado / Contado / Diferencia / CxC |
 | `infinito-ai-front/.cursor/rules/movimientos-almacen/ONBOARDING-FINANZAS-ORIGENES-CIERRES.md` | Onboarding FE (julio; delta → handoff Ago) |
 | `infinito-ai-front/.cursor/rules/movimientos-almacen/POS-PLAN-MAESTRO.md` | Roadmap |
 

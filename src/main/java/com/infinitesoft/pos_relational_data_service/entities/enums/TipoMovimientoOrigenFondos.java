@@ -5,6 +5,11 @@ public enum TipoMovimientoOrigenFondos {
     ENTRADA_PRESTAMO,
     /** Ventas del periodo contabilizadas al confirmar el corte (hasta existir posteo por ticket). */
     ENTRADA_VENTA,
+    /**
+     * Cobranza de cuenta por cobrar (abono). Entra a caja/OF del medio;
+     * no suma a Ventas del día ({@code ENTRADA_VENTA}).
+     */
+    ENTRADA_COBRANZA,
     TRASLADO,
     SALIDA_EGRESO,
     SALIDA_DEVOLUCION_PRESTAMO,

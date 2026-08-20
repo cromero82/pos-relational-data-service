@@ -20,6 +20,33 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
 
     List<MovimientoOrigenFondos> findByOrigenFondosIdOrderByFechaCreacionDescIdDesc(Integer origenFondosId);
 
+    /**
+     * Entradas «por identificar» en bolsas (p.ej. Para ordenar) aún no formalizadas como egreso.
+     */
+    @Query("SELECT m FROM MovimientoOrigenFondos m "
+            + "WHERE m.origenFondosId IN :origenFondosIds "
+            + "AND m.valor = :valor "
+            + "AND m.impacto > 0 "
+            + "AND UPPER(TRIM(m.origenTipo)) = 'MOVIMIENTO BANCO POR IDENTIFICAR' "
+            + "AND NOT EXISTS ("
+            + "  SELECT 1 FROM Egreso e WHERE e.fromMovimientoOrigenFondosId = m.id"
+            + ") "
+            + "ORDER BY m.id DESC")
+    List<MovimientoOrigenFondos> findCandidatosFormalizarEgreso(
+            @Param("origenFondosIds") List<Integer> origenFondosIds,
+            @Param("valor") BigDecimal valor);
+
+    @Query("SELECT m FROM MovimientoOrigenFondos m "
+            + "WHERE m.clasificacionOperativa IS NOT NULL "
+            + "AND (:clasificacion IS NULL OR m.clasificacionOperativa = :clasificacion) "
+            + "AND m.fecha >= :desde AND m.fecha <= :hasta "
+            + "AND m.impacto > 0 "
+            + "ORDER BY m.fecha DESC, m.id DESC")
+    List<MovimientoOrigenFondos> findPorClasificacionOperativa(
+            @Param("clasificacion") String clasificacion,
+            @Param("desde") java.time.LocalDate desde,
+            @Param("hasta") java.time.LocalDate hasta);
+
     List<MovimientoOrigenFondos> findByOrigenTipoAndIdReferenciaOrderByIdAsc(String origenTipo, Long idReferencia);
 
     Optional<MovimientoOrigenFondos> findFirstByOrigenTipoOrderByIdAsc(String origenTipo);

@@ -11,11 +11,14 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface EgresoRepository extends JpaRepository<Egreso, Long> {
     List<Egreso> findByFechaBetween(LocalDate fechaInicio, LocalDate fechaFin);
     List<Egreso> findByProveedorId(Long proveedorId);
+
+    Optional<Egreso> findByFromMovimientoOrigenFondosId(Long fromMovimientoOrigenFondosId);
 
     @Query("SELECT e FROM Egreso e WHERE e.proveedor.tipoEgreso.id = :tipoEgresoId")
     List<Egreso> findByTipoEgresoId(@Param("tipoEgresoId") Long tipoEgresoId);

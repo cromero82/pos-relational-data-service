@@ -35,4 +35,7 @@ public class MovimientoOrigenFondosDto {
     /** @deprecated usar {@link #idReferencia}; se mantiene por compatibilidad JSON. */
     private Long origenId;
     private String grupoTrasladoId;
+    /** CUENTA_PERSONAL | ANTICIPO_SALARIO | VALE_EMPLEADO | GASTO_NEGOCIO | OTRO_LEGALIZADO */
+    private String clasificacionOperativa;
+    private Integer periodoCierreId;
 }
