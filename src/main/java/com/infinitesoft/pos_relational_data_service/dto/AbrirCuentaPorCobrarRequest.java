@@ -33,4 +33,14 @@ public class AbrirCuentaPorCobrarRequest {
      */
     private BigDecimal monto;
     private String observacion;
+    /**
+     * Sesión de caja activa (panel confirmación QR del abono inicial).
+     * Preferible a la sesion_id histórica del recibo/ticket.
+     */
+    private Long sesionId;
+    /**
+     * HRE ya confirmado (faltante QR venta): al crear el abono inicial se retargeta
+     * a {@code abono_cxc_id} en vez de crear un pendiente CREADA nuevo.
+     */
+    private Long historialElectronicoId;
 }

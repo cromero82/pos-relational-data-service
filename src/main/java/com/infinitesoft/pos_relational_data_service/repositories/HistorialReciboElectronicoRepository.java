@@ -9,4 +9,6 @@ public interface HistorialReciboElectronicoRepository
         extends JpaRepository<HistorialReciboElectronico, Long> {
 
     Optional<HistorialReciboElectronico> findByHistorialReciboId(Long historialReciboId);
+
+    Optional<HistorialReciboElectronico> findByAbonoCxcId(Long abonoCxcId);
 }

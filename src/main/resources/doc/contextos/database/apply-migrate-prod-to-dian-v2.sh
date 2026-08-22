@@ -51,7 +51,9 @@ for f in \
   40_rename_para_ordenar_sin_clasificar.sql \
   41_cxc_abrir_desde_ticket.sql \
   42_cxc_total_ticket_sync.sql \
-  43_cxc_anular_castigar.sql
+  43_cxc_anular_castigar.sql \
+  44_hre_abono_cxc.sql \
+  45_hre_monto_recibido.sql
 do
   echo ">>> $f"
   psql "$DB" -v ON_ERROR_STOP=1 -f "$DIR/$f"

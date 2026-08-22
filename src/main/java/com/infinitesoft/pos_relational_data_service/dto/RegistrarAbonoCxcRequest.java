@@ -13,4 +13,9 @@ public class RegistrarAbonoCxcRequest {
     /** Opcional: override de origen de fondos. */
     private Integer origenFondosId;
     private String observacion;
+    /**
+     * Sesión de caja activa (panel de confirmación QR).
+     * Si no se envía, se usa la sesión activa del usuario o la del recibo CxC.
+     */
+    private Long sesionId;
 }

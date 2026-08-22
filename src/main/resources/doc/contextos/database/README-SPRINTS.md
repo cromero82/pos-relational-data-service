@@ -135,6 +135,8 @@ Scripts (después de `20`):
 | `40_rename_para_ordenar_sin_clasificar.sql` | OF «Para ordenar» → **Sin Clasificar** | (incluido en migrate) |
 | `42_cxc_total_ticket_sync.sql` | CxC `total_ticket` + sync al mutar ítems | (incluido en migrate) |
 | `43_cxc_anular_castigar.sql` | CxC `CASTIGADA` + traza cierre + tipo `CASTIGO_CARTERA` | (incluido en migrate) |
+| `44_hre_abono_cxc.sql` | HRE: `abono_cxc_id` + XOR con `historial_recibo_id` (panel QR abonos) | (incluido en migrate) |
+| `45_hre_monto_recibido.sql` | HRE: `monto_recibido` (match QR con monto ≠ esperado) | (incluido en migrate) |
 
 **Formalizar egreso (smoke):** Orígenes → Sin Clasificar → fila `MOVIMIENTO BANCO POR IDENTIFICAR` → «Formalizar egreso» → proveedor → POST con `fromMovimientoOrigenFondosId`. Esperado: egreso + `SALIDA_EGRESO` solo en bolsa; banco sin 2ª resta; reintento → error idempotente.
 

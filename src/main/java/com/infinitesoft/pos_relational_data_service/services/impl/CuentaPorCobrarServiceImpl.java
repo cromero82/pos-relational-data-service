@@ -13,19 +13,23 @@ import com.infinitesoft.pos_relational_data_service.dto.SincronizarCxCTicketRequ
 import com.infinitesoft.pos_relational_data_service.entities.AbonoCxc;
 import com.infinitesoft.pos_relational_data_service.entities.Client;
 import com.infinitesoft.pos_relational_data_service.entities.CuentaPorCobrar;
+import com.infinitesoft.pos_relational_data_service.entities.HistorialReciboElectronico;
 import com.infinitesoft.pos_relational_data_service.entities.MetodoPago;
 import com.infinitesoft.pos_relational_data_service.entities.MotivoOperacion;
 import com.infinitesoft.pos_relational_data_service.entities.OrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalle;
+import com.infinitesoft.pos_relational_data_service.entities.Sesion;
 import com.infinitesoft.pos_relational_data_service.entities.TicketRecibo;
 import com.infinitesoft.pos_relational_data_service.repositories.AbonoCxcRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ClientRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.CuentaPorCobrarRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboElectronicoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MetodoPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MotivoOperacionRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.OrigenFondosRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.SesionRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketRepository;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
@@ -86,6 +90,12 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
 
     @Autowired
     private MotivoOperacionRepository motivoOperacionRepository;
+
+    @Autowired
+    private HistorialReciboElectronicoRepository historialReciboElectronicoRepository;
+
+    @Autowired
+    private SesionRepository sesionRepository;
 
     @Autowired
     private MovimientoOrigenFondosService movimientoOrigenFondosService;
@@ -230,7 +240,9 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                     abono,
                     request.getMetodoPagoId(),
                     request.getOrigenFondosId(),
-                    "Abono inicial al abrir CxC #" + saved.getId()
+                    "Abono inicial al abrir CxC #" + saved.getId(),
+                    request.getSesionId(),
+                    request.getHistorialElectronicoId()
             );
         }
 
@@ -428,7 +440,9 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 monto,
                 request.getMetodoPagoId(),
                 request.getOrigenFondosId(),
-                trimToNull(request.getObservacion())
+                trimToNull(request.getObservacion()),
+                request.getSesionId(),
+                null
         );
 
         BigDecimal nuevoSaldo = saldo.subtract(monto);
@@ -442,10 +456,12 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
         }
 
         MetodoPago mp = metodoPagoRepository.findById(savedAbono.getMetodoPagoId()).orElse(null);
+        boolean pendienteQr = savedAbono.getId() != null
+                && historialReciboElectronicoRepository.findByAbonoCxcId(savedAbono.getId()).isPresent();
         log.info(
-                "Abono CxC id={} cuenta={} monto={} saldoNuevo={} estado={}",
-                savedAbono.getId(), cxc.getId(), monto, nuevoSaldo, cxc.getEstado());
-        return toAbonoDto(savedAbono, mp);
+                "Abono CxC id={} cuenta={} monto={} saldoNuevo={} estado={} pendienteQr={}",
+                savedAbono.getId(), cxc.getId(), monto, nuevoSaldo, cxc.getEstado(), pendienteQr);
+        return toAbonoDto(savedAbono, mp, pendienteQr);
     }
 
     /**
@@ -457,7 +473,9 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
             BigDecimal monto,
             Long metodoPagoId,
             Integer origenFondosId,
-            String observacion
+            String observacion,
+            Long sesionIdCaja,
+            Long historialElectronicoIdConfirmado
     ) {
         MetodoPago mp = metodoPagoRepository.findById(metodoPagoId)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -504,7 +522,131 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
         );
         savedAbono.setMovimientoOrigenFondosId(mov.getId());
         savedAbono = abonoCxcRepository.save(savedAbono);
+        if (historialElectronicoIdConfirmado != null) {
+            retargetHreConfirmadoAAbono(
+                    historialElectronicoIdConfirmado, savedAbono, cxc, mp, sesionIdCaja);
+        } else {
+            // Abono inicial (abrir CxC) también puede ser QR → pendiente panel.
+            registrarPendienteConfirmacionElectronicaAbono(cxc, savedAbono, mp, sesionIdCaja);
+        }
         return savedAbono;
+    }
+
+    /**
+     * Faltante QR venta: el email ya está CONFIRMADA en HRE de la venta;
+     * al abrir CxC se mueve el origen XOR a abono (sin crear otro pendiente).
+     */
+    private void retargetHreConfirmadoAAbono(
+            Long historialElectronicoId,
+            AbonoCxc abono,
+            CuentaPorCobrar cxc,
+            MetodoPago mp,
+            Long sesionIdCaja
+    ) {
+        try {
+            if (historialElectronicoId == null || abono == null || abono.getId() == null) {
+                return;
+            }
+            HistorialReciboElectronico hre = historialReciboElectronicoRepository
+                    .findById(historialElectronicoId)
+                    .orElse(null);
+            if (hre == null) {
+                log.warn("HRE #{} no encontrado para retarget a abono #{}",
+                        historialElectronicoId, abono.getId());
+                registrarPendienteConfirmacionElectronicaAbono(cxc, abono, mp, sesionIdCaja);
+                return;
+            }
+            hre.setHistorialReciboId(null);
+            hre.setAbonoCxcId(abono.getId());
+            if (hre.getSesionId() == null) {
+                hre.setSesionId(resolverSesionParaPendiente(cxc, sesionIdCaja));
+            }
+            if (cxc.getClienteId() != null) {
+                String nombreCliente = clientRepository.findById(cxc.getClienteId())
+                        .map(Client::getNombre)
+                        .orElse(null);
+                if (nombreCliente != null) {
+                    hre.setNombreCliente(nombreCliente);
+                }
+            }
+            historialReciboElectronicoRepository.save(hre);
+            log.info("HRE #{} retarget venta→abonoCxC #{} (estado={})",
+                    hre.getId(), abono.getId(), hre.getEstado());
+        } catch (Exception e) {
+            log.warn("No se pudo retarget HRE #{} a abono #{}: {}",
+                    historialElectronicoId, abono != null ? abono.getId() : null, e.getMessage());
+            registrarPendienteConfirmacionElectronicaAbono(cxc, abono, mp, sesionIdCaja);
+        }
+    }
+
+    /**
+     * Abono CxC QR/Bancolombia: crea pendiente CREADA ligada a {@code abono_cxc_id}
+     * (sin historial_recibo hasta liquidar). Best-effort.
+     * La sesión debe ser la caja activa (panel), no la histórica del ticket/recibo.
+     */
+    private boolean registrarPendienteConfirmacionElectronicaAbono(
+            CuentaPorCobrar cxc, AbonoCxc abono, MetodoPago mp, Long sesionIdCaja) {
+        try {
+            if (abono == null || abono.getId() == null || mp == null) {
+                return false;
+            }
+            if (!esMetodoQrElectronico(mp)) {
+                return false;
+            }
+            if (historialReciboElectronicoRepository.findByAbonoCxcId(abono.getId()).isPresent()) {
+                return true;
+            }
+            Long sesionId = resolverSesionParaPendiente(cxc, sesionIdCaja);
+            String nombreCliente = null;
+            if (cxc.getClienteId() != null) {
+                nombreCliente = clientRepository.findById(cxc.getClienteId())
+                        .map(Client::getNombre)
+                        .orElse(null);
+            }
+            historialReciboElectronicoRepository.save(HistorialReciboElectronico.builder()
+                    .abonoCxcId(abono.getId())
+                    .sesionId(sesionId)
+                    .metodoPagoId(mp.getId())
+                    .montoEsperado(abono.getMonto())
+                    .estado("CREADA")
+                    .nombreCliente(nombreCliente)
+                    .build());
+            return true;
+        } catch (Exception e) {
+            log.warn("No se pudo registrar pendiente electrónica abono CxC #{}: {}",
+                    abono != null ? abono.getId() : null, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 1) sesionId del request (caja actual en FE)
+     * 2) sesión activa del usuario
+     * 3) sesion_id del recibo CxC (legacy; puede ser caja ya cerrada)
+     */
+    private Long resolverSesionParaPendiente(CuentaPorCobrar cxc, Long sesionIdCaja) {
+        if (sesionIdCaja != null) {
+            return sesionIdCaja;
+        }
+        UUID userId = SecurityContextHelper.getUserId();
+        if (userId != null) {
+            List<Sesion> activas = sesionRepository.findByUserIdAndEsActivoTrue(userId);
+            if (activas != null && !activas.isEmpty()) {
+                return activas.get(0).getId();
+            }
+        }
+        if (cxc.getReciboId() != null) {
+            return reciboRepository.findById(cxc.getReciboId())
+                    .map(Recibo::getSesionId)
+                    .orElse(null);
+        }
+        return null;
+    }
+
+    private static boolean esMetodoQrElectronico(MetodoPago mp) {
+        String sigla = mp.getSigla() != null ? mp.getSigla().trim().toUpperCase() : "";
+        String desc = mp.getDescripcion() != null ? mp.getDescripcion().toUpperCase() : "";
+        return "QR".equals(sigla) || desc.contains("BANCOLOMBIA");
     }
 
     /**
@@ -738,10 +880,12 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
         MetodoPago mp = entity.getMetodoPagoId() != null
                 ? metodoPagoRepository.findById(entity.getMetodoPagoId()).orElse(null)
                 : null;
-        return toAbonoDto(entity, mp);
+        boolean pendiente = entity.getId() != null
+                && historialReciboElectronicoRepository.findByAbonoCxcId(entity.getId()).isPresent();
+        return toAbonoDto(entity, mp, pendiente);
     }
 
-    private AbonoCxcDto toAbonoDto(AbonoCxc entity, MetodoPago mp) {
+    private AbonoCxcDto toAbonoDto(AbonoCxc entity, MetodoPago mp, boolean requiereConfirmacionElectronica) {
         return AbonoCxcDto.builder()
                 .id(entity.getId())
                 .cuentaPorCobrarId(entity.getCuentaPorCobrarId())
@@ -752,6 +896,7 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 .origenFondosId(entity.getOrigenFondosId())
                 .movimientoOrigenFondosId(entity.getMovimientoOrigenFondosId())
                 .observacion(entity.getObservacion())
+                .requiereConfirmacionElectronica(requiereConfirmacionElectronica)
                 .build();
     }
 
