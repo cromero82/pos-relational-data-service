@@ -27,6 +27,17 @@ public class MovimientoOrigenFondosController {
     }
 
     /**
+     * Par de un traslado/distribución (salida + entrada) por {@code grupoTrasladoId}.
+     * Usado por la UI para navegar Atrás/Adelante entre OF.
+     */
+    @GetMapping("/grupo/{grupoTrasladoId}")
+    public List<MovimientoOrigenFondosDto> findByGrupo(
+            @PathVariable String grupoTrasladoId
+    ) {
+        return service.findByGrupoTrasladoId(grupoTrasladoId);
+    }
+
+    /**
      * Para «Agregar egreso» cuando el OF padre tiene bolsa destino en plantillas:
      * busca movimiento por identificar con el mismo valor, aún no formalizado.
      */

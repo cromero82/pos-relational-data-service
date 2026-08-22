@@ -13,6 +13,11 @@ public interface MovimientoOrigenFondosService {
     List<MovimientoOrigenFondosDto> findByOrigen(Integer origenFondosId);
 
     /**
+     * Ambas patas de un traslado/distribución (mismo {@code grupoTrasladoId}), orden id ASC.
+     */
+    List<MovimientoOrigenFondosDto> findByGrupoTrasladoId(String grupoTrasladoId);
+
+    /**
      * Candidatos a formalizar egreso: movimiento por identificar en las bolsas dadas,
      * mismo valor, aún sin egreso vinculado.
      */

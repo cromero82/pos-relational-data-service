@@ -20,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityNotFoundException;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -57,6 +59,24 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MovimientoOrigenFondosDto> findByGrupoTrasladoId(String grupoTrasladoId) {
+        if (grupoTrasladoId == null || grupoTrasladoId.isBlank()) {
+            throw new IllegalArgumentException("grupoTrasladoId es obligatorio.");
+        }
+        List<MovimientoOrigenFondosDto> patas = movimientoRepository
+                .findByGrupoTrasladoIdOrderByIdAsc(grupoTrasladoId.trim())
+                .stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+        if (patas.isEmpty()) {
+            throw new EntityNotFoundException(
+                    "No hay movimientos para grupoTrasladoId=" + grupoTrasladoId.trim());
+        }
+        return patas;
     }
 
     @Override
