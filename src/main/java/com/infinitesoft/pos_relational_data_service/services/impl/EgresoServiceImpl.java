@@ -4,11 +4,16 @@ import com.infinitesoft.pos_relational_data_service.entities.OrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.Egreso;
 import com.infinitesoft.pos_relational_data_service.entities.MetodoPago;
 import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFondos;
+import com.infinitesoft.pos_relational_data_service.entities.Proveedor;
+import com.infinitesoft.pos_relational_data_service.entities.TipoEgreso;
+import com.infinitesoft.pos_relational_data_service.entities.enums.NaturalezaEgreso;
 import com.infinitesoft.pos_relational_data_service.entities.enums.TipoMovimientoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.repositories.OrigenFondosRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.EgresoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MetodoPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MovimientoOrigenFondosRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.ProveedorRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.TipoEgresoRepository;
 import com.infinitesoft.pos_relational_data_service.services.OrigenFondosService;
 import com.infinitesoft.pos_relational_data_service.services.EgresoService;
 import com.infinitesoft.pos_relational_data_service.services.EstadisticaFinancieraService;
@@ -50,6 +55,12 @@ public class EgresoServiceImpl implements EgresoService {
     @Autowired
     private EstadisticaFinancieraService estadisticaFinancieraService;
 
+    @Autowired
+    private ProveedorRepository proveedorRepository;
+
+    @Autowired
+    private TipoEgresoRepository tipoEgresoRepository;
+
     /**
      * El método de pago es opcional (derivado del O.F. si existe).
      * Prima {@code origenFondosId}; cuentas como Caja Menor no tienen medio de pago.
@@ -86,6 +97,7 @@ public class EgresoServiceImpl implements EgresoService {
     public Egreso create(Egreso egreso) {
         log.info("Iniciando servicio EgresoServiceImpl - Método: create - Egreso: {}", egreso);
         aplicarFormalizarDesdeMovimiento(egreso);
+        resolverTipoYNaturaleza(egreso);
         validarOrigenFondos(egreso);
         validarMetodoPago(egreso);
 
@@ -158,6 +170,10 @@ public class EgresoServiceImpl implements EgresoService {
         if (anterior == null) {
             return null;
         }
+        if (egreso.getFromMovimientoOrigenFondosId() == null) {
+            egreso.setFromMovimientoOrigenFondosId(anterior.getFromMovimientoOrigenFondosId());
+        }
+        resolverTipoYNaturaleza(egreso);
         validarOrigenFondos(egreso);
         validarMetodoPago(egreso);
         egreso.setId(id);
@@ -165,6 +181,44 @@ public class EgresoServiceImpl implements EgresoService {
         movimientoOrigenFondosService.sincronizarSalidaEgreso(anterior, saved);
         ajustarEstadisticas(egreso.getFecha());
         return saved;
+    }
+
+    /**
+     * Carga proveedor/tipo reales; tipo del egreso es snapshot (default = tipo del proveedor).
+     * Naturaleza se infiere del tipo si no viene.
+     */
+    private void resolverTipoYNaturaleza(Egreso egreso) {
+        if (egreso.getProveedor() == null || egreso.getProveedor().getId() == null) {
+            throw new IllegalArgumentException("Debe indicar el proveedor del egreso.");
+        }
+        Proveedor proveedor = proveedorRepository.findById(egreso.getProveedor().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Proveedor no encontrado."));
+        egreso.setProveedor(proveedor);
+
+        Long tipoId = egreso.getTipoEgreso() != null ? egreso.getTipoEgreso().getId() : null;
+        if (tipoId == null && proveedor.getTipoEgreso() != null) {
+            tipoId = proveedor.getTipoEgreso().getId();
+        }
+        if (tipoId == null) {
+            throw new IllegalArgumentException(
+                    "Debe indicar el tipo de egreso (o asigne un tipo al proveedor).");
+        }
+        TipoEgreso tipo = tipoEgresoRepository.findById(tipoId)
+                .orElseThrow(() -> new IllegalArgumentException("Tipo de egreso no encontrado."));
+        egreso.setTipoEgreso(tipo);
+
+        if (egreso.getNaturaleza() == null) {
+            if (tipo.getNaturaleza() == null || tipo.getNaturaleza().getCodigo() == null) {
+                throw new IllegalArgumentException(
+                        "El tipo de egreso no tiene naturaleza asignada en el catálogo");
+            }
+            try {
+                egreso.setNaturaleza(NaturalezaEgreso.valueOf(tipo.getNaturaleza().getCodigo().trim().toUpperCase()));
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException(
+                        "Código de naturaleza no válido en catálogo: " + tipo.getNaturaleza().getCodigo());
+            }
+        }
     }
 
     @Override
@@ -218,8 +272,16 @@ public class EgresoServiceImpl implements EgresoService {
     }
 
     @Override
-    public Page<Egreso> search(String descripcion, Long tipoEgresoId, Long proveedorId, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable) {
-        return egresoRepository.search(descripcion, tipoEgresoId, proveedorId, fechaInicio, fechaFin, pageable);
+    public Page<Egreso> search(String descripcion, Long tipoEgresoId, String naturaleza, Long proveedorId, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable) {
+        NaturalezaEgreso nat = null;
+        if (naturaleza != null && !naturaleza.isBlank()) {
+            try {
+                nat = NaturalezaEgreso.valueOf(naturaleza.trim().toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException("Naturaleza de egreso no válida: " + naturaleza);
+            }
+        }
+        return egresoRepository.search(descripcion, tipoEgresoId, nat, proveedorId, fechaInicio, fechaFin, pageable);
     }
 
     @Override

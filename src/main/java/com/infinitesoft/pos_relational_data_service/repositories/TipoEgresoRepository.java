@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TipoEgresoRepository extends JpaRepository<TipoEgreso, Long> {
+    long countByNaturalezaId(Long naturalezaId);
 }

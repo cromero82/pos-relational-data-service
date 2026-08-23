@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.infinitesoft.pos_relational_data_service.entities.enums.NaturalezaEgreso;
 import com.infinitesoft.pos_relational_data_service.util.StringUtils;
 import lombok.*;
 
@@ -36,6 +37,21 @@ public class Egreso {
     @JoinColumn(name = "proveedor_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Proveedor proveedor;
+
+    /**
+     * Snapshot del tipo al momento del egreso (independiente de cambios futuros del proveedor).
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "tipo_egreso_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private TipoEgreso tipoEgreso;
+
+    /**
+     * Propósito del pago. Ver {@link NaturalezaEgreso}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "naturaleza", length = 40)
+    private NaturalezaEgreso naturaleza;
 
     @Column(name = "metodo_pago_id")
     private Long metodoPagoId;

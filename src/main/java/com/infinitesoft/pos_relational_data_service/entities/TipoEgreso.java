@@ -23,6 +23,14 @@ public class TipoEgreso {
     @Column(columnDefinition = "TEXT")
     private String descripcion;
 
+    /**
+     * Naturaleza sugerida al usar este tipo en un egreso (catálogo 1→N).
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "naturaleza_tipo_egreso_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private NaturalezaTipoEgreso naturaleza;
+
     @PrePersist
     @PreUpdate
     protected void onPrePersistUpdate() {
