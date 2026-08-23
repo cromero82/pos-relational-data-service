@@ -20,6 +20,7 @@ public class TipoEgresoController {
     private TipoEgresoService tipoEgresoService;
 
     @PostMapping
+    @PreAuthorize("hasRole('admin')")
     public ResponseEntity<TipoEgreso> create(@RequestBody TipoEgreso tipoEgreso) {
         TipoEgreso saved = tipoEgresoService.create(tipoEgreso);
         URI location = URI.create("/tipo_egresos/" + saved.getId());
@@ -41,6 +42,7 @@ public class TipoEgresoController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('admin')")
     public ResponseEntity<TipoEgreso> update(@PathVariable Long id, @RequestBody TipoEgreso tipoEgreso) {
         TipoEgreso updated = tipoEgresoService.update(id, tipoEgreso);
         if (updated == null) {
@@ -50,6 +52,7 @@ public class TipoEgresoController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('admin')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         boolean deleted = tipoEgresoService.delete(id);
         if (!deleted) {
