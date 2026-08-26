@@ -4,6 +4,7 @@ import com.infinitesoft.pos_relational_data_service.entities.HistorialRecibo;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +15,8 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface HistorialReciboRepository extends JpaRepository<HistorialRecibo, Long> {
+public interface HistorialReciboRepository extends JpaRepository<HistorialRecibo, Long>,
+        JpaSpecificationExecutor<HistorialRecibo> {
 
     @Query("SELECT SUM(h.total) FROM HistorialRecibo h WHERE h.fechaCreacion BETWEEN ?1 AND ?2")
     BigDecimal sumTotalByFechaCreacionBetween(LocalDateTime start, LocalDateTime end);

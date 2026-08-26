@@ -7,8 +7,10 @@ import com.infinitesoft.pos_relational_data_service.dto.RestaurarTicketResponseD
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.DocumentoVentaEstado;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
+import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.DocumentoVentaRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.EdicionReciboRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboElectronicoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.NotaAjusteDocumentoRepository;
@@ -20,20 +22,27 @@ import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.criteria.Root;
+import javax.persistence.criteria.Subquery;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,6 +55,12 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Autowired
     private HistorialReciboPagoRepository historialReciboPagoRepository;
+
+    @Autowired
+    private HistorialReciboElectronicoRepository historialReciboElectronicoRepository;
+
+    @Autowired
+    private CorteVentaRepository corteVentaRepository;
 
     @Autowired
     private ProductRepository productRepository;
@@ -351,87 +366,198 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Override
     public Page<HistorialRecibo> search(String fecha, Long estadoId, Pageable pageable) {
-        return search(fecha, estadoId, 0L, pageable);
+        return search(fecha, estadoId, 0L, null, null, null, null, pageable);
     }
 
     @Override
     public Page<HistorialRecibo> search(String fecha, Long estadoId, Long sesionId, Pageable pageable) {
-        return search(fecha, estadoId, sesionId, null, pageable);
+        return search(fecha, estadoId, sesionId, null, null, null, null, pageable);
     }
 
     @Override
     public Page<HistorialRecibo> search(String fecha, Long estadoId, Long sesionId, Boolean soloRestaurados, Pageable pageable) {
-        if (Boolean.TRUE.equals(soloRestaurados)) {
-            return searchRestaurados(fecha, sesionId, pageable);
-        }
-        return searchInternal(fecha, estadoId, sesionId, pageable);
+        return search(fecha, estadoId, sesionId, soloRestaurados, null, null, null, pageable);
     }
 
-    private Page<HistorialRecibo> searchInternal(String fecha, Long estadoId, Long sesionId, Pageable pageable) {
-        boolean hasFecha = fecha != null && !fecha.isBlank();
-        boolean hasEstado = estadoId != null && estadoId != 0;
+    @Override
+    public Page<HistorialRecibo> search(String fecha, Long estadoId, Long sesionId, Boolean soloRestaurados,
+                                        Long metodoPagoId, Boolean mixto, Boolean sinCorte, Pageable pageable) {
+        if (Boolean.TRUE.equals(soloRestaurados)) {
+            Page<HistorialRecibo> page = searchRestaurados(fecha, sesionId, pageable);
+            enrichDocumentoVentaConsecutivos(page.getContent());
+            enrichMultipagoFlags(page.getContent());
+            enrichNotificacionElectronica(page.getContent());
+            return filterPageInMemory(page, metodoPagoId, mixto, sinCorte, pageable);
+        }
+        return searchInternal(fecha, estadoId, sesionId, metodoPagoId, mixto, sinCorte, pageable);
+    }
+
+    private Page<HistorialRecibo> searchInternal(String fecha, Long estadoId, Long sesionId,
+                                                 Long metodoPagoId, Boolean mixto, Boolean sinCorte,
+                                                 Pageable pageable) {
         boolean hasSesion = sesionId != null && sesionId > 0;
+        Specification<HistorialRecibo> spec = buildSearchSpec(fecha, estadoId, sesionId, metodoPagoId, mixto, sinCorte);
 
         if (hasSesion) {
-            List<HistorialRecibo> results;
-            if (hasFecha && hasEstado) {
-                try {
-                    LocalDate date = LocalDate.parse(fecha, DATE_FMT);
-                    LocalDateTime startOfDay = date.atStartOfDay();
-                    LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
-                    results = repository.findBySesionIdAndFechaCreacionBetweenAndEstadoId(sesionId, startOfDay, endOfDay, estadoId);
-                } catch (Exception e) {
-                    results = List.of();
-                }
-            } else if (hasFecha) {
-                try {
-                    LocalDate date = LocalDate.parse(fecha, DATE_FMT);
-                    LocalDateTime startOfDay = date.atStartOfDay();
-                    LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
-                    results = repository.findBySesionIdAndFechaCreacionBetween(sesionId, startOfDay, endOfDay);
-                } catch (Exception e) {
-                    results = List.of();
-                }
-            } else if (hasEstado) {
-                results = repository.findBySesionIdAndEstadoId(sesionId, estadoId);
-            } else {
-                results = repository.findBySesionId(sesionId);
-            }
+            // Compat: por sesión se devolvía lista completa (sin paginar).
+            List<HistorialRecibo> results = repository.findAll(spec);
             enrichDocumentoVentaConsecutivos(results);
-            return new org.springframework.data.domain.PageImpl<>(results);
+            enrichMultipagoFlags(results);
+            enrichNotificacionElectronica(results);
+            return new PageImpl<>(results);
         }
 
-        if (hasFecha && hasEstado) {
-            try {
-                LocalDate date = LocalDate.parse(fecha, DATE_FMT);
-                LocalDateTime startOfDay = date.atStartOfDay();
-                LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
-                Page<HistorialRecibo> page = repository.findByFechaCreacionBetweenAndEstadoId(startOfDay, endOfDay, estadoId, pageable);
-                enrichDocumentoVentaConsecutivos(page.getContent());
-                return page;
-            } catch (Exception e) {
-                return Page.empty(pageable);
+        Page<HistorialRecibo> page = repository.findAll(spec, pageable);
+        enrichDocumentoVentaConsecutivos(page.getContent());
+        enrichMultipagoFlags(page.getContent());
+        enrichNotificacionElectronica(page.getContent());
+        return page;
+    }
+
+    private Specification<HistorialRecibo> buildSearchSpec(String fecha, Long estadoId, Long sesionId,
+                                                           Long metodoPagoId, Boolean mixto, Boolean sinCorte) {
+        return (root, query, cb) -> {
+            List<javax.persistence.criteria.Predicate> preds = new ArrayList<>();
+            boolean hasFecha = fecha != null && !fecha.isBlank();
+            boolean hasEstado = estadoId != null && estadoId != 0;
+            boolean hasSesion = sesionId != null && sesionId > 0;
+
+            if (hasSesion) {
+                preds.add(cb.equal(root.get("sesionId"), sesionId));
             }
-        } else if (hasFecha) {
-            try {
-                LocalDate date = LocalDate.parse(fecha, DATE_FMT);
-                LocalDateTime startOfDay = date.atStartOfDay();
-                LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
-                Page<HistorialRecibo> page = repository.findByFechaCreacionBetween(startOfDay, endOfDay, pageable);
-                enrichDocumentoVentaConsecutivos(page.getContent());
-                return page;
-            } catch (Exception e) {
-                return Page.empty(pageable);
+            if (hasFecha) {
+                try {
+                    LocalDate date = LocalDate.parse(fecha, DATE_FMT);
+                    LocalDateTime startOfDay = date.atStartOfDay();
+                    LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
+                    preds.add(cb.between(root.get("fechaCreacion"), startOfDay, endOfDay));
+                } catch (Exception ignored) {
+                    preds.add(cb.disjunction());
+                }
             }
-        } else if (hasEstado) {
-            Page<HistorialRecibo> page = repository.findByEstadoId(estadoId, pageable);
-            enrichDocumentoVentaConsecutivos(page.getContent());
-            return page;
-        } else {
-            Page<HistorialRecibo> page = repository.findAll(pageable);
-            enrichDocumentoVentaConsecutivos(page.getContent());
+            if (hasEstado) {
+                preds.add(cb.equal(root.get("estadoId"), estadoId));
+            }
+            if (Boolean.TRUE.equals(sinCorte)) {
+                Long afterId = resolveUltimoHistorialReciboWatermark();
+                preds.add(cb.greaterThan(root.get("id"), afterId));
+            }
+            if (Boolean.TRUE.equals(mixto)) {
+                Subquery<Long> countSq = query.subquery(Long.class);
+                Root<HistorialReciboPago> p = countSq.from(HistorialReciboPago.class);
+                countSq.select(cb.count(p));
+                countSq.where(cb.equal(p.get("historialReciboId"), root.get("id")));
+                preds.add(cb.greaterThan(countSq, 1L));
+            } else if (metodoPagoId != null && metodoPagoId > 0) {
+                Subquery<Long> pagoSq = query.subquery(Long.class);
+                Root<HistorialReciboPago> p = pagoSq.from(HistorialReciboPago.class);
+                pagoSq.select(p.get("historialReciboId"));
+                pagoSq.where(
+                        cb.equal(p.get("historialReciboId"), root.get("id")),
+                        cb.equal(p.get("metodoPagoId"), metodoPagoId));
+                preds.add(cb.or(
+                        cb.equal(root.get("metodoPagoId"), metodoPagoId),
+                        cb.exists(pagoSq)));
+            }
+            if (preds.isEmpty()) {
+                return cb.conjunction();
+            }
+            return cb.and(preds.toArray(new javax.persistence.criteria.Predicate[0]));
+        };
+    }
+
+    private Long resolveUltimoHistorialReciboWatermark() {
+        return corteVentaRepository.findFirstByEstadoNotOrderByIdDesc("eliminado")
+                .map(c -> c.getUltimoHistorialReciboId() != null ? c.getUltimoHistorialReciboId() : 0L)
+                .orElse(0L);
+    }
+
+    private void enrichMultipagoFlags(List<HistorialRecibo> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        List<Long> ids = items.stream().map(HistorialRecibo::getId).filter(id -> id != null).collect(Collectors.toList());
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : historialReciboPagoRepository.countByHistorialReciboIdIn(ids)) {
+            if (row[0] != null) {
+                counts.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+            }
+        }
+        for (HistorialRecibo item : items) {
+            long n = counts.getOrDefault(item.getId(), 0L);
+            // Sin filas de pago: legacy 1 medio (header). Con 2+ filas: mixto.
+            item.setMultipago(n > 1);
+        }
+    }
+
+    private void enrichNotificacionElectronica(List<HistorialRecibo> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        List<Long> ids = items.stream().map(HistorialRecibo::getId).filter(id -> id != null).collect(Collectors.toList());
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<Long, String> estados = new HashMap<>();
+        for (HistorialReciboElectronico hre : historialReciboElectronicoRepository.findByHistorialReciboIdIn(ids)) {
+            if (hre.getHistorialReciboId() != null && hre.getEstado() != null) {
+                estados.put(hre.getHistorialReciboId(), hre.getEstado());
+            }
+        }
+        for (HistorialRecibo item : items) {
+            item.setEstadoNotificacionElectronica(estados.get(item.getId()));
+        }
+    }
+
+    /**
+     * Filtros extra sobre página ya armada (p.ej. restaurados).
+     */
+    private Page<HistorialRecibo> filterPageInMemory(Page<HistorialRecibo> page,
+                                                     Long metodoPagoId, Boolean mixto, Boolean sinCorte,
+                                                     Pageable pageable) {
+        boolean needFilter = Boolean.TRUE.equals(mixto)
+                || Boolean.TRUE.equals(sinCorte)
+                || (metodoPagoId != null && metodoPagoId > 0);
+        if (!needFilter) {
             return page;
         }
+        Long afterId = Boolean.TRUE.equals(sinCorte) ? resolveUltimoHistorialReciboWatermark() : null;
+        Set<Long> matchMetodo = null;
+        if (!Boolean.TRUE.equals(mixto) && metodoPagoId != null && metodoPagoId > 0) {
+            matchMetodo = new HashSet<>();
+            for (HistorialRecibo h : page.getContent()) {
+                if (metodoPagoId.equals(h.getMetodoPagoId())) {
+                    matchMetodo.add(h.getId());
+                    continue;
+                }
+                boolean has = historialReciboPagoRepository
+                        .findByHistorialReciboIdOrderByOrdenAsc(h.getId())
+                        .stream()
+                        .anyMatch(p -> metodoPagoId.equals(p.getMetodoPagoId()));
+                if (has) {
+                    matchMetodo.add(h.getId());
+                }
+            }
+        }
+        Set<Long> finalMatchMetodo = matchMetodo;
+        List<HistorialRecibo> filtered = page.getContent().stream()
+                .filter(h -> {
+                    if (afterId != null && (h.getId() == null || h.getId() <= afterId)) {
+                        return false;
+                    }
+                    if (Boolean.TRUE.equals(mixto) && !Boolean.TRUE.equals(h.getMultipago())) {
+                        return false;
+                    }
+                    if (finalMatchMetodo != null && !finalMatchMetodo.contains(h.getId())) {
+                        return false;
+                    }
+                    return true;
+                })
+                .collect(Collectors.toList());
+        return new PageImpl<>(filtered, pageable, filtered.size());
     }
 
     private Page<HistorialRecibo> searchRestaurados(String fecha, Long sesionId, Pageable pageable) {

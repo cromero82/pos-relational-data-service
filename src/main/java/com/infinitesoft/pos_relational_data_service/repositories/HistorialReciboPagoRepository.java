@@ -16,6 +16,10 @@ public interface HistorialReciboPagoRepository extends JpaRepository<HistorialRe
 
     void deleteByHistorialReciboId(Long historialReciboId);
 
+    @Query("SELECT p.historialReciboId, COUNT(p) FROM HistorialReciboPago p "
+            + "WHERE p.historialReciboId IN :ids GROUP BY p.historialReciboId")
+    List<Object[]> countByHistorialReciboIdIn(@Param("ids") List<Long> ids);
+
     /**
      * Ventas pagadas (estadoId=2) agregadas por medio desde líneas de cobro.
      * Excluye liquidaciones CxC (ya contabilizadas como ENTRADA_COBRANZA en OF).

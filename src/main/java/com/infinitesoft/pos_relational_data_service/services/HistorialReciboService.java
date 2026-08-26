@@ -21,6 +21,8 @@ public interface HistorialReciboService {
     Page<HistorialRecibo> search(String fecha, Long estadoId, Pageable pageable);
     Page<HistorialRecibo> search(String fecha, Long estadoId, Long sesionId, Pageable pageable);
     Page<HistorialRecibo> search(String fecha, Long estadoId, Long sesionId, Boolean soloRestaurados, Pageable pageable);
+    Page<HistorialRecibo> search(String fecha, Long estadoId, Long sesionId, Boolean soloRestaurados,
+                                 Long metodoPagoId, Boolean mixto, Boolean sinCorte, Pageable pageable);
     void moveToEdition(Long historialReciboId, Long sesionId);
     HistorialDocumentosDto getDocumentos(Long historialReciboId);
     RestaurarTicketResponseDto restaurarTicket(Long historialReciboId, Long sesionId, MotivoOperacionRequestDto request);

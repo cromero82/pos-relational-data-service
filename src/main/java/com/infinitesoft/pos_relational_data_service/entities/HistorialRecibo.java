@@ -65,6 +65,18 @@ public class HistorialRecibo {
     @Transient
     private Boolean restaurado;
 
+    /** TRUE si el ticket tiene más de un medio en historial_recibo_pago (multipago). */
+    @Transient
+    private Boolean multipago;
+
+    /**
+     * Estado del pendiente electrónico (HRE) ligado a la venta, si existe.
+     * Ej.: {@code CREADA} (pendiente de email), {@code CONFIRMADA} (con notificación).
+     * Null = medio sin flujo de notificación (p.ej. efectivo).
+     */
+    @Transient
+    private String estadoNotificacionElectronica;
+
     @PrePersist
     protected void onPrePersist() {
         if (fechaCreacion == null) {
