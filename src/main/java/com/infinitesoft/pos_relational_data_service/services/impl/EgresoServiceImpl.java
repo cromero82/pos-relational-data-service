@@ -4,6 +4,7 @@ import com.infinitesoft.pos_relational_data_service.entities.OrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.Egreso;
 import com.infinitesoft.pos_relational_data_service.entities.MetodoPago;
 import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFondos;
+import com.infinitesoft.pos_relational_data_service.entities.Persona;
 import com.infinitesoft.pos_relational_data_service.entities.Proveedor;
 import com.infinitesoft.pos_relational_data_service.entities.TipoEgreso;
 import com.infinitesoft.pos_relational_data_service.entities.enums.NaturalezaEgreso;
@@ -12,6 +13,7 @@ import com.infinitesoft.pos_relational_data_service.repositories.OrigenFondosRep
 import com.infinitesoft.pos_relational_data_service.repositories.EgresoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MetodoPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MovimientoOrigenFondosRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.PersonaRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProveedorRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TipoEgresoRepository;
 import com.infinitesoft.pos_relational_data_service.services.OrigenFondosService;
@@ -59,6 +61,9 @@ public class EgresoServiceImpl implements EgresoService {
     private ProveedorRepository proveedorRepository;
 
     @Autowired
+    private PersonaRepository personaRepository;
+
+    @Autowired
     private TipoEgresoRepository tipoEgresoRepository;
 
     /**
@@ -85,11 +90,62 @@ public class EgresoServiceImpl implements EgresoService {
         if (Boolean.FALSE.equals(cuenta.getActivo())) {
             throw new IllegalArgumentException("La origen de fondos no está activa.");
         }
-        if (Boolean.FALSE.equals(cuenta.getVisibleEnEgreso())) {
+        if (!origenPermitidoParaEgreso(cuenta, egreso)) {
+            if (esCuentaDelDueno(cuenta)) {
+                throw new IllegalArgumentException(
+                        "Cuenta del dueño solo aplica con naturaleza PERSONAL/DIVIDENDOS "
+                                + "y persona marcada como dueño/propietario.");
+            }
             throw new IllegalArgumentException("La cuenta seleccionada no está habilitada para egresos.");
         }
         // Nullable: no todas las cuentas tienen método de pago vinculado.
         egreso.setMetodoPagoId(origenFondosService.resolverMetodoPagoId(egreso.getOrigenFondosId()));
+    }
+
+    /**
+     * visibleEnEgreso == true, o excepción Cuenta del dueño + persona dueño + PERSONAL/DIVIDENDOS.
+     */
+    private boolean origenPermitidoParaEgreso(OrigenFondos cuenta, Egreso egreso) {
+        if (Boolean.TRUE.equals(cuenta.getVisibleEnEgreso())) {
+            return true;
+        }
+        if (!esCuentaDelDueno(cuenta)) {
+            return false;
+        }
+        NaturalezaEgreso nat = egreso.getNaturaleza();
+        if (nat != NaturalezaEgreso.PERSONAL && nat != NaturalezaEgreso.DIVIDENDOS) {
+            return false;
+        }
+        Persona persona = egreso.getPersona();
+        return persona != null && Boolean.TRUE.equals(persona.getEsDuenoPropietario());
+    }
+
+    /**
+     * Hijo bajo Dueños (tipo DUENOS con padre). La raíz Dueños no aplica.
+     */
+    private boolean esCuentaDelDueno(OrigenFondos cuenta) {
+        if (cuenta == null || cuenta.getParentOrigenFondosId() == null) {
+            return false;
+        }
+        if (cuenta.getTipoOrigenFondos() != null
+                && cuenta.getTipoOrigenFondos().getCodigo() != null
+                && "DUENOS".equalsIgnoreCase(cuenta.getTipoOrigenFondos().getCodigo().trim())) {
+            return true;
+        }
+        OrigenFondos padre = cuenta.getParentOrigen();
+        if (padre == null && cuenta.getParentOrigenFondosId() != null) {
+            padre = origenFondosRepository.findById(cuenta.getParentOrigenFondosId()).orElse(null);
+        }
+        if (padre != null && padre.getTipoOrigenFondos() != null
+                && padre.getTipoOrigenFondos().getCodigo() != null
+                && "DUENOS".equalsIgnoreCase(padre.getTipoOrigenFondos().getCodigo().trim())) {
+            return true;
+        }
+        String nombre = cuenta.getNombre() != null ? cuenta.getNombre().trim().toLowerCase() : "";
+        return nombre.equals("cuenta del dueño")
+                || nombre.equals("cuenta del dueno")
+                || nombre.equals("personal administrador")
+                || nombre.contains("cuenta del due");
     }
 
     @Override
@@ -184,24 +240,35 @@ public class EgresoServiceImpl implements EgresoService {
     }
 
     /**
-     * Carga proveedor/tipo reales; tipo del egreso es snapshot (default = tipo del proveedor).
-     * Naturaleza se infiere del tipo si no viene.
+     * Resuelve tipo (snapshot), naturaleza (catálogo del tipo si falta) y beneficiario XOR:
+     * PERSONAL/DIVIDENDOS → persona; resto → proveedor.
      */
     private void resolverTipoYNaturaleza(Egreso egreso) {
-        if (egreso.getProveedor() == null || egreso.getProveedor().getId() == null) {
-            throw new IllegalArgumentException("Debe indicar el proveedor del egreso.");
+        boolean hasPersona = egreso.getPersona() != null && egreso.getPersona().getId() != null;
+        boolean hasProveedor = egreso.getProveedor() != null && egreso.getProveedor().getId() != null;
+        if (hasPersona && hasProveedor) {
+            throw new IllegalArgumentException(
+                    "Indique proveedor o persona, no ambos.");
         }
-        Proveedor proveedor = proveedorRepository.findById(egreso.getProveedor().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Proveedor no encontrado."));
-        egreso.setProveedor(proveedor);
+        if (!hasPersona && !hasProveedor) {
+            throw new IllegalArgumentException(
+                    "Debe indicar el proveedor o la persona beneficiaria del egreso.");
+        }
+
+        Proveedor proveedor = null;
+        if (hasProveedor) {
+            proveedor = proveedorRepository.findById(egreso.getProveedor().getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Proveedor no encontrado."));
+        }
 
         Long tipoId = egreso.getTipoEgreso() != null ? egreso.getTipoEgreso().getId() : null;
-        if (tipoId == null && proveedor.getTipoEgreso() != null) {
+        if (tipoId == null && proveedor != null && proveedor.getTipoEgreso() != null) {
             tipoId = proveedor.getTipoEgreso().getId();
         }
         if (tipoId == null) {
             throw new IllegalArgumentException(
-                    "Debe indicar el tipo de egreso (o asigne un tipo al proveedor).");
+                    "Debe indicar el tipo de egreso"
+                            + (hasProveedor ? " (o asigne un tipo al proveedor)." : "."));
         }
         TipoEgreso tipo = tipoEgresoRepository.findById(tipoId)
                 .orElseThrow(() -> new IllegalArgumentException("Tipo de egreso no encontrado."));
@@ -213,11 +280,35 @@ public class EgresoServiceImpl implements EgresoService {
                         "El tipo de egreso no tiene naturaleza asignada en el catálogo");
             }
             try {
-                egreso.setNaturaleza(NaturalezaEgreso.valueOf(tipo.getNaturaleza().getCodigo().trim().toUpperCase()));
+                egreso.setNaturaleza(NaturalezaEgreso.valueOf(
+                        tipo.getNaturaleza().getCodigo().trim().toUpperCase()));
             } catch (IllegalArgumentException ex) {
                 throw new IllegalArgumentException(
                         "Código de naturaleza no válido en catálogo: " + tipo.getNaturaleza().getCodigo());
             }
+        }
+
+        NaturalezaEgreso nat = egreso.getNaturaleza();
+        boolean requierePersona = nat == NaturalezaEgreso.PERSONAL || nat == NaturalezaEgreso.DIVIDENDOS;
+        if (requierePersona) {
+            if (!hasPersona) {
+                throw new IllegalArgumentException(
+                        "Para naturaleza " + nat + " debe indicar la persona beneficiaria (no proveedor).");
+            }
+            Persona persona = personaRepository.findById(egreso.getPersona().getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Persona no encontrada."));
+            if (Boolean.FALSE.equals(persona.getActivo())) {
+                throw new IllegalArgumentException("La persona no está activa.");
+            }
+            egreso.setPersona(persona);
+            egreso.setProveedor(null);
+        } else {
+            if (!hasProveedor) {
+                throw new IllegalArgumentException(
+                        "Para naturaleza " + nat + " debe indicar el proveedor.");
+            }
+            egreso.setProveedor(proveedor);
+            egreso.setPersona(null);
         }
     }
 
@@ -272,7 +363,8 @@ public class EgresoServiceImpl implements EgresoService {
     }
 
     @Override
-    public Page<Egreso> search(String descripcion, Long tipoEgresoId, String naturaleza, Long proveedorId, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable) {
+    public Page<Egreso> search(String descripcion, Long tipoEgresoId, String naturaleza, Long proveedorId,
+                               Long personaId, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable) {
         NaturalezaEgreso nat = null;
         if (naturaleza != null && !naturaleza.isBlank()) {
             try {
@@ -281,7 +373,8 @@ public class EgresoServiceImpl implements EgresoService {
                 throw new IllegalArgumentException("Naturaleza de egreso no válida: " + naturaleza);
             }
         }
-        return egresoRepository.search(descripcion, tipoEgresoId, nat, proveedorId, fechaInicio, fechaFin, pageable);
+        return egresoRepository.search(descripcion, tipoEgresoId, nat, proveedorId, personaId,
+                fechaInicio, fechaFin, pageable);
     }
 
     @Override

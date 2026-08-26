@@ -39,6 +39,14 @@ public class Egreso {
     private Proveedor proveedor;
 
     /**
+     * Beneficiario persona (PERSONAL / DIVIDENDOS). Excluyente con proveedor.
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "persona_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Persona persona;
+
+    /**
      * Snapshot del tipo al momento del egreso (independiente de cambios futuros del proveedor).
      */
     @ManyToOne(fetch = FetchType.EAGER)

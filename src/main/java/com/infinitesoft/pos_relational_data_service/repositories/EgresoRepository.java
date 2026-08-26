@@ -19,31 +19,38 @@ public interface EgresoRepository extends JpaRepository<Egreso, Long> {
     List<Egreso> findByFechaBetween(LocalDate fechaInicio, LocalDate fechaFin);
     List<Egreso> findByProveedorId(Long proveedorId);
 
+    long countByPersonaId(Long personaId);
+
     Optional<Egreso> findByFromMovimientoOrigenFondosId(Long fromMovimientoOrigenFondosId);
 
     @Query("SELECT e FROM Egreso e LEFT JOIN e.tipoEgreso t LEFT JOIN e.proveedor p LEFT JOIN p.tipoEgreso pt "
             + "WHERE t.id = :tipoEgresoId OR (t IS NULL AND pt.id = :tipoEgresoId)")
     List<Egreso> findByTipoEgresoId(@Param("tipoEgresoId") Long tipoEgresoId);
 
-    @Query("SELECT e FROM Egreso e LEFT JOIN e.proveedor p LEFT JOIN e.tipoEgreso t LEFT JOIN p.tipoEgreso pt WHERE "
+    @Query("SELECT e FROM Egreso e LEFT JOIN e.proveedor p LEFT JOIN e.persona per "
+            + "LEFT JOIN e.tipoEgreso t LEFT JOIN p.tipoEgreso pt WHERE "
             + "(:descripcion IS NULL OR LOWER(e.descripcion) LIKE LOWER(CONCAT('%', :descripcion, '%'))) AND "
             + "(:tipoEgresoId IS NULL OR t.id = :tipoEgresoId OR (t IS NULL AND pt.id = :tipoEgresoId)) AND "
             + "(:naturaleza IS NULL OR e.naturaleza = :naturaleza) AND "
             + "(:proveedorId IS NULL OR p.id = :proveedorId) AND "
+            + "(:personaId IS NULL OR per.id = :personaId) AND "
             + "(CAST(:fechaInicio AS date) IS NULL OR e.fecha >= :fechaInicio) AND "
             + "(CAST(:fechaFin AS date) IS NULL OR e.fecha <= :fechaFin)")
     Page<Egreso> search(@Param("descripcion") String descripcion,
                         @Param("tipoEgresoId") Long tipoEgresoId,
                         @Param("naturaleza") NaturalezaEgreso naturaleza,
                         @Param("proveedorId") Long proveedorId,
+                        @Param("personaId") Long personaId,
                         @Param("fechaInicio") LocalDate fechaInicio,
                         @Param("fechaFin") LocalDate fechaFin,
                         Pageable pageable);
 
-    @Query("SELECT e FROM Egreso e LEFT JOIN e.proveedor p LEFT JOIN e.tipoEgreso te LEFT JOIN p.tipoEgreso t WHERE "
+    @Query("SELECT e FROM Egreso e LEFT JOIN e.proveedor p LEFT JOIN e.persona per "
+            + "LEFT JOIN e.tipoEgreso te LEFT JOIN p.tipoEgreso t WHERE "
             + "(:texto IS NULL OR :texto = '' OR "
             + "LOWER(e.descripcion) LIKE LOWER(CONCAT('%', :texto, '%')) OR "
             + "(p IS NOT NULL AND LOWER(p.nombre) LIKE LOWER(CONCAT('%', :texto, '%'))) OR "
+            + "(per IS NOT NULL AND LOWER(per.nombre) LIKE LOWER(CONCAT('%', :texto, '%'))) OR "
             + "(te IS NOT NULL AND LOWER(te.nombre) LIKE LOWER(CONCAT('%', :texto, '%'))) OR "
             + "(t IS NOT NULL AND LOWER(t.nombre) LIKE LOWER(CONCAT('%', :texto, '%'))))")
     Page<Egreso> searchDescripciones(@Param("texto") String texto, Pageable pageable);

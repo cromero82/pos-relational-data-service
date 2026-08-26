@@ -6,11 +6,14 @@ import com.infinitesoft.pos_relational_data_service.entities.CorteVentaDetalle;
 import com.infinitesoft.pos_relational_data_service.entities.Egreso;
 import com.infinitesoft.pos_relational_data_service.entities.Establecimiento;
 import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFondos;
+import com.infinitesoft.pos_relational_data_service.entities.Persona;
 import com.infinitesoft.pos_relational_data_service.entities.Proveedor;
+import com.infinitesoft.pos_relational_data_service.entities.enums.NaturalezaEgreso;
 import com.infinitesoft.pos_relational_data_service.entities.enums.TipoMovimientoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.repositories.OrigenFondosRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MotivoMovimientoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MovimientoOrigenFondosRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.PersonaRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProveedorRepository;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.EstablecimientoService;
@@ -43,6 +46,9 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
 
     @Autowired
     private ProveedorRepository proveedorRepository;
+
+    @Autowired
+    private PersonaRepository personaRepository;
 
     @Autowired
     private EstablecimientoService establecimientoService;
@@ -604,7 +610,7 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
         if (egreso.getValor() == null || egreso.getValor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El valor del egreso debe ser mayor a cero.");
         }
-        OrigenFondos cuenta = requireOrigenVisibleParaEgreso(egreso.getOrigenFondosId());
+        OrigenFondos cuenta = requireOrigenParaSalidaEgreso(egreso);
         LocalDate fecha = egreso.getFecha() != null
                 ? egreso.getFecha()
                 : DateUtils.obtenerFechaSistema().toLocalDate();
@@ -687,26 +693,77 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
         registrarSalidaEgreso(actualizado);
     }
 
-    private OrigenFondos requireOrigenVisibleParaEgreso(Integer id) {
-        OrigenFondos cuenta = requireOrigen(id);
-        if (Boolean.FALSE.equals(cuenta.getVisibleEnEgreso())) {
-            throw new IllegalArgumentException("La origen de fondos no está habilitada para egresos.");
-        }
+    /**
+     * Misma regla que EgresoServiceImpl: visibleEnEgreso, o Cuenta del dueño + persona dueño + PERSONAL/DIVIDENDOS.
+     * La validación primaria está en egreso; aquí se refuerza para no abrir agujero en el ledger.
+     */
+    private OrigenFondos requireOrigenParaSalidaEgreso(Egreso egreso) {
+        OrigenFondos cuenta = requireOrigen(egreso.getOrigenFondosId());
         if (Boolean.FALSE.equals(cuenta.getActivo())) {
             throw new IllegalArgumentException("La origen de fondos no está activa.");
+        }
+        if (Boolean.TRUE.equals(cuenta.getVisibleEnEgreso())) {
+            return cuenta;
+        }
+        if (!esCuentaDelDueno(cuenta)) {
+            throw new IllegalArgumentException("La origen de fondos no está habilitada para egresos.");
+        }
+        NaturalezaEgreso nat = egreso.getNaturaleza();
+        if (nat != NaturalezaEgreso.PERSONAL && nat != NaturalezaEgreso.DIVIDENDOS) {
+            throw new IllegalArgumentException(
+                    "Cuenta del dueño solo aplica con naturaleza PERSONAL/DIVIDENDOS.");
+        }
+        Persona persona = egreso.getPersona();
+        if (persona == null || persona.getId() == null) {
+            throw new IllegalArgumentException(
+                    "Cuenta del dueño requiere persona dueño/propietario.");
+        }
+        if (!Boolean.TRUE.equals(persona.getEsDuenoPropietario())) {
+            // Puede venir solo {id}; resolver desde BD
+            Persona loaded = personaRepository.findById(persona.getId()).orElse(null);
+            if (loaded == null || !Boolean.TRUE.equals(loaded.getEsDuenoPropietario())) {
+                throw new IllegalArgumentException(
+                        "Cuenta del dueño solo aplica con persona marcada como dueño/propietario.");
+            }
+            egreso.setPersona(loaded);
         }
         return cuenta;
     }
 
+    private boolean esCuentaDelDueno(OrigenFondos cuenta) {
+        if (cuenta == null || cuenta.getParentOrigenFondosId() == null) {
+            return false;
+        }
+        if (cuenta.getTipoOrigenFondos() != null
+                && cuenta.getTipoOrigenFondos().getCodigo() != null
+                && "DUENOS".equalsIgnoreCase(cuenta.getTipoOrigenFondos().getCodigo().trim())) {
+            return true;
+        }
+        OrigenFondos padre = cuenta.getParentOrigen();
+        if (padre == null) {
+            padre = cuentaRepository.findById(cuenta.getParentOrigenFondosId()).orElse(null);
+        }
+        if (padre != null && padre.getTipoOrigenFondos() != null
+                && padre.getTipoOrigenFondos().getCodigo() != null
+                && "DUENOS".equalsIgnoreCase(padre.getTipoOrigenFondos().getCodigo().trim())) {
+            return true;
+        }
+        String nombre = cuenta.getNombre() != null ? cuenta.getNombre().trim().toLowerCase() : "";
+        return nombre.equals("cuenta del dueño")
+                || nombre.equals("cuenta del dueno")
+                || nombre.equals("personal administrador")
+                || nombre.contains("cuenta del due");
+    }
+
     private String buildObservacionEgreso(Egreso egreso) {
-        // Formato: "Egreso #1: Cocacola (observación opcional)"
+        // Formato: "Egreso #1: Beneficiario (observación opcional)"
         StringBuilder sb = new StringBuilder("Egreso");
         if (egreso.getId() != null) {
             sb.append(" #").append(egreso.getId());
         }
-        String proveedorNombre = resolveProveedorNombre(egreso);
-        if (proveedorNombre != null && !proveedorNombre.isBlank()) {
-            sb.append(": ").append(proveedorNombre.trim());
+        String beneficiario = resolveBeneficiarioNombre(egreso);
+        if (beneficiario != null && !beneficiario.isBlank()) {
+            sb.append(": ").append(beneficiario.trim());
         }
         if (egreso.getDescripcion() != null && !egreso.getDescripcion().isBlank()) {
             sb.append(" (").append(egreso.getDescripcion().trim()).append(")");
@@ -715,11 +772,25 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
     }
 
     /**
-     * El FE suele enviar solo {@code proveedor: { id }}, sin nombre.
+     * El FE suele enviar solo {@code proveedor/persona: { id }}, sin nombre.
      * Hay que resolver el nombre desde BD.
      */
-    private String resolveProveedorNombre(Egreso egreso) {
-        if (egreso == null || egreso.getProveedor() == null) {
+    private String resolveBeneficiarioNombre(Egreso egreso) {
+        if (egreso == null) {
+            return null;
+        }
+        if (egreso.getPersona() != null) {
+            Persona per = egreso.getPersona();
+            if (per.getNombre() != null && !per.getNombre().isBlank()) {
+                return per.getNombre();
+            }
+            if (per.getId() != null) {
+                return personaRepository.findById(per.getId())
+                        .map(Persona::getNombre)
+                        .orElse(null);
+            }
+        }
+        if (egreso.getProveedor() == null) {
             return null;
         }
         Proveedor p = egreso.getProveedor();
