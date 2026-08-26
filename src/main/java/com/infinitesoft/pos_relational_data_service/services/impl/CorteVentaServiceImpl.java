@@ -614,6 +614,8 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                             response.getFechaIni().toLocalDate(),
                             finEgresos.toLocalDate()));
 
+            // Columna «movimientos»: excluye egresos documento y posteos de venta del corte.
+            // QR_MONTO_DISTINTO se incluye aunque el tipo sea SALIDA_EGRESO (ver query del repo).
             List<TipoMovimientoOrigenFondos> excluidosMov = Arrays.asList(
                     TipoMovimientoOrigenFondos.SALIDA_EGRESO,
                     TipoMovimientoOrigenFondos.ENTRADA_VENTA,

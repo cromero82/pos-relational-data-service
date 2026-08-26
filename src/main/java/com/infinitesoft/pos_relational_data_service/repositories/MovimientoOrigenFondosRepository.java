@@ -71,13 +71,16 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
             @Param("end") LocalDateTime end);
 
     /**
-     * Otros movimientos del ledger por medio (excluye egresos y ventas, que tienen columna propia en cierre).
+     * Otros movimientos del ledger por medio (excluye egresos documento y ventas del corte).
+     * Excepción: {@code QR_MONTO_DISTINTO} (sobrepago/faltante QR) SÍ suma aunque el tipo sea
+     * {@code SALIDA_EGRESO} / {@code ENTRADA_MANUAL} — no es egreso de proveedor.
      */
     @Query("SELECT m.metodoPagoId, COALESCE(SUM(m.impacto), 0) "
             + "FROM MovimientoOrigenFondos m "
             + "WHERE m.fechaCreacion >= :start AND m.fechaCreacion <= :end "
             + "AND m.metodoPagoId IS NOT NULL "
-            + "AND m.tipoMovimiento NOT IN :excluidos "
+            + "AND (m.tipoMovimiento NOT IN :excluidos "
+            + "     OR UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'QR_MONTO_DISTINTO') "
             + "GROUP BY m.metodoPagoId")
     List<Object[]> findResumenMovimientosPorMetodoPago(
             @Param("start") LocalDateTime start,
@@ -92,7 +95,8 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
             + "WHERE m.id > :afterId "
             + "AND m.fechaCreacion <= :end "
             + "AND m.metodoPagoId IS NOT NULL "
-            + "AND m.tipoMovimiento NOT IN :excluidos "
+            + "AND (m.tipoMovimiento NOT IN :excluidos "
+            + "     OR UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'QR_MONTO_DISTINTO') "
             + "GROUP BY m.metodoPagoId")
     List<Object[]> findResumenMovimientosPorMetodoPagoAfterId(
             @Param("afterId") Long afterId,

@@ -33,7 +33,8 @@ public class CorteVentaRangoResponse {
         private BigDecimal totalEgresosSistema;
         /**
          * Otros movimientos del ledger (traslados, entradas manuales, ajustes).
-         * No incluye SALIDA_EGRESO ni ENTRADA_VENTA (columnas propias).
+         * No incluye SALIDA_EGRESO de egreso documento ni ENTRADA_VENTA (columnas propias).
+         * Sí incluye ajustes {@code QR_MONTO_DISTINTO} aunque el tipo sea SALIDA_EGRESO.
          */
         private BigDecimal totalMovimientosSistema;
         /**
