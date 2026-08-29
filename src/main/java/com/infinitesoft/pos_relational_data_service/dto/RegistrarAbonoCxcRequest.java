@@ -18,4 +18,10 @@ public class RegistrarAbonoCxcRequest {
      * Si no se envía, se usa la sesión activa del usuario o la del recibo CxC.
      */
     private Long sesionId;
+    /**
+     * Cliente que entrega el abono. Opcional; si no viene, se usa el deudor de la CxC.
+     */
+    private Long clientePagadorId;
+    /** Snapshot opcional del nombre (si no viene se resuelve desde client). */
+    private String clientePagadorNombre;
 }

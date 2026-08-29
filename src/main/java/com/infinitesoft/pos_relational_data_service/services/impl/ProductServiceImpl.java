@@ -13,6 +13,7 @@ import com.infinitesoft.pos_relational_data_service.repositories.HistorialProduc
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.services.BitacoraUsuarioService;
 import com.infinitesoft.pos_relational_data_service.services.ProductService;
+import com.infinitesoft.pos_relational_data_service.services.ProductoPresentacionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -45,6 +46,8 @@ public class ProductServiceImpl implements ProductService {
     private ObjectMapper objectMapper;
     @Autowired
     private ConfiguracionAppRepository configuracionAppRepository;
+    @Autowired
+    private ProductoPresentacionService productoPresentacionService;
 
     @Override
     public Page<Product> getAll(String barcodeOrName, Pageable pageable) {
@@ -424,7 +427,12 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Optional<Product> getById(Long id) {
-        return productRepository.findById(id);
+        Optional<Product> opt = productRepository.findById(id);
+        opt.ifPresent(p -> {
+            productoPresentacionService.ensureAndSyncFromProducto(p.getId());
+            p.setPresentaciones(productoPresentacionService.listByProductoId(p.getId(), true));
+        });
+        return opt;
     }
 
     private Pageable withDynamicSort(Pageable pageable, String campoOrdenamiento, String orden) {
@@ -481,6 +489,8 @@ public class ProductServiceImpl implements ProductService {
 
         actualizarConfiguracionApp(true);
 
+        productoPresentacionService.ensureAndSyncFromProducto(saved.getId());
+        saved.setPresentaciones(productoPresentacionService.listByProductoId(saved.getId(), true));
         return saved;
     }
 
@@ -561,6 +571,13 @@ public class ProductServiceImpl implements ProductService {
             propagarPreciosGrupoEspejo(saved);
         }
 
+        productoPresentacionService.ensureAndSyncFromProducto(saved.getId());
+        if (preciosModificados && saved.getGrupoEspejo() != null) {
+            for (Product p : productRepository.findByGrupoEspejoId(saved.getGrupoEspejo().getId())) {
+                productoPresentacionService.ensureAndSyncFromProducto(p.getId());
+            }
+        }
+        saved.setPresentaciones(productoPresentacionService.listByProductoId(saved.getId(), true));
         return saved;
     }
 

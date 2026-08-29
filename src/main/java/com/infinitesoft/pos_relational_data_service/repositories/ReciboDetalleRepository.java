@@ -15,7 +15,9 @@ import java.util.List;
 public interface ReciboDetalleRepository extends JpaRepository<ReciboDetalle, Long> {
     List<ReciboDetalle> findByReciboIdOrderByIdAsc(Long reciboId);
 
-    @Query("select new com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleDto(d.id, d.reciboId, d.productoId, d.cantidad, d.subtotal, d.fechaCreacion, d.usuarioCreacion, p) " +
+    @Query("select new com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleDto(" +
+           "d.id, d.reciboId, d.productoId, d.presentacionId, d.cantidad, d.cantidadBase, " +
+           "d.precioUnitarioSnapshot, d.factorSnapshot, d.subtotal, d.fechaCreacion, d.usuarioCreacion, p) " +
            "from ReciboDetalle d join d.producto p where d.reciboId = :reciboId order by d.id asc")
     List<ReciboDetalleDto> findDtoByReciboId(@Param("reciboId") Long reciboId);
 

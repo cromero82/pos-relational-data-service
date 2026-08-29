@@ -58,6 +58,15 @@ public class Product {
     @Builder.Default
     private Integer existencia = 0;
 
+    /** Código de la unidad base de inventario (p.ej. UNIDAD). Documental. */
+    @Column(name = "unidad_base_codigo", length = 32)
+    @Builder.Default
+    private String unidadBaseCodigo = "UNIDAD";
+
+    /** Presentaciones vendibles (cargadas bajo demanda / enrich). */
+    @Transient
+    private java.util.List<ProductoPresentacion> presentaciones;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinTable(
             name = "producto_espejo",

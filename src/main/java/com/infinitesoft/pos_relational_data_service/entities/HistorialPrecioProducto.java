@@ -39,6 +39,14 @@ public class HistorialPrecioProducto {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "grupoEspejo"})
     private Product producto;
 
+    @Column(name = "presentacion_id")
+    private Long presentacionId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "presentacion_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private ProductoPresentacion presentacion;
+
     @Column(name = "usuario_id")
     private UUID usuarioId;
 

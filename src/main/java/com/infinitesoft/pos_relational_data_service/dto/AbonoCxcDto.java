@@ -18,6 +18,9 @@ public class AbonoCxcDto {
     private Integer origenFondosId;
     private Long movimientoOrigenFondosId;
     private String observacion;
+    /** Cliente que entrega el abono (puede diferir del deudor). */
+    private Long clientePagadorId;
+    private String clientePagadorNombre;
     /** True si el abono fue QR/Bancolombia y quedó pendiente de confirmación email. */
     private Boolean requiereConfirmacionElectronica;
 }

@@ -43,6 +43,14 @@ public class AbonoCxc {
     @Column(name = "usuario_id")
     private UUID usuarioId;
 
+    /** Cliente que entrega el abono (puede diferir del deudor de la CxC). */
+    @Column(name = "cliente_pagador_id")
+    private Long clientePagadorId;
+
+    /** Snapshot del nombre al registrar. */
+    @Column(name = "cliente_pagador_nombre", length = 255)
+    private String clientePagadorNombre;
+
     @Column(columnDefinition = "TEXT")
     private String observacion;
 

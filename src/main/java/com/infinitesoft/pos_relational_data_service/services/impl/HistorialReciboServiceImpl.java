@@ -701,7 +701,11 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
             ReciboDetalle nuevoDetalle = ReciboDetalle.builder()
                     .reciboId(reciboGuardado.getId())
                     .productoId(detalleHistorial.getProductoId())
+                    .presentacionId(detalleHistorial.getPresentacionId())
                     .cantidad(detalleHistorial.getCantidad())
+                    .cantidadBase(detalleHistorial.getCantidadBase())
+                    .precioUnitarioSnapshot(detalleHistorial.getPrecioUnitarioSnapshot())
+                    .factorSnapshot(detalleHistorial.getFactorSnapshot())
                     .subtotal(detalleHistorial.getSubtotal())
                     .fechaCreacion(detalleHistorial.getFechaCreacion())
                     .usuarioCreacion(detalleHistorial.getUsuarioCreacion())
@@ -712,7 +716,11 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
             EdicionReciboDetalle edicionDetalle = EdicionReciboDetalle.builder()
                     .edicionId(edicionReciboGuardado.getId())
                     .productoId(detalleHistorial.getProductoId())
+                    .presentacionId(detalleHistorial.getPresentacionId())
                     .cantidad(detalleHistorial.getCantidad())
+                    .cantidadBase(detalleHistorial.getCantidadBase())
+                    .precioUnitarioSnapshot(detalleHistorial.getPrecioUnitarioSnapshot())
+                    .factorSnapshot(detalleHistorial.getFactorSnapshot())
                     .subtotal(detalleHistorial.getSubtotal())
                     .build();
             edicionReciboDetalleService.create(edicionDetalle);

@@ -200,7 +200,7 @@ public class MovimientoInventarioServiceImpl implements MovimientoInventarioServ
             if (linea.getProductoId() == null || linea.getCantidad() == null || linea.getCantidad() <= 0) {
                 continue;
             }
-            BigDecimal cantidad = BigDecimal.valueOf(linea.getCantidad());
+            BigDecimal cantidad = cantidadBaseMovimiento(linea);
             Product producto = productRepository.findById(linea.getProductoId()).orElse(null);
             if (producto == null) {
                 continue;
@@ -211,7 +211,8 @@ public class MovimientoInventarioServiceImpl implements MovimientoInventarioServ
                     .setScale(2, java.math.RoundingMode.HALF_UP));
 
             int existenciaActual = producto.getExistencia() != null ? producto.getExistencia() : 0;
-            int nuevaExistencia = existenciaActual - linea.getCantidad();
+            int delta = cantidad.setScale(0, java.math.RoundingMode.HALF_UP).intValue();
+            int nuevaExistencia = existenciaActual - delta;
             producto.setExistencia(nuevaExistencia);
             Product saved = productRepository.save(producto);
             if (saved.getBarcode() != null && !saved.getBarcode().isBlank()) {
@@ -294,19 +295,20 @@ public class MovimientoInventarioServiceImpl implements MovimientoInventarioServ
             if (linea.getProductoId() == null || linea.getCantidad() == null || linea.getCantidad() <= 0) {
                 continue;
             }
-            BigDecimal cantidad = BigDecimal.valueOf(linea.getCantidad());
+            BigDecimal cantidad = cantidadBaseMovimiento(linea);
             Product producto = productRepository.findById(linea.getProductoId()).orElse(null);
             if (producto == null) {
                 continue;
             }
 
             int existenciaActual = producto.getExistencia() != null ? producto.getExistencia() : 0;
+            int delta = cantidad.setScale(0, java.math.RoundingMode.HALF_UP).intValue();
             int nuevaExistencia = existenciaActual;
             if (!skipExistenciaUpdate) {
                 if (esEntrada) {
-                    nuevaExistencia = existenciaActual + linea.getCantidad();
+                    nuevaExistencia = existenciaActual + delta;
                 } else {
-                    nuevaExistencia = existenciaActual - linea.getCantidad();
+                    nuevaExistencia = existenciaActual - delta;
                 }
                 producto.setExistencia(nuevaExistencia);
                 Product saved = productRepository.save(producto);
@@ -340,6 +342,27 @@ public class MovimientoInventarioServiceImpl implements MovimientoInventarioServ
         }
 
         log.info("[KARDEX] {} historialId={} consecutivo={}", tipo.getCodigo(), historialReciboId, consecutivo);
+    }
+
+    /** Prefer cantidad_base (UoM→base); fallback a cantidad de línea. */
+    private static BigDecimal cantidadBaseMovimiento(HistorialReciboDetalle linea) {
+        if (linea.getCantidadBase() != null && linea.getCantidadBase().compareTo(BigDecimal.ZERO) > 0) {
+            return linea.getCantidadBase();
+        }
+        if (linea.getFactorSnapshot() != null && linea.getCantidad() != null) {
+            return linea.getFactorSnapshot().multiply(BigDecimal.valueOf(linea.getCantidad()));
+        }
+        return BigDecimal.valueOf(linea.getCantidad() != null ? linea.getCantidad() : 0);
+    }
+
+    private static BigDecimal cantidadBaseMovimiento(ReciboDetalle linea) {
+        if (linea.getCantidadBase() != null && linea.getCantidadBase().compareTo(BigDecimal.ZERO) > 0) {
+            return linea.getCantidadBase();
+        }
+        if (linea.getFactorSnapshot() != null && linea.getCantidad() != null) {
+            return linea.getFactorSnapshot().multiply(BigDecimal.valueOf(linea.getCantidad()));
+        }
+        return BigDecimal.valueOf(linea.getCantidad() != null ? linea.getCantidad() : 0);
     }
 
     private TipoMovimientoInventario requireTipo(String codigo) {

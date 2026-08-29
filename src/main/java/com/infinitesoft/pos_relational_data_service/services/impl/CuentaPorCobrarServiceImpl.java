@@ -242,7 +242,9 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                     request.getOrigenFondosId(),
                     "Abono inicial al abrir CxC #" + saved.getId(),
                     request.getSesionId(),
-                    request.getHistorialElectronicoId()
+                    request.getHistorialElectronicoId(),
+                    saved.getClienteId(),
+                    cliente != null ? cliente.getNombre() : null
             );
         }
 
@@ -442,7 +444,9 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 request.getOrigenFondosId(),
                 trimToNull(request.getObservacion()),
                 request.getSesionId(),
-                null
+                null,
+                request.getClientePagadorId(),
+                trimToNull(request.getClientePagadorNombre())
         );
 
         BigDecimal nuevoSaldo = saldo.subtract(monto);
@@ -475,7 +479,9 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
             Integer origenFondosId,
             String observacion,
             Long sesionIdCaja,
-            Long historialElectronicoIdConfirmado
+            Long historialElectronicoIdConfirmado,
+            Long clientePagadorId,
+            String clientePagadorNombre
     ) {
         MetodoPago mp = metodoPagoRepository.findById(metodoPagoId)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -493,10 +499,20 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                                     + mp.getDescripcion() + "»."));
         }
 
-        Client cliente = cxc.getClienteId() != null
-                ? clientRepository.findById(cxc.getClienteId()).orElse(null)
+        Long pagadorId = clientePagadorId != null ? clientePagadorId : cxc.getClienteId();
+        Client pagador = pagadorId != null
+                ? clientRepository.findById(pagadorId).orElse(null)
                 : null;
-        String tercero = cliente != null ? cliente.getNombre() : null;
+        String pagadorNombre = clientePagadorNombre;
+        if (pagadorNombre == null || pagadorNombre.isBlank()) {
+            pagadorNombre = pagador != null ? pagador.getNombre() : null;
+        }
+        if ((pagadorNombre == null || pagadorNombre.isBlank()) && cxc.getClienteId() != null) {
+            Client deudor = clientRepository.findById(cxc.getClienteId()).orElse(null);
+            pagadorNombre = deudor != null ? deudor.getNombre() : null;
+        }
+
+        String tercero = pagadorNombre;
         String obs = observacion;
         if (obs == null || obs.isBlank()) {
             obs = "Abono CxC #" + cxc.getId()
@@ -510,6 +526,8 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 .origenFondosId(origen.getId())
                 .observacion(obs)
                 .usuarioId(SecurityContextHelper.getUserId())
+                .clientePagadorId(pagadorId)
+                .clientePagadorNombre(pagadorNombre)
                 .build();
         AbonoCxc savedAbono = abonoCxcRepository.save(abono);
 
@@ -896,6 +914,8 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 .origenFondosId(entity.getOrigenFondosId())
                 .movimientoOrigenFondosId(entity.getMovimientoOrigenFondosId())
                 .observacion(entity.getObservacion())
+                .clientePagadorId(entity.getClientePagadorId())
+                .clientePagadorNombre(entity.getClientePagadorNombre())
                 .requiereConfirmacionElectronica(requiereConfirmacionElectronica)
                 .build();
     }

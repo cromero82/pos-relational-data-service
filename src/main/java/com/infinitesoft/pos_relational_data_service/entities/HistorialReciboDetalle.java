@@ -36,8 +36,25 @@ public class HistorialReciboDetalle {
     @JsonIgnore
     private Product producto;
 
+    @Column(name = "presentacion_id")
+    private Long presentacionId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "presentacion_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private ProductoPresentacion presentacion;
+
     @Column(nullable = false)
     private Integer cantidad;
+
+    @Column(name = "cantidad_base", precision = 14, scale = 4)
+    private BigDecimal cantidadBase;
+
+    @Column(name = "precio_unitario_snapshot", precision = 12, scale = 2)
+    private BigDecimal precioUnitarioSnapshot;
+
+    @Column(name = "factor_snapshot", precision = 12, scale = 4)
+    private BigDecimal factorSnapshot;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;

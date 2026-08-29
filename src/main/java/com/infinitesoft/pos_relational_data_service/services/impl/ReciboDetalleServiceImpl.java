@@ -2,13 +2,16 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleDto;
 import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleResponse;
+import com.infinitesoft.pos_relational_data_service.entities.ProductoPresentacion;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalle;
+import com.infinitesoft.pos_relational_data_service.repositories.ProductoPresentacionRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
 import com.infinitesoft.pos_relational_data_service.security.dto.AuthUserDto;
 import com.infinitesoft.pos_relational_data_service.security.service.AuthValidationService;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
+import com.infinitesoft.pos_relational_data_service.services.ProductoPresentacionService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleHistoricoService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboDetalleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class ReciboDetalleServiceImpl implements ReciboDetalleService {
@@ -34,12 +36,19 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     @Autowired
     private ReciboDetalleHistoricoService historicoService;
 
+    @Autowired
+    private ProductoPresentacionService presentacionService;
+
+    @Autowired
+    private ProductoPresentacionRepository presentacionRepository;
+
     @Override
     @Transactional
     public ReciboDetalleResponse create(ReciboDetalle detalle) {
         if (detalle.getUsuarioCreacion() == null) {
             detalle.setUsuarioCreacion(SecurityContextHelper.getUserId());
         }
+        presentacionService.applyPresentacionToDetalle(detalle);
         ReciboDetalle saved = repository.save(detalle);
 
         boolean copiedFromParent = false;
@@ -50,7 +59,7 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
                 if (recibo.getReciboPadreId() != null) {
                     List<ReciboDetalle> detallesPadre = repository.findByReciboIdOrderByIdAsc(recibo.getReciboPadreId());
                     Optional<ReciboDetalle> matchingDetallePadre = detallesPadre.stream()
-                            .filter(d -> d.getProductoId().equals(saved.getProductoId()))
+                            .filter(d -> sameLineIdentity(d, saved))
                             .findFirst();
                     if (matchingDetallePadre.isPresent()) {
                         historicoService.copiarHistorico(matchingDetallePadre.get().getId(), saved.getId());
@@ -63,26 +72,8 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
         if (!copiedFromParent) {
             historicoService.registrarAccion(saved.getId(), String.valueOf(saved.getUsuarioCreacion()), "agrega");
         }
-        
-        ReciboDetalleResponse response = ReciboDetalleResponse.builder()
-                .id(saved.getId())
-                .reciboId(saved.getReciboId())
-                .productoId(saved.getProductoId())
-                .cantidad(saved.getCantidad())
-                .subtotal(saved.getSubtotal())
-                .fechaCreacion(saved.getFechaCreacion())
-                .usuarioCreacion(saved.getUsuarioCreacion())
-                .historicoAcciones(historicoService.findByReciboDetalleId(saved.getId()))
-                .build();
 
-        if (saved.getUsuarioCreacion() != null) {
-            AuthUserDto userInfo = authValidationService.fetchUserInfoById(saved.getUsuarioCreacion());
-            if (userInfo != null) {
-                response.setNombreUsuarioAtendio(userInfo.getNombre());
-            }
-        }
-
-        return response;
+        return toResponse(saved);
     }
 
     @Override
@@ -108,7 +99,7 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
     public List<ReciboDetalleDto> findByReciboId(Long reciboId) {
         if (reciboId == null) return List.of();
         List<ReciboDetalleDto> dtos = repository.findDtoByReciboId(reciboId);
-        
+
         for (ReciboDetalleDto dto : dtos) {
             if (dto.getUsuarioCreacion() != null) {
                 AuthUserDto userInfo = authValidationService.fetchUserInfoById(dto.getUsuarioCreacion());
@@ -117,8 +108,15 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
                 }
             }
             dto.setHistoricoAcciones(historicoService.findByReciboDetalleId(dto.getId()));
+            if (dto.getPresentacionId() != null) {
+                presentacionRepository.findById(dto.getPresentacionId()).ifPresent(dto::setPresentacion);
+            }
+            if (dto.getProducto() != null) {
+                dto.getProducto().setPresentaciones(
+                        presentacionService.listByProductoId(dto.getProductoId(), true));
+            }
         }
-        
+
         return dtos;
     }
 
@@ -147,9 +145,16 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
 
         existing.setReciboId(detalle.getReciboId());
         existing.setProductoId(detalle.getProductoId());
+        if (detalle.getPresentacionId() != null) {
+            existing.setPresentacionId(detalle.getPresentacionId());
+        }
         existing.setCantidad(detalle.getCantidad());
         existing.setSubtotal(detalle.getSubtotal());
-        // Preserve fechaCreacion and usuarioCreacion on update unless they are explicitly set in 'detalle'
+        if (detalle.getPrecioUnitarioSnapshot() != null) {
+            existing.setPrecioUnitarioSnapshot(detalle.getPrecioUnitarioSnapshot());
+        }
+        presentacionService.applyPresentacionToDetalle(existing);
+
         if (detalle.getFechaCreacion() != null) {
             existing.setFechaCreacion(detalle.getFechaCreacion());
         }
@@ -158,14 +163,12 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
         }
         ReciboDetalle updated = repository.save(existing);
 
-        // Registro en el histórico según la diferencia de cantidad
         if (newCantidad > oldCantidad) {
             historicoService.registrarAccion(updated.getId(), String.valueOf(SecurityContextHelper.getUserId()), "agrega");
         } else if (newCantidad < oldCantidad) {
             historicoService.registrarAccion(updated.getId(), String.valueOf(SecurityContextHelper.getUserId()), "elimina");
         }
 
-        // Return updated object with history
         updated.setHistoricoAcciones(historicoService.findByReciboDetalleId(updated.getId()));
         return updated;
     }
@@ -176,11 +179,47 @@ public class ReciboDetalleServiceImpl implements ReciboDetalleService {
         if (id == null) return false;
         Optional<ReciboDetalle> existingOpt = repository.findById(id);
         if (existingOpt.isEmpty()) return false;
-        
-        // Registro en el histórico antes de eliminar
+
         historicoService.registrarAccion(id, String.valueOf(SecurityContextHelper.getUserId()), "elimina");
-        
+
         repository.deleteById(id);
         return true;
+    }
+
+    private ReciboDetalleResponse toResponse(ReciboDetalle saved) {
+        ReciboDetalleResponse response = ReciboDetalleResponse.builder()
+                .id(saved.getId())
+                .reciboId(saved.getReciboId())
+                .productoId(saved.getProductoId())
+                .presentacionId(saved.getPresentacionId())
+                .cantidad(saved.getCantidad())
+                .cantidadBase(saved.getCantidadBase())
+                .precioUnitarioSnapshot(saved.getPrecioUnitarioSnapshot())
+                .factorSnapshot(saved.getFactorSnapshot())
+                .subtotal(saved.getSubtotal())
+                .fechaCreacion(saved.getFechaCreacion())
+                .usuarioCreacion(saved.getUsuarioCreacion())
+                .historicoAcciones(historicoService.findByReciboDetalleId(saved.getId()))
+                .build();
+
+        if (saved.getPresentacionId() != null) {
+            ProductoPresentacion pp = presentacionService.findById(saved.getPresentacionId());
+            response.setPresentacion(pp);
+        }
+
+        if (saved.getUsuarioCreacion() != null) {
+            AuthUserDto userInfo = authValidationService.fetchUserInfoById(saved.getUsuarioCreacion());
+            if (userInfo != null) {
+                response.setNombreUsuarioAtendio(userInfo.getNombre());
+            }
+        }
+        return response;
+    }
+
+    private static boolean sameLineIdentity(ReciboDetalle a, ReciboDetalle b) {
+        if (a.getPresentacionId() != null && b.getPresentacionId() != null) {
+            return a.getPresentacionId().equals(b.getPresentacionId());
+        }
+        return a.getProductoId() != null && a.getProductoId().equals(b.getProductoId());
     }
 }

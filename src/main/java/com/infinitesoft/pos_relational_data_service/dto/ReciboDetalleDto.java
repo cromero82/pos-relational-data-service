@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.dto;
 
 import com.infinitesoft.pos_relational_data_service.entities.Product;
+import com.infinitesoft.pos_relational_data_service.entities.ProductoPresentacion;
 import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalleHistorico;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,13 +21,19 @@ public class ReciboDetalleDto {
     private Long id;
     private Long reciboId;
     private Long productoId;
+    private Long presentacionId;
     private Integer cantidad;
+    private BigDecimal cantidadBase;
+    private BigDecimal precioUnitarioSnapshot;
+    private BigDecimal factorSnapshot;
     private BigDecimal subtotal;
     private LocalDateTime fechaCreacion;
     private UUID usuarioCreacion;
 
     // Enriched product information
     private Product producto;
+
+    private ProductoPresentacion presentacion;
 
     private String nombreUsuarioAtendio;
 
@@ -37,6 +44,34 @@ public class ReciboDetalleDto {
         this.reciboId = reciboId;
         this.productoId = productoId;
         this.cantidad = cantidad;
+        this.subtotal = subtotal;
+        this.fechaCreacion = fechaCreacion;
+        this.usuarioCreacion = usuarioCreacion;
+        this.producto = producto;
+    }
+
+    public ReciboDetalleDto(
+            Long id,
+            Long reciboId,
+            Long productoId,
+            Long presentacionId,
+            Integer cantidad,
+            BigDecimal cantidadBase,
+            BigDecimal precioUnitarioSnapshot,
+            BigDecimal factorSnapshot,
+            BigDecimal subtotal,
+            LocalDateTime fechaCreacion,
+            UUID usuarioCreacion,
+            Product producto
+    ) {
+        this.id = id;
+        this.reciboId = reciboId;
+        this.productoId = productoId;
+        this.presentacionId = presentacionId;
+        this.cantidad = cantidad;
+        this.cantidadBase = cantidadBase;
+        this.precioUnitarioSnapshot = precioUnitarioSnapshot;
+        this.factorSnapshot = factorSnapshot;
         this.subtotal = subtotal;
         this.fechaCreacion = fechaCreacion;
         this.usuarioCreacion = usuarioCreacion;

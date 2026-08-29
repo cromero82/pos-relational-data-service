@@ -185,7 +185,11 @@ public class ReciboServiceImpl implements ReciboService {
                 HistorialReciboDetalle hd = HistorialReciboDetalle.builder()
                         .reciboId(savedHist.getId())
                         .productoId(d.getProductoId())
+                        .presentacionId(d.getPresentacionId())
                         .cantidad(d.getCantidad())
+                        .cantidadBase(d.getCantidadBase())
+                        .precioUnitarioSnapshot(d.getPrecioUnitarioSnapshot())
+                        .factorSnapshot(d.getFactorSnapshot())
                         .subtotal(d.getSubtotal())
                         .fechaCreacion(d.getFechaCreacion())
                         .usuarioCreacion(d.getUsuarioCreacion())
@@ -194,7 +198,8 @@ public class ReciboServiceImpl implements ReciboService {
 
                 // Increment total_ventas and update fecha_ultima_venta in product
                 if (targetEstado == ReciboEstado.PAGADO && d.getProductoId() != null) {
-                    productRepository.incrementarVentas(d.getProductoId(), d.getCantidad());
+                    int qtyVenta = cantidadBaseEntera(d);
+                    productRepository.incrementarVentas(d.getProductoId(), qtyVenta);
                     productRepository.actualizarFechaUltimaVenta(d.getProductoId(), LocalDate.now());
                 }
             }
@@ -318,7 +323,11 @@ public class ReciboServiceImpl implements ReciboService {
             HistorialReciboDetalle hd = HistorialReciboDetalle.builder()
                     .reciboId(savedHist.getId())
                     .productoId(d.getProductoId())
+                    .presentacionId(d.getPresentacionId())
                     .cantidad(d.getCantidad())
+                    .cantidadBase(d.getCantidadBase())
+                    .precioUnitarioSnapshot(d.getPrecioUnitarioSnapshot())
+                    .factorSnapshot(d.getFactorSnapshot())
                     .subtotal(d.getSubtotal())
                     .fechaCreacion(d.getFechaCreacion())
                     .usuarioCreacion(d.getUsuarioCreacion())
@@ -326,7 +335,7 @@ public class ReciboServiceImpl implements ReciboService {
             historialReciboDetalleService.create(hd);
 
             if (d.getProductoId() != null) {
-                productRepository.incrementarVentas(d.getProductoId(), d.getCantidad());
+                productRepository.incrementarVentas(d.getProductoId(), cantidadBaseEntera(d));
                 productRepository.actualizarFechaUltimaVenta(d.getProductoId(), LocalDate.now());
             }
         }
@@ -627,5 +636,13 @@ public class ReciboServiceImpl implements ReciboService {
     private static boolean esNombreAnonimo(String nombre) {
         String n = nombre.trim();
         return n.equalsIgnoreCase("anonimo") || n.equalsIgnoreCase("anónimo");
+    }
+
+    /** Unidades base para stock/contadores; fallback a cantidad de línea. */
+    private static int cantidadBaseEntera(ReciboDetalle d) {
+        if (d.getCantidadBase() != null) {
+            return d.getCantidadBase().setScale(0, RoundingMode.HALF_UP).intValue();
+        }
+        return d.getCantidad() != null ? d.getCantidad() : 0;
     }
 }
