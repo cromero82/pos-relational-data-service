@@ -11,4 +11,5 @@ public interface MetodoPagoRepository extends JpaRepository<MetodoPago, Long> {
     List<MetodoPago> findAllByOrderByIdAsc();
     List<MetodoPago> findByVisiblePagosEgresosTrueOrderByIdAsc();
     List<MetodoPago> findByVisiblePagoTicketsTrueOrderByIdAsc();
+    List<MetodoPago> findByPermiteNotificacionTrueOrderByIdAsc();
 }

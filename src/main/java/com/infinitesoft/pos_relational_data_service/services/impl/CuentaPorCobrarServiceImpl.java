@@ -598,7 +598,7 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
     }
 
     /**
-     * Abono CxC QR/Bancolombia: crea pendiente CREADA ligada a {@code abono_cxc_id}
+     * Abono CxC con medio que permite notificación: crea pendiente CREADA ligada a {@code abono_cxc_id}
      * (sin historial_recibo hasta liquidar). Best-effort.
      * La sesión debe ser la caja activa (panel), no la histórica del ticket/recibo.
      */
@@ -608,7 +608,7 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
             if (abono == null || abono.getId() == null || mp == null) {
                 return false;
             }
-            if (!esMetodoQrElectronico(mp)) {
+            if (!Boolean.TRUE.equals(mp.getPermiteNotificacion())) {
                 return false;
             }
             if (historialReciboElectronicoRepository.findByAbonoCxcId(abono.getId()).isPresent()) {
@@ -659,12 +659,6 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                     .orElse(null);
         }
         return null;
-    }
-
-    private static boolean esMetodoQrElectronico(MetodoPago mp) {
-        String sigla = mp.getSigla() != null ? mp.getSigla().trim().toUpperCase() : "";
-        String desc = mp.getDescripcion() != null ? mp.getDescripcion().toUpperCase() : "";
-        return "QR".equals(sigla) || desc.contains("BANCOLOMBIA");
     }
 
     /**

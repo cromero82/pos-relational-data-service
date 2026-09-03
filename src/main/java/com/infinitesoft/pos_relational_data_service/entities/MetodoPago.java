@@ -43,6 +43,11 @@ public class MetodoPago {
     @Builder.Default
     private Boolean visiblePagoTickets = true;
 
+    /** Si true, este medio genera pendiente de confirmación por email / plantillas. */
+    @Column(name = "permite_notificacion", nullable = false)
+    @Builder.Default
+    private Boolean permiteNotificacion = false;
+
     @Column(name = "monto", precision = 12, scale = 2)
     private BigDecimal monto;
 
@@ -59,9 +64,13 @@ public class MetodoPago {
         String descripcionEgresoOriginal = this.descripcionEgreso;
         String plantillaOriginal = this.plantillaNotificacionPago;
         String codigoDianOriginal = this.codigoDianPaymentMeans;
+        String fileOriginal = this.file;
+        String colorOriginal = this.color;
         StringUtils.convertStringsToUpperCase(this);
         this.descripcionEgreso = descripcionEgresoOriginal;
         this.plantillaNotificacionPago = plantillaOriginal;
         this.codigoDianPaymentMeans = codigoDianOriginal;
+        this.file = fileOriginal;
+        this.color = colorOriginal;
     }
 }

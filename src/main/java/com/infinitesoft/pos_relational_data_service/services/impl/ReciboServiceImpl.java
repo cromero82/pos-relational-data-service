@@ -457,8 +457,8 @@ public class ReciboServiceImpl implements ReciboService {
     }
 
     /**
-     * Ventas QR (sigla QR / Bancolombia): deja pendiente de confirmación por email bancario.
-     * En mixto, el monto esperado es solo el tramo QR (no el total del ticket).
+     * Ventas con medio que permite notificación: deja pendiente de confirmación por email.
+     * En mixto, el monto esperado es solo el tramo de ese medio (no el total del ticket).
      * Best-effort: no debe tumbar el pago si falla.
      */
     private void registrarPendienteConfirmacionElectronica(
@@ -479,10 +479,7 @@ public class ReciboServiceImpl implements ReciboService {
                     continue;
                 }
                 MetodoPago mp = mpOpt.get();
-                String sigla = mp.getSigla() != null ? mp.getSigla().trim().toUpperCase() : "";
-                String desc = mp.getDescripcion() != null ? mp.getDescripcion().toUpperCase() : "";
-                boolean esQrElectronico = "QR".equals(sigla) || desc.contains("BANCOLOMBIA");
-                if (!esQrElectronico) {
+                if (!Boolean.TRUE.equals(mp.getPermiteNotificacion())) {
                     continue;
                 }
                 historialReciboElectronicoRepository.save(HistorialReciboElectronico.builder()
