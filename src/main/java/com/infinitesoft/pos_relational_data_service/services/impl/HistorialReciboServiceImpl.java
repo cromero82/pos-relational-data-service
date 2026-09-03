@@ -13,6 +13,7 @@ import com.infinitesoft.pos_relational_data_service.repositories.EdicionReciboRe
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboElectronicoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.SesionRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.NotaAjusteDocumentoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketRepository;
@@ -52,6 +53,9 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Autowired
     private HistorialReciboRepository repository;
+
+    @Autowired
+    private SesionRepository sesionRepository;
 
     @Autowired
     private HistorialReciboPagoRepository historialReciboPagoRepository;
@@ -382,21 +386,30 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
     @Override
     public Page<HistorialRecibo> search(String fecha, Long estadoId, Long sesionId, Boolean soloRestaurados,
                                         Long metodoPagoId, Boolean mixto, Boolean sinCorte, Pageable pageable) {
+        return search(fecha, estadoId, sesionId, soloRestaurados, metodoPagoId, mixto, sinCorte, null, null, pageable);
+    }
+
+    @Override
+    public Page<HistorialRecibo> search(String fecha, Long estadoId, Long sesionId, Boolean soloRestaurados,
+                                        Long metodoPagoId, Boolean mixto, Boolean sinCorte,
+                                        Long clienteId, Long productoId, Pageable pageable) {
         if (Boolean.TRUE.equals(soloRestaurados)) {
             Page<HistorialRecibo> page = searchRestaurados(fecha, sesionId, pageable);
             enrichDocumentoVentaConsecutivos(page.getContent());
             enrichMultipagoFlags(page.getContent());
             enrichNotificacionElectronica(page.getContent());
+            enrichSesionUserIds(page.getContent());
             return filterPageInMemory(page, metodoPagoId, mixto, sinCorte, pageable);
         }
-        return searchInternal(fecha, estadoId, sesionId, metodoPagoId, mixto, sinCorte, pageable);
+        return searchInternal(fecha, estadoId, sesionId, metodoPagoId, mixto, sinCorte, clienteId, productoId, pageable);
     }
 
     private Page<HistorialRecibo> searchInternal(String fecha, Long estadoId, Long sesionId,
                                                  Long metodoPagoId, Boolean mixto, Boolean sinCorte,
+                                                 Long clienteId, Long productoId,
                                                  Pageable pageable) {
         boolean hasSesion = sesionId != null && sesionId > 0;
-        Specification<HistorialRecibo> spec = buildSearchSpec(fecha, estadoId, sesionId, metodoPagoId, mixto, sinCorte);
+        Specification<HistorialRecibo> spec = buildSearchSpec(fecha, estadoId, sesionId, metodoPagoId, mixto, sinCorte, clienteId, productoId);
 
         if (hasSesion) {
             // Compat: por sesión se devolvía lista completa (sin paginar).
@@ -404,6 +417,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
             enrichDocumentoVentaConsecutivos(results);
             enrichMultipagoFlags(results);
             enrichNotificacionElectronica(results);
+            enrichSesionUserIds(results);
             return new PageImpl<>(results);
         }
 
@@ -411,11 +425,13 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         enrichDocumentoVentaConsecutivos(page.getContent());
         enrichMultipagoFlags(page.getContent());
         enrichNotificacionElectronica(page.getContent());
+        enrichSesionUserIds(page.getContent());
         return page;
     }
 
     private Specification<HistorialRecibo> buildSearchSpec(String fecha, Long estadoId, Long sesionId,
-                                                           Long metodoPagoId, Boolean mixto, Boolean sinCorte) {
+                                                           Long metodoPagoId, Boolean mixto, Boolean sinCorte,
+                                                           Long clienteId, Long productoId) {
         return (root, query, cb) -> {
             List<javax.persistence.criteria.Predicate> preds = new ArrayList<>();
             boolean hasFecha = fecha != null && !fecha.isBlank();
@@ -458,6 +474,18 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
                 preds.add(cb.or(
                         cb.equal(root.get("metodoPagoId"), metodoPagoId),
                         cb.exists(pagoSq)));
+            }
+            if (clienteId != null && clienteId > 0) {
+                preds.add(cb.equal(root.get("clienteId"), clienteId));
+            }
+            if (productoId != null && productoId > 0) {
+                Subquery<Long> detSq = query.subquery(Long.class);
+                Root<HistorialReciboDetalle> d = detSq.from(HistorialReciboDetalle.class);
+                detSq.select(d.get("reciboId"));
+                detSq.where(
+                        cb.equal(d.get("reciboId"), root.get("id")),
+                        cb.equal(d.get("productoId"), productoId));
+                preds.add(cb.exists(detSq));
             }
             if (preds.isEmpty()) {
                 return cb.conjunction();
@@ -509,6 +537,28 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         }
         for (HistorialRecibo item : items) {
             item.setEstadoNotificacionElectronica(estados.get(item.getId()));
+        }
+    }
+
+    private void enrichSesionUserIds(List<HistorialRecibo> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        Set<Long> sesionIds = items.stream()
+                .map(HistorialRecibo::getSesionId)
+                .filter(id -> id != null && id > 0)
+                .collect(Collectors.toSet());
+        if (sesionIds.isEmpty()) {
+            return;
+        }
+        Map<Long, java.util.UUID> userBySesion = new HashMap<>();
+        for (Sesion sesion : sesionRepository.findAllById(sesionIds)) {
+            if (sesion.getId() != null && sesion.getUserId() != null) {
+                userBySesion.put(sesion.getId(), sesion.getUserId());
+            }
+        }
+        for (HistorialRecibo item : items) {
+            item.setSesionUserId(userBySesion.get(item.getSesionId()));
         }
     }
 

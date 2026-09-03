@@ -122,7 +122,9 @@ public class HistorialReciboController {
                                         @RequestParam(value = "metodoPagoId", required = false) Long metodoPagoId,
                                         @RequestParam(value = "mixto", required = false) Boolean mixto,
                                         @RequestParam(value = "sinCorte", required = false) Boolean sinCorte,
+                                        @RequestParam(value = "clienteId", required = false) Long clienteId,
+                                        @RequestParam(value = "productoId", required = false) Long productoId,
                                         @PageableDefault(sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable pageable) {
-        return service.search(fecha, estadoId, sesionId, restaurados, metodoPagoId, mixto, sinCorte, pageable);
+        return service.search(fecha, estadoId, sesionId, restaurados, metodoPagoId, mixto, sinCorte, clienteId, productoId, pageable);
     }
 }

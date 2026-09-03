@@ -77,6 +77,10 @@ public class HistorialRecibo {
     @Transient
     private String estadoNotificacionElectronica;
 
+    /** user_id de la sesión que atendió (para resolver nombre en FE sin GET /sesiones/{id}/usuario). */
+    @Transient
+    private java.util.UUID sesionUserId;
+
     @PrePersist
     protected void onPrePersist() {
         if (fechaCreacion == null) {

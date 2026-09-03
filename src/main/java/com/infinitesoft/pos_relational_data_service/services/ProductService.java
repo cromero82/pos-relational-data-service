@@ -15,6 +15,7 @@ public interface ProductService {
     /**
      * Búsqueda smart; si {@code coincidirTodaPalabraIndividual} es true, cada palabra del query
      * debe aparecer como palabra completa (no subcadena) en nombre o código de barras.
+     * El resultado se ordena por {@code nombre} asc.
      */
     Page<Product> busquedaSmart(String query, Pageable pageable, boolean unicamenteActivos,
                                 boolean coincidirTodaPalabraIndividual);
