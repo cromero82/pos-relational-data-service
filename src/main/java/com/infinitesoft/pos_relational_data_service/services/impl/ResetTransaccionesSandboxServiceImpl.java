@@ -49,6 +49,7 @@ public class ResetTransaccionesSandboxServiceImpl implements ResetTransaccionesS
             "nota_ajuste_documento",
             "edicion_recibo_detalle",
             "edicion_recibo",
+            // Inbox HRE / emails recibidos — no truncar plantilla_notificacion_pago
             "ticket_sin_notificacion",
             "notificacion_email_pago",
             "historial_recibos_electronicos",
@@ -84,6 +85,8 @@ public class ResetTransaccionesSandboxServiceImpl implements ResetTransaccionesS
             throw new IllegalArgumentException("Ninguna tabla candidata existe; abortando reset.");
         }
 
+        long plantillasAntes = contar("plantilla_notificacion_pago");
+
         String truncateSql = "TRUNCATE TABLE "
                 + existentes.stream().map(t -> "\"" + t + "\"").collect(Collectors.joining(", "))
                 + " RESTART IDENTITY CASCADE";
@@ -96,6 +99,13 @@ public class ResetTransaccionesSandboxServiceImpl implements ResetTransaccionesS
             throw new IllegalArgumentException("No se pudo ejecutar el reset transaccional: " + e.getMessage(), e);
         }
 
+        long plantillasDespues = contar("plantilla_notificacion_pago");
+        if (plantillasAntes != plantillasDespues) {
+            throw new IllegalArgumentException(String.format(
+                    "Reset no debe modificar plantilla_notificacion_pago (plantillas de correo): antes=%s, después=%s",
+                    plantillasAntes, plantillasDespues));
+        }
+
         assertLedgerLimpio();
 
         Map<String, Object> conteos = leerConteosVerificacion();
@@ -104,11 +114,19 @@ public class ResetTransaccionesSandboxServiceImpl implements ResetTransaccionesS
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("ok", true);
         out.put("mensaje",
-                "Datos transaccionales vaciados. Cierre sesión y vuelva a entrar como ADMIN para registrar la base inicial.");
+                "Datos transaccionales vaciados. Las plantillas de correo se conservan. "
+                        + "Cierre sesión y vuelva a entrar como ADMIN para registrar la base inicial.");
         out.put("version", VERSION);
         out.put("tablasTruncadas", existentes.size());
         out.put("conteos", conteos);
         return out;
+    }
+
+    private long contar(String tabla) {
+        Long n = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM \"" + tabla + "\"",
+                Long.class);
+        return n == null ? 0L : n;
     }
 
     private void assertEndpointHabilitado() {
@@ -176,6 +194,7 @@ public class ResetTransaccionesSandboxServiceImpl implements ResetTransaccionesS
                         + "UNION ALL SELECT 'historial_recibo', COUNT(*) FROM historial_recibo "
                         + "UNION ALL SELECT 'egreso', COUNT(*) FROM egreso "
                         + "UNION ALL SELECT 'notificacion_email_pago', COUNT(*) FROM notificacion_email_pago "
+                        + "UNION ALL SELECT 'plantilla_notificacion_pago', COUNT(*) FROM plantilla_notificacion_pago "
                         + "UNION ALL SELECT 'cuenta_por_cobrar', COUNT(*) FROM cuenta_por_cobrar "
                         + "UNION ALL SELECT 'origen_fondos', COUNT(*) FROM origen_fondos "
                         + "UNION ALL SELECT 'metodo_pago', COUNT(*) FROM metodo_pago "

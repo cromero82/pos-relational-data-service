@@ -2,8 +2,10 @@
 -- Reset tablas transaccionales (POS) — v3
 -- =============================================================================
 -- BD: controlneg_rmx_db
--- Vacía ventas, cortes, ledger OF, egresos, inventario mov., CxC, notificaciones
--- de pago, etc. CONSERVA catálogos / paramétricas / maestros.
+-- Vacía ventas, cortes, ledger OF, egresos, inventario mov., CxC y
+-- correos *recibidos* (notificacion_email_pago / HRE).
+-- NO trunca plantillas de correo (plantilla_notificacion_pago).
+-- CONSERVA catálogos / paramétricas / maestros.
 --
 -- Conserva (NO truncar):
 --   origen_fondos, metodo_pago, motivo_movimiento, motivo_operacion,
@@ -19,6 +21,11 @@
 
 SET lock_timeout = '5s';
 SET client_min_messages = NOTICE;
+
+DROP TABLE IF EXISTS tmp_reset_guardas;
+CREATE TEMP TABLE tmp_reset_guardas AS
+SELECT 'plantilla_notificacion_pago'::text AS tabla, COUNT(*)::bigint AS n
+FROM plantilla_notificacion_pago;
 
 DO $$
 DECLARE
@@ -45,7 +52,7 @@ DECLARE
     'nota_ajuste_documento',
     'edicion_recibo_detalle',
     'edicion_recibo',
-    -- Confirmación pagos / email
+    -- Correos recibidos / pendientes HRE (NO plantilla_notificacion_pago)
     'ticket_sin_notificacion',
     'notificacion_email_pago',
     'historial_recibos_electronicos',
@@ -123,7 +130,17 @@ BEGIN
       n_base, n_corte, n_hr, n_mof;
   END IF;
 
-  RAISE NOTICE 'OK: ventas/cortes/ledger en 0. Logout + login ADMIN → base inicial.';
+  IF EXISTS (
+    SELECT 1
+    FROM tmp_reset_guardas g
+    WHERE g.tabla = 'plantilla_notificacion_pago'
+      AND g.n <> (SELECT COUNT(*) FROM plantilla_notificacion_pago)
+  ) THEN
+    RAISE EXCEPTION
+      'Reset no debe modificar plantilla_notificacion_pago (plantillas de correo).';
+  END IF;
+
+  RAISE NOTICE 'OK: ventas/cortes/ledger en 0. Plantillas de correo conservadas. Logout + login ADMIN → base inicial.';
 END $$;
 
 -- Verificación legible
