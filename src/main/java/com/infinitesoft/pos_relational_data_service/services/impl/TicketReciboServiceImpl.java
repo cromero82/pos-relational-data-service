@@ -94,10 +94,31 @@ public class TicketReciboServiceImpl implements TicketReciboService {
 
         Optional<TicketRecibo> existing = repository.findFirstByTicketId(ticketId);
         if (existing.isPresent()) {
-            return existing.get();
+            TicketRecibo link = existing.get();
+            if (enlaceReciboVigente(link)) {
+                return link;
+            }
+            repository.deleteById(link.getId());
+            repository.flush();
         }
 
-        // Resolve default client 'ANONIMO' via ClientService
+        return crearReciboYEnlace(ticketId, sessionId, reciboPadreId);
+    }
+
+    /** El enlace sirve solo si el recibo vive y sigue abierto (pendiente o edición). */
+    private boolean enlaceReciboVigente(TicketRecibo link) {
+        if (link == null || link.getReciboId() == null) {
+            return false;
+        }
+        Recibo recibo = reciboService.findById(link.getReciboId());
+        if (recibo == null) {
+            return false;
+        }
+        ReciboEstado estado = ReciboEstado.fromId(recibo.getEstadoId());
+        return estado == ReciboEstado.PENDIENTE_PAGO || estado == ReciboEstado.EDICION;
+    }
+
+    private TicketRecibo crearReciboYEnlace(Long ticketId, Long sessionId, Long reciboPadreId) {
         Client anonimo = clientService.findByNombre("ANONIMO");
         if (anonimo == null) {
             anonimo = Client.builder()
@@ -105,10 +126,8 @@ public class TicketReciboServiceImpl implements TicketReciboService {
                     .build();
             anonimo = clientService.create(anonimo);
         }
-        Long clienteId = anonimo.getId();
-        // Create a minimal Recibo using defaults and the ANONIMO client
         ReciboDto nuevoRecibo = ReciboDto.builder()
-                .clienteId(clienteId)
+                .clienteId(anonimo.getId())
                 .estadoId(ReciboEstado.PENDIENTE_PAGO.getId())
                 .metodoPagoId(null)
                 .sesionId(sessionId)
