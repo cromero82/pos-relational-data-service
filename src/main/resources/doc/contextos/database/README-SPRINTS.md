@@ -137,6 +137,23 @@ Scripts (después de `20`):
 | `43_cxc_anular_castigar.sql` | CxC `CASTIGADA` + traza cierre + tipo `CASTIGO_CARTERA` | (incluido en migrate) |
 | `44_hre_abono_cxc.sql` | HRE: `abono_cxc_id` + XOR con `historial_recibo_id` (panel QR abonos) | (incluido en migrate) |
 | `45_hre_monto_recibido.sql` | HRE: `monto_recibido` (match QR con monto ≠ esperado) | (incluido en migrate) |
+| `46_`…`49_` | Egresos: naturaleza/tipo, persona, `es_dueno_propietario` | (manual / apply egresos) |
+| `50_` / `51_` | Presentaciones UoM producto | (manual) |
+| `52_abono_cxc_cliente_pagador.sql` | Pagador del abono CxC | (manual) |
+| `53_` / `54_` | `permite_notificacion` + plantilla naturaleza Ingreso | (manual) |
+| `55_notificaciones_activa.sql` | `configuracion_app.notificaciones.activa` (ocultar panel UI) | (manual, idempotente) |
+| `56_ticket_observaciones.sql` | `ticket.observaciones` TEXT | (manual, idempotente) |
+
+### QA — desde la última oleada que trajo SQL (`53`→`54`, 2026-09-02)
+
+La oleada Historial Tickets (2026-09-03) **no** trajo SQL. Correr **en este orden** en `controlneg_rmx_db` y/o `controlneg_rmx_db_sandbox`:
+
+```bash
+psql -U romax-admin -d controlneg_rmx_db -f 55_notificaciones_activa.sql
+psql -U romax-admin -d controlneg_rmx_db -f 56_ticket_observaciones.sql
+```
+
+No hay SQL para el asistente de cierre de caja ni para minimizar el panel (UI / `localStorage`).
 
 **Formalizar egreso (smoke):** Orígenes → Sin Clasificar → fila `MOVIMIENTO BANCO POR IDENTIFICAR` → «Formalizar egreso» → proveedor → POST con `fromMovimientoOrigenFondosId`. Esperado: egreso + `SALIDA_EGRESO` solo en bolsa; banco sin 2ª resta; reintento → error idempotente.
 

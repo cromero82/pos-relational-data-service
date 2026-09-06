@@ -2,6 +2,7 @@
 
 > **2026-08:** Contexto general del POS → [`AI-ONBOARDING-basic.md`](./AI-ONBOARDING-basic.md).  
 > Finanzas / movimientos / orígenes / reset → [`AI-HANDOFF-FINANZAS-2026-08.md`](./AI-HANDOFF-FINANZAS-2026-08.md).  
+> Simular días / cortes sandbox (**pendiente**) → [`AI-HANDOFF-SANDBOX-SIMULAR-DIA-2026-09.md`](./AI-HANDOFF-SANDBOX-SIMULAR-DIA-2026-09.md).  
 > Monitor / HAR del FE (Angular) → [`AI-HANDOFF-MONITOR-2026-08.md`](./AI-HANDOFF-MONITOR-2026-08.md).  
 > Este archivo queda enfocado en **monitoreo backend → InfluxDB** (no confundir con el botón **Monitor** del FE ni con finanzas).
 

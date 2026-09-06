@@ -17,6 +17,7 @@
 |---------|----------------|
 | **Este** (`AI-ONBOARDING-basic.md`) | Arranque de cualquier chat / mapa del sistema |
 | [`AI-HANDOFF-FINANZAS-2026-08.md`](./AI-HANDOFF-FINANZAS-2026-08.md) | Orígenes, ledger, egresos, cierre, distribución, base inicial, **reset** |
+| [`AI-HANDOFF-SANDBOX-SIMULAR-DIA-2026-09.md`](./AI-HANDOFF-SANDBOX-SIMULAR-DIA-2026-09.md) | **Pendiente:** reloj sandbox + simular día 01/02/03 y 2 cortes el mismo día |
 | [`AI-HANDOFF-MONITOR-2026-08.md`](./AI-HANDOFF-MONITOR-2026-08.md) | Botón **Monitor** (bug-reporter), HAR JSON, Ver detalle |
 | [`database/README-SPRINTS.md`](./database/README-SPRINTS.md) | Orden SQL / migrate prod→dian-v2 |
 | [`AI-CONTEXT.md`](./AI-CONTEXT.md) | Logs BE → InfluxDB (no finanzas; no confundir con Monitor FE) |
