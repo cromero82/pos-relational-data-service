@@ -21,6 +21,7 @@ public class TicketDto {
     private Client cliente;
     private AtendidoPorDto atendidoPor;
     private Boolean perteneceUsuarioActual;
+    private String observaciones;
 
     @Data
     @NoArgsConstructor

@@ -346,51 +346,7 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
             totalAnterior = cxc.getMontoOriginal() != null ? cxc.getMontoOriginal() : BigDecimal.ZERO;
         }
 
-        BigDecimal delta = nuevoTotal.subtract(totalAnterior);
-        if (delta.compareTo(BigDecimal.ZERO) == 0) {
-            if (cxc.getTotalTicket() == null) {
-                cxc.setTotalTicket(nuevoTotal);
-                cxc = cuentaPorCobrarRepository.save(cxc);
-            }
-            return toDto(cxc);
-        }
-
-        BigDecimal original = cxc.getMontoOriginal() != null ? cxc.getMontoOriginal() : BigDecimal.ZERO;
-        BigDecimal saldo = cxc.getSaldoPendiente() != null ? cxc.getSaldoPendiente() : BigDecimal.ZERO;
-        BigDecimal abonado = original.subtract(saldo);
-        if (abonado.compareTo(BigDecimal.ZERO) < 0) {
-            abonado = BigDecimal.ZERO;
-        }
-
-        BigDecimal nuevoSaldo = saldo.add(delta);
-        if (nuevoSaldo.compareTo(BigDecimal.ZERO) < 0) {
-            nuevoSaldo = BigDecimal.ZERO;
-        }
-        BigDecimal nuevoOriginal = abonado.add(nuevoSaldo);
-
-        // ck_cxc_montos: monto_original > 0
-        if (nuevoOriginal.compareTo(BigDecimal.ZERO) <= 0) {
-            log.info(
-                    "CxC sync ticket={} total={} delta={}: sin monto crédito positivo; solo actualiza total_ticket",
-                    ticketId, nuevoTotal, delta);
-            cxc.setTotalTicket(nuevoTotal);
-            if (cxc.getReciboId() != null) {
-                reciboRepository.findById(cxc.getReciboId()).ifPresent(r -> {
-                    r.setTotal(nuevoTotal);
-                    reciboRepository.save(r);
-                });
-            }
-            return toDto(cuentaPorCobrarRepository.save(cxc));
-        }
-
-        cxc.setMontoOriginal(nuevoOriginal);
-        cxc.setSaldoPendiente(nuevoSaldo);
         cxc.setTotalTicket(nuevoTotal);
-        if (nuevoSaldo.compareTo(BigDecimal.ZERO) > 0) {
-            cxc.setEstado(abonado.compareTo(BigDecimal.ZERO) > 0 ? "PARCIAL" : "ABIERTA");
-        }
-        // saldo 0 por reducción de ticket: no marcar PAGADA (sigue vigente si re-agrega ítems)
-
         if (cxc.getReciboId() != null) {
             Recibo recibo = reciboRepository.findById(cxc.getReciboId()).orElse(null);
             if (recibo != null) {
@@ -399,11 +355,20 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
             }
         }
 
+        reconciliarMontos(cxc);
+        if (cxc.getMontoOriginal() == null
+                || cxc.getMontoOriginal().compareTo(BigDecimal.ZERO) <= 0) {
+            log.info(
+                    "CxC sync ticket={} total={}: sin monto crédito positivo; solo actualiza total_ticket",
+                    ticketId, nuevoTotal);
+            cxc.setTotalTicket(nuevoTotal);
+        }
+
         CuentaPorCobrar saved = cuentaPorCobrarRepository.save(cxc);
         log.info(
-                "CxC sync id={} ticket={} total {}→{} delta={} original={} saldo={}",
-                saved.getId(), ticketId, totalAnterior, nuevoTotal, delta,
-                nuevoOriginal, nuevoSaldo);
+                "CxC sync id={} ticket={} total {}→{} original={} saldo={}",
+                saved.getId(), ticketId, totalAnterior, nuevoTotal,
+                saved.getMontoOriginal(), saved.getSaldoPendiente());
         return toDto(saved);
     }
 
@@ -431,6 +396,7 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
             throw new IllegalArgumentException(
                     "La cuenta #" + cuentaId + " no está vigente (estado " + cxc.getEstado() + ").");
         }
+        reconciliarMontos(cxc);
         BigDecimal saldo = cxc.getSaldoPendiente() != null ? cxc.getSaldoPendiente() : BigDecimal.ZERO;
         if (monto.compareTo(saldo) > 0) {
             throw new IllegalArgumentException(
@@ -449,8 +415,8 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 trimToNull(request.getClientePagadorNombre())
         );
 
-        BigDecimal nuevoSaldo = saldo.subtract(monto);
-        cxc.setSaldoPendiente(nuevoSaldo);
+        reconciliarMontos(cxc);
+        BigDecimal nuevoSaldo = cxc.getSaldoPendiente() != null ? cxc.getSaldoPendiente() : BigDecimal.ZERO;
         if (nuevoSaldo.compareTo(BigDecimal.ZERO) == 0) {
             cxc.setEstado("PAGADA");
             formalizarTicketSiLiquidada(cxc);
@@ -712,6 +678,9 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 ticketReciboRepository.flush();
             }
         }
+        if (ticketId != null) {
+            ticketService.updateObservaciones(ticketId, null);
+        }
 
         log.info(
                 "CxC #{} liquidada → historial={} docVenta={} ticketDesvinculado={}",
@@ -925,6 +894,12 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
         long abonos = entity.getId() != null
                 ? abonoCxcRepository.countByCuentaPorCobrarId(entity.getId())
                 : 0L;
+        BigDecimal total = totalObligacion(entity);
+        BigDecimal abonado = sumaAbonos(entity.getId());
+        BigDecimal saldo = total.subtract(abonado);
+        if (saldo.compareTo(BigDecimal.ZERO) < 0) {
+            saldo = BigDecimal.ZERO;
+        }
         return CuentaPorCobrarDto.builder()
                 .id(entity.getId())
                 .historialReciboId(entity.getHistorialReciboId())
@@ -936,9 +911,9 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 .clienteTelefono(cliente != null ? cliente.getTelefono() : null)
                 .clienteCorreo(cliente != null ? cliente.getCorreo() : null)
                 .fechaOrigen(entity.getFechaOrigen())
-                .montoOriginal(entity.getMontoOriginal())
-                .saldoPendiente(entity.getSaldoPendiente())
-                .totalTicket(entity.getTotalTicket())
+                .montoOriginal(total)
+                .saldoPendiente(saldo)
+                .totalTicket(total)
                 .estado(entity.getEstado())
                 .observacion(entity.getObservacion())
                 .fechaCierre(entity.getFechaCierre())
@@ -947,6 +922,42 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 .valorPerdidaCosto(entity.getValorPerdidaCosto())
                 .cantidadAbonos(abonos)
                 .build();
+    }
+
+    private BigDecimal sumaAbonos(Long cuentaId) {
+        if (cuentaId == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal sum = abonoCxcRepository.sumMontoByCuentaPorCobrarId(cuentaId);
+        return sum != null ? sum : BigDecimal.ZERO;
+    }
+
+    private BigDecimal totalObligacion(CuentaPorCobrar cxc) {
+        if (cxc.getTotalTicket() != null && cxc.getTotalTicket().compareTo(BigDecimal.ZERO) > 0) {
+            return cxc.getTotalTicket();
+        }
+        return cxc.getMontoOriginal() != null ? cxc.getMontoOriginal() : BigDecimal.ZERO;
+    }
+
+    /**
+     * Saldo real = total del ticket − suma de abonos (evita desfase al agregar
+     * productos o al registrar varios abonos).
+     */
+    private void reconciliarMontos(CuentaPorCobrar cxc) {
+        BigDecimal total = totalObligacion(cxc);
+        BigDecimal abonado = sumaAbonos(cxc.getId());
+        BigDecimal saldo = total.subtract(abonado);
+        if (saldo.compareTo(BigDecimal.ZERO) < 0) {
+            saldo = BigDecimal.ZERO;
+        }
+        cxc.setTotalTicket(total);
+        if (total.compareTo(BigDecimal.ZERO) > 0) {
+            cxc.setMontoOriginal(total);
+        }
+        cxc.setSaldoPendiente(saldo);
+        if (saldo.compareTo(BigDecimal.ZERO) > 0 && ESTADOS_VIGENTES.contains(cxc.getEstado())) {
+            cxc.setEstado(abonado.compareTo(BigDecimal.ZERO) > 0 ? "PARCIAL" : "ABIERTA");
+        }
     }
 
     private static String trimToNull(String raw) {

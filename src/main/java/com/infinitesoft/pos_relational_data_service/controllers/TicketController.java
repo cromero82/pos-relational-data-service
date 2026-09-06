@@ -1,6 +1,7 @@
 package com.infinitesoft.pos_relational_data_service.controllers;
 
 import com.infinitesoft.pos_relational_data_service.dto.TicketDto;
+import com.infinitesoft.pos_relational_data_service.dto.TicketObservacionesRequest;
 import com.infinitesoft.pos_relational_data_service.dto.TicketReciboClienteRequest;
 import com.infinitesoft.pos_relational_data_service.entities.Recibo;
 import com.infinitesoft.pos_relational_data_service.entities.Ticket;
@@ -61,6 +62,18 @@ public class TicketController {
     @PutMapping("/{id}")
     public ResponseEntity<Ticket> update(@PathVariable Long id, @RequestBody Ticket ticket) {
         Ticket updated = ticketService.update(id, ticket);
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(updated);
+    }
+
+    @PutMapping("/{id}/observaciones")
+    public ResponseEntity<Ticket> actualizarObservaciones(
+            @PathVariable Long id,
+            @RequestBody TicketObservacionesRequest request) {
+        Ticket updated = ticketService.updateObservaciones(
+                id, request != null ? request.getObservaciones() : null);
         if (updated == null) {
             return ResponseEntity.notFound().build();
         }

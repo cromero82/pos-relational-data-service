@@ -11,14 +11,14 @@ import java.util.Optional;
 
 @Repository
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
-    @Query(value = "SELECT t.id, t.sesion_id, t.nombre, t.orden, t.fecha_creacion, r.cliente_id " +
+    @Query(value = "SELECT t.id, t.sesion_id, t.nombre, t.orden, t.fecha_creacion, r.cliente_id, t.observaciones " +
                    "FROM ticket t " +
                    "LEFT JOIN ticket_recibo tr ON t.id = tr.ticket_id " +
                    "LEFT JOIN recibo r ON tr.recibo_id = r.id AND r.cliente_id != :anonId " +
                    "WHERE t.sesion_id = :sessionId ORDER BY t.orden ASC", nativeQuery = true)
     List<Object[]> findTicketsWithNonAnonClienteBySessionId(@Param("sessionId") Long sessionId, @Param("anonId") Long anonId);
 
-    @Query(value = "SELECT t.id, t.sesion_id, t.nombre, t.orden, t.fecha_creacion, r.cliente_id " +
+    @Query(value = "SELECT t.id, t.sesion_id, t.nombre, t.orden, t.fecha_creacion, r.cliente_id, t.observaciones " +
                    "FROM ticket t " +
                    "JOIN ticket_recibo tr ON t.id = tr.ticket_id " +
                    "JOIN recibo r ON tr.recibo_id = r.id " +

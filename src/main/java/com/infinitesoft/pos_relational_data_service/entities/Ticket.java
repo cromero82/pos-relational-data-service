@@ -37,6 +37,9 @@ public class Ticket {
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
 
+    @Column(name = "observaciones")
+    private String observaciones;
+
     @PrePersist
     protected void onPrePersist() {
         if (fechaCreacion == null) {

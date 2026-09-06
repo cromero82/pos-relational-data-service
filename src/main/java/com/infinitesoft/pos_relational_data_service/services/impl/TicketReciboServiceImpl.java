@@ -11,6 +11,7 @@ import com.infinitesoft.pos_relational_data_service.services.ClientService;
 import com.infinitesoft.pos_relational_data_service.services.ReciboService;
 import com.infinitesoft.pos_relational_data_service.services.SesionService;
 import com.infinitesoft.pos_relational_data_service.services.TicketReciboService;
+import com.infinitesoft.pos_relational_data_service.services.TicketService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,10 @@ public class TicketReciboServiceImpl implements TicketReciboService {
     @Autowired
     @Lazy
     private SesionService sesionService;
+
+    @Autowired
+    @Lazy
+    private TicketService ticketService;
 
     @Override
     public TicketRecibo create(TicketRecibo tr) {
@@ -136,6 +141,9 @@ public class TicketReciboServiceImpl implements TicketReciboService {
                 .reciboIdPadre(reciboPadreId)
                 .build();
         Recibo savedRecibo = reciboService.create(nuevoRecibo);
+
+        // Recibo nuevo = venta nueva en el mismo tab: no heredar comentario del ticket anterior.
+        ticketService.updateObservaciones(ticketId, null);
 
         TicketRecibo enlace = TicketRecibo.builder()
                 .ticketId(ticketId)

@@ -624,7 +624,7 @@ public class BackupService {
 
     private void crearHojaTicket(Workbook workbook) {
         Sheet sheet = workbook.createSheet("Ticket");
-        String[] headers = {"ID", "Sesión ID", "Nombre", "Fecha Creación", "Orden"};
+        String[] headers = {"ID", "Sesión ID", "Nombre", "Fecha Creación", "Orden", "Observaciones"};
         createHeaderRow(sheet, headers);
 
         List<Ticket> list = ticketRepository.findAll();
@@ -636,6 +636,7 @@ public class BackupService {
             row.createCell(2).setCellValue(clean(item.getNombre()));
             row.createCell(3).setCellValue(formatDate(item.getFechaCreacion()));
             row.createCell(4).setCellValue(item.getOrden() != null ? item.getOrden() : 0);
+            row.createCell(5).setCellValue(clean(item.getObservaciones()));
         }
     }
 

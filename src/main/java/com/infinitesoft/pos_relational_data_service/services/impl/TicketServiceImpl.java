@@ -120,11 +120,12 @@ public class TicketServiceImpl implements TicketService {
 
         return results.stream().map(row -> {
             // Mapping native query result:
-            // [0:id, 1:sesion_id, 2:nombre, 3:orden, 4:fecha_creacion, 5:cliente_id]
+            // [0:id, 1:sesion_id, 2:nombre, 3:orden, 4:fecha_creacion, 5:cliente_id, 6:observaciones]
             Long ticketId = ((Number) row[0]).longValue();
             Long sId = row[1] != null ? ((Number) row[1]).longValue() : null;
             String nombre = (String) row[2];
             Long orden = row[3] != null ? ((Number) row[3]).longValue() : 1L;
+            String observaciones = row.length > 6 && row[6] != null ? String.valueOf(row[6]) : null;
             
             LocalDateTime fechaCreacion = null;
             if (row[4] != null) {
@@ -144,6 +145,7 @@ public class TicketServiceImpl implements TicketService {
                     .orden(orden)
                     .fechaCreacion(fechaCreacion)
                     .perteneceUsuarioActual(finalCurrentUserId != null && finalCurrentUserId.equals(finalSessionUserId))
+                    .observaciones(observaciones)
                     .build();
 
             // Si es de otra sesión, necesitamos cargar su propio userId para atendidoPor y perteneceUsuarioActual
@@ -182,8 +184,33 @@ public class TicketServiceImpl implements TicketService {
         existing.setNombre(ticket.getNombre());
         existing.setSessionId(ticket.getSessionId());
         existing.setOrden(ticket.getOrden());
+        if (ticket.getObservaciones() != null) {
+            existing.setObservaciones(normalizarObservaciones(ticket.getObservaciones()));
+        }
         // fechaCreacion is updatable=false, will be preserved
         return ticketRepository.save(existing);
+    }
+
+    @Override
+    public Ticket updateObservaciones(Long id, String observaciones) {
+        if (id == null) {
+            return null;
+        }
+        Optional<Ticket> existingOpt = ticketRepository.findById(id);
+        if (existingOpt.isEmpty()) {
+            return null;
+        }
+        Ticket existing = existingOpt.get();
+        existing.setObservaciones(normalizarObservaciones(observaciones));
+        return ticketRepository.save(existing);
+    }
+
+    private static String normalizarObservaciones(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     @Override

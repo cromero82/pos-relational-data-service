@@ -14,6 +14,7 @@ public interface TicketService {
     List<Ticket> findBySessionId(Long sessionId);
     List<TicketDto> findBySessionIdDto(Long sessionId, HttpServletRequest request);
     Ticket update(Long id, Ticket ticket);
+    Ticket updateObservaciones(Long id, String observaciones);
     Ticket updateCliente(TicketReciboClienteRequest request);
     List<Ticket> updateAll(List<Ticket> tickets);
     boolean delete(Long id);
