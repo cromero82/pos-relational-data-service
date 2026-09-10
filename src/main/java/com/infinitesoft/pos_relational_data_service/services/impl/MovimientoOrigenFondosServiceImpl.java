@@ -4,6 +4,7 @@ import com.infinitesoft.pos_relational_data_service.dto.*;
 import com.infinitesoft.pos_relational_data_service.entities.OrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.CorteVentaDetalle;
 import com.infinitesoft.pos_relational_data_service.entities.Egreso;
+import com.infinitesoft.pos_relational_data_service.entities.EgresoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.Establecimiento;
 import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.Persona;
@@ -604,13 +605,13 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
         if (egreso == null || egreso.getId() == null) {
             throw new IllegalArgumentException("El egreso guardado es obligatorio para registrar el movimiento.");
         }
-        if (egreso.getOrigenFondosId() == null) {
+        List<EgresoOrigenFondos> lineas = egreso.origenesEfectivos();
+        if (lineas.isEmpty()) {
             throw new IllegalArgumentException("Debe indicar el origen de fondos del egreso.");
         }
         if (egreso.getValor() == null || egreso.getValor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El valor del egreso debe ser mayor a cero.");
         }
-        OrigenFondos cuenta = requireOrigenParaSalidaEgreso(egreso);
         LocalDate fecha = egreso.getFecha() != null
                 ? egreso.getFecha()
                 : DateUtils.obtenerFechaSistema().toLocalDate();
@@ -618,24 +619,28 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
         String clasificacion = egreso.getFromMovimientoOrigenFondosId() != null
                 ? "GASTO_NEGOCIO"
                 : null;
-        MovimientoOrigenFondos saved = persistirMovimiento(
-                cuenta,
-                null,
-                TipoMovimientoOrigenFondos.SALIDA_EGRESO,
-                egreso.getValor(),
-                egreso.getValor().negate(),
-                fecha,
-                null,
-                null,
-                observacion,
-                null,
-                null,
-                "EGRESO",
-                egreso.getId(),
-                null,
-                clasificacion
-        );
-        return toDto(saved);
+        MovimientoOrigenFondos last = null;
+        for (EgresoOrigenFondos linea : lineas) {
+            OrigenFondos cuenta = requireOrigenParaSalidaEgreso(egreso, linea.getOrigenFondosId());
+            last = persistirMovimiento(
+                    cuenta,
+                    null,
+                    TipoMovimientoOrigenFondos.SALIDA_EGRESO,
+                    linea.getValor(),
+                    linea.getValor().negate(),
+                    fecha,
+                    null,
+                    null,
+                    observacion,
+                    null,
+                    null,
+                    "EGRESO",
+                    egreso.getId(),
+                    null,
+                    clasificacion
+            );
+        }
+        return toDto(last);
     }
 
     @Override
@@ -680,12 +685,12 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
             return;
         }
         boolean sinCambio = anterior != null
-                && anterior.getOrigenFondosId() != null
-                && anterior.getOrigenFondosId().equals(actualizado.getOrigenFondosId())
                 && anterior.getValor() != null
+                && actualizado.getValor() != null
                 && anterior.getValor().compareTo(actualizado.getValor()) == 0
                 && anterior.getFecha() != null
-                && anterior.getFecha().equals(actualizado.getFecha());
+                && anterior.getFecha().equals(actualizado.getFecha())
+                && mismasLineasOrigen(anterior, actualizado);
         if (sinCambio) {
             return;
         }
@@ -693,12 +698,41 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
         registrarSalidaEgreso(actualizado);
     }
 
+    private boolean mismasLineasOrigen(Egreso a, Egreso b) {
+        List<EgresoOrigenFondos> la = a.origenesEfectivos();
+        List<EgresoOrigenFondos> lb = b.origenesEfectivos();
+        if (la.size() != lb.size()) {
+            return false;
+        }
+        List<EgresoOrigenFondos> sa = la.stream()
+                .sorted((x, y) -> Integer.compare(
+                        x.getOrigenFondosId() != null ? x.getOrigenFondosId() : 0,
+                        y.getOrigenFondosId() != null ? y.getOrigenFondosId() : 0))
+                .collect(Collectors.toList());
+        List<EgresoOrigenFondos> sb = lb.stream()
+                .sorted((x, y) -> Integer.compare(
+                        x.getOrigenFondosId() != null ? x.getOrigenFondosId() : 0,
+                        y.getOrigenFondosId() != null ? y.getOrigenFondosId() : 0))
+                .collect(Collectors.toList());
+        for (int i = 0; i < sa.size(); i++) {
+            EgresoOrigenFondos x = sa.get(i);
+            EgresoOrigenFondos y = sb.get(i);
+            if (x.getOrigenFondosId() == null || !x.getOrigenFondosId().equals(y.getOrigenFondosId())) {
+                return false;
+            }
+            if (x.getValor() == null || y.getValor() == null || x.getValor().compareTo(y.getValor()) != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Misma regla que EgresoServiceImpl: visibleEnEgreso, o Cuenta del dueño + persona dueño + PERSONAL/DIVIDENDOS.
      * La validación primaria está en egreso; aquí se refuerza para no abrir agujero en el ledger.
      */
-    private OrigenFondos requireOrigenParaSalidaEgreso(Egreso egreso) {
-        OrigenFondos cuenta = requireOrigen(egreso.getOrigenFondosId());
+    private OrigenFondos requireOrigenParaSalidaEgreso(Egreso egreso, Integer origenFondosId) {
+        OrigenFondos cuenta = requireOrigen(origenFondosId);
         if (Boolean.FALSE.equals(cuenta.getActivo())) {
             throw new IllegalArgumentException("La origen de fondos no está activa.");
         }

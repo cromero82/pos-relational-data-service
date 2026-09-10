@@ -16,6 +16,7 @@ import java.util.List;
 public class CorteVentaDTO {
     private Long id;
     private String usuarioId;
+    private LocalDateTime fechaCreacion;
     private LocalDateTime fechaIni;
     private LocalDateTime fechaFin;
     private Long ultimoHistorialReciboId;

@@ -709,7 +709,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
     @Override
     public List<CorteVentaDTO> search(LocalDateTime fechaIni, LocalDateTime fechaFin) {
         log.info("Iniciando servicio CorteVentaServiceImpl - Método: search - fechaIni: {} - fechaFin: {}", fechaIni, fechaFin);
-        return repository.findByFechaIniGreaterThanEqualAndFechaIniLessThanEqual(fechaIni, fechaFin)
+        return repository.searchEnRango(fechaIni, fechaFin)
                 .stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -770,6 +770,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
         return CorteVentaDTO.builder()
                 .id(entity.getId())
                 .usuarioId(entity.getUsuarioId())
+                .fechaCreacion(entity.getFechaCreacion())
                 .fechaIni(entity.getFechaIni())
                 .fechaFin(entity.getFechaFin())
                 .ultimoHistorialReciboId(entity.getUltimoHistorialReciboId())

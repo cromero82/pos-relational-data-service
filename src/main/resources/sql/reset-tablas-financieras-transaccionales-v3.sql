@@ -37,9 +37,10 @@ DECLARE
     'corte_venta_detalle',
     'ventas_tipo',
     'corte_venta',
-    -- Ledger OF + egresos
+    -- Ledger OF + egresos (líneas 1:N antes del documento)
     'movimiento_origen_fondos',
     'movimiento_bolsillo',
+    'egreso_origen_fondos',
     'egreso',
     -- Inventario transaccional
     'entrada_inventario_detalle',
@@ -153,6 +154,7 @@ FROM (
   UNION ALL SELECT 'documento_venta', COUNT(*) FROM documento_venta
   UNION ALL SELECT 'ticket', COUNT(*) FROM ticket
   UNION ALL SELECT 'egreso', COUNT(*) FROM egreso
+  UNION ALL SELECT 'egreso_origen_fondos', COUNT(*) FROM egreso_origen_fondos
   UNION ALL SELECT 'notificacion_email_pago', COUNT(*) FROM notificacion_email_pago
   UNION ALL SELECT 'cuenta_por_cobrar', COUNT(*) FROM cuenta_por_cobrar
   UNION ALL SELECT 'abono_cxc', COUNT(*) FROM abono_cxc

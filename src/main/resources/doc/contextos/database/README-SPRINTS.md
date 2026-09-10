@@ -143,6 +143,7 @@ Scripts (después de `20`):
 | `53_` / `54_` | `permite_notificacion` + plantilla naturaleza Ingreso | (manual) |
 | `55_notificaciones_activa.sql` | `configuracion_app.notificaciones.activa` (ocultar panel UI) | (manual, idempotente) |
 | `56_ticket_observaciones.sql` | `ticket.observaciones` TEXT | (manual, idempotente) |
+| `58_asociaciones_egresos_obligatorio.sql` | `configuracion_app` key `notificaciones.asociaciones-egresos.obligatorio` | (manual, idempotente) |
 
 ### QA — desde la última oleada que trajo SQL (`53`→`54`, 2026-09-02)
 
@@ -151,6 +152,8 @@ La oleada Historial Tickets (2026-09-03) **no** trajo SQL. Correr **en este orde
 ```bash
 psql -U romax-admin -d controlneg_rmx_db -f 55_notificaciones_activa.sql
 psql -U romax-admin -d controlneg_rmx_db -f 56_ticket_observaciones.sql
+psql -U romax-admin -d controlneg_rmx_db -f 57_egreso_origen_fondos.sql
+psql -U romax-admin -d controlneg_rmx_db -f 58_asociaciones_egresos_obligatorio.sql
 ```
 
 No hay SQL para el asistente de cierre de caja ni para minimizar el panel (UI / `localStorage`).

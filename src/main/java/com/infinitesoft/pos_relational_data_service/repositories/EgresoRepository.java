@@ -55,11 +55,11 @@ public interface EgresoRepository extends JpaRepository<Egreso, Long> {
             + "(t IS NOT NULL AND LOWER(t.nombre) LIKE LOWER(CONCAT('%', :texto, '%'))))")
     Page<Egreso> searchDescripciones(@Param("texto") String texto, Pageable pageable);
 
-    @Query("SELECT e.metodoPagoId, SUM(e.valor) FROM Egreso e "
-            + "WHERE e.metodoPagoId IS NOT NULL "
+    @Query("SELECT o.metodoPagoId, SUM(o.valor) FROM Egreso e JOIN e.origenes o "
+            + "WHERE o.metodoPagoId IS NOT NULL "
             + "AND (e.fechaCreacion >= :start AND e.fechaCreacion <= :end "
             + "     OR (e.fecha >= :fechaDesde AND e.fecha <= :fechaHasta)) "
-            + "GROUP BY e.metodoPagoId")
+            + "GROUP BY o.metodoPagoId")
     List<Object[]> findResumenEgresosPorMetodoPago(@Param("start") LocalDateTime start,
                                                    @Param("end") LocalDateTime end,
                                                    @Param("fechaDesde") LocalDate fechaDesde,

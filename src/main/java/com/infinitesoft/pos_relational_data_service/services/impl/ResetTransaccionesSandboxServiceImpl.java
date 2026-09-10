@@ -39,6 +39,7 @@ public class ResetTransaccionesSandboxServiceImpl implements ResetTransaccionesS
             "corte_venta",
             "movimiento_origen_fondos",
             "movimiento_bolsillo",
+            "egreso_origen_fondos",
             "egreso",
             "entrada_inventario_detalle",
             "entrada_inventario",
@@ -193,6 +194,7 @@ public class ResetTransaccionesSandboxServiceImpl implements ResetTransaccionesS
                         + "UNION ALL SELECT 'movimiento_origen_fondos', COUNT(*) FROM movimiento_origen_fondos "
                         + "UNION ALL SELECT 'historial_recibo', COUNT(*) FROM historial_recibo "
                         + "UNION ALL SELECT 'egreso', COUNT(*) FROM egreso "
+                        + "UNION ALL SELECT 'egreso_origen_fondos', COUNT(*) FROM egreso_origen_fondos "
                         + "UNION ALL SELECT 'notificacion_email_pago', COUNT(*) FROM notificacion_email_pago "
                         + "UNION ALL SELECT 'plantilla_notificacion_pago', COUNT(*) FROM plantilla_notificacion_pago "
                         + "UNION ALL SELECT 'cuenta_por_cobrar', COUNT(*) FROM cuenta_por_cobrar "

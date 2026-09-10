@@ -2,6 +2,7 @@ package com.infinitesoft.pos_relational_data_service.services.impl;
 
 import com.infinitesoft.pos_relational_data_service.entities.OrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.Egreso;
+import com.infinitesoft.pos_relational_data_service.entities.EgresoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.MetodoPago;
 import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.Persona;
@@ -30,7 +31,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Log4j2
@@ -67,39 +71,97 @@ public class EgresoServiceImpl implements EgresoService {
     private TipoEgresoRepository tipoEgresoRepository;
 
     /**
-     * El método de pago es opcional (derivado del O.F. si existe).
-     * Prima {@code origenFondosId}; cuentas como Caja Menor no tienen medio de pago.
+     * Normaliza líneas 1:N, valida cada origen y que la suma coincida con {@code valor}.
+     * Conserva snapshot {@code origenFondosId}/{@code metodoPagoId} del primer origen.
      */
-    private void validarMetodoPago(Egreso egreso) {
-        if (egreso.getMetodoPagoId() == null) {
+    private void normalizarYValidarOrigenes(Egreso egreso) {
+        List<EgresoOrigenFondos> lineas = new ArrayList<>();
+        if (egreso.getOrigenes() != null) {
+            for (EgresoOrigenFondos linea : egreso.getOrigenes()) {
+                if (linea != null && linea.getOrigenFondosId() != null) {
+                    lineas.add(linea);
+                }
+            }
+        }
+        if (lineas.isEmpty() && egreso.getOrigenFondosId() != null) {
+            lineas.add(EgresoOrigenFondos.builder()
+                    .origenFondosId(egreso.getOrigenFondosId())
+                    .valor(egreso.getValor())
+                    .orden(0)
+                    .build());
+        }
+        if (lineas.isEmpty()) {
+            throw new IllegalArgumentException("Debe indicar al menos un origen del egreso.");
+        }
+        if (egreso.getValor() == null || egreso.getValor().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El valor del egreso debe ser mayor a cero.");
+        }
+
+        Set<Integer> vistos = new HashSet<>();
+        BigDecimal suma = BigDecimal.ZERO;
+        int orden = 0;
+        for (EgresoOrigenFondos linea : lineas) {
+            if (!vistos.add(linea.getOrigenFondosId())) {
+                throw new IllegalArgumentException(
+                        "El origen de fondos no puede repetirse en el mismo egreso.");
+            }
+            if (linea.getValor() == null || linea.getValor().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException(
+                        "Cada origen del egreso debe tener un valor mayor a cero.");
+            }
+            OrigenFondos cuenta = origenFondosRepository.findById(linea.getOrigenFondosId())
+                    .orElseThrow(() -> new IllegalArgumentException("Origen de fondos no encontrado."));
+            if (Boolean.FALSE.equals(cuenta.getActivo())) {
+                throw new IllegalArgumentException("La origen de fondos no está activa: " + cuenta.getNombre());
+            }
+            if (!origenPermitidoParaEgreso(cuenta, egreso)) {
+                if (esCuentaDelDueno(cuenta)) {
+                    throw new IllegalArgumentException(
+                            "Cuenta del dueño solo aplica con naturaleza PERSONAL/DIVIDENDOS "
+                                    + "y persona marcada como dueño/propietario.");
+                }
+                throw new IllegalArgumentException(
+                        "La cuenta «" + cuenta.getNombre() + "» no está habilitada para egresos.");
+            }
+            Long metodoId = origenFondosService.resolverMetodoPagoId(linea.getOrigenFondosId());
+            linea.setMetodoPagoId(metodoId);
+            validarMetodoPagoId(metodoId);
+            linea.setEgreso(egreso);
+            linea.setId(null);
+            linea.setOrden(orden++);
+            suma = suma.add(linea.getValor());
+        }
+        if (suma.compareTo(egreso.getValor()) != 0) {
+            throw new IllegalArgumentException(
+                    "La suma de los orígenes (" + suma + ") debe ser igual al valor del egreso ("
+                            + egreso.getValor() + ").");
+        }
+
+        if (egreso.getOrigenes() == null) {
+            egreso.setOrigenes(new ArrayList<>());
+        } else {
+            egreso.getOrigenes().clear();
+        }
+        egreso.getOrigenes().addAll(lineas);
+
+        EgresoOrigenFondos primero = lineas.get(0);
+        egreso.setOrigenFondosId(primero.getOrigenFondosId());
+        egreso.setMetodoPagoId(primero.getMetodoPagoId());
+    }
+
+    /**
+     * El método de pago es opcional (derivado del O.F. si existe).
+     * Cuentas como Caja Menor no tienen medio de pago.
+     */
+    private void validarMetodoPagoId(Long metodoPagoId) {
+        if (metodoPagoId == null) {
             return;
         }
-        MetodoPago metodoPago = metodoPagoRepository.findById(egreso.getMetodoPagoId())
+        MetodoPago metodoPago = metodoPagoRepository.findById(metodoPagoId)
                 .orElseThrow(() -> new IllegalArgumentException("Método de pago no encontrado."));
         if (Boolean.FALSE.equals(metodoPago.getVisiblePagosEgresos())) {
             throw new IllegalArgumentException("El método de pago no está habilitado para egresos.");
         }
-    }
-
-    private void validarOrigenFondos(Egreso egreso) {
-        if (egreso.getOrigenFondosId() == null) {
-            throw new IllegalArgumentException("Debe indicar el origen del egreso (medio o origen).");
-        }
-        OrigenFondos cuenta = origenFondosRepository.findById(egreso.getOrigenFondosId())
-                .orElseThrow(() -> new IllegalArgumentException("Origen de fondos no encontrada."));
-        if (Boolean.FALSE.equals(cuenta.getActivo())) {
-            throw new IllegalArgumentException("La origen de fondos no está activa.");
-        }
-        if (!origenPermitidoParaEgreso(cuenta, egreso)) {
-            if (esCuentaDelDueno(cuenta)) {
-                throw new IllegalArgumentException(
-                        "Cuenta del dueño solo aplica con naturaleza PERSONAL/DIVIDENDOS "
-                                + "y persona marcada como dueño/propietario.");
-            }
-            throw new IllegalArgumentException("La cuenta seleccionada no está habilitada para egresos.");
-        }
-        // Nullable: no todas las cuentas tienen método de pago vinculado.
-        egreso.setMetodoPagoId(origenFondosService.resolverMetodoPagoId(egreso.getOrigenFondosId()));
     }
 
     /**
@@ -154,8 +216,7 @@ public class EgresoServiceImpl implements EgresoService {
         log.info("Iniciando servicio EgresoServiceImpl - Método: create - Egreso: {}", egreso);
         aplicarFormalizarDesdeMovimiento(egreso);
         resolverTipoYNaturaleza(egreso);
-        validarOrigenFondos(egreso);
-        validarMetodoPago(egreso);
+        normalizarYValidarOrigenes(egreso);
 
         LocalDate requestDate = egreso.getFecha();
 
@@ -168,8 +229,9 @@ public class EgresoServiceImpl implements EgresoService {
     }
 
     /**
-     * Formalizar egreso: el dinero ya está en Para ordenar (u otra bolsa por identificar).
-     * Fuerza {@code origenFondosId} = OF del movimiento (impacto +) y evita doble resta del banco.
+     * Formalizar egreso: el dinero ya está en la bolsa (p.ej. Sin Clasificar).
+     * Si no hay líneas de origen, usa el OF del movimiento; si hay, debe incluirlo.
+     * La SALIDA_EGRESO de esa línea sale de esa bolsa (no resta de nuevo el banco).
      */
     private void aplicarFormalizarDesdeMovimiento(Egreso egreso) {
         Long movId = egreso.getFromMovimientoOrigenFondosId();
@@ -198,7 +260,17 @@ public class EgresoServiceImpl implements EgresoService {
             throw new IllegalArgumentException(
                     "Tipo de movimiento no formalizable: " + mov.getTipoMovimiento());
         }
-        egreso.setOrigenFondosId(mov.getOrigenFondosId());
+        Integer ofMov = mov.getOrigenFondosId();
+        if (egreso.getOrigenes() == null || egreso.getOrigenes().isEmpty()) {
+            egreso.setOrigenFondosId(ofMov);
+        } else {
+            boolean incluido = egreso.getOrigenes().stream()
+                    .anyMatch(o -> ofMov != null && ofMov.equals(o.getOrigenFondosId()));
+            if (!incluido) {
+                throw new IllegalArgumentException(
+                        "El origen del movimiento a formalizar debe estar entre los orígenes del egreso.");
+            }
+        }
         if (egreso.getValor() == null || egreso.getValor().compareTo(BigDecimal.ZERO) <= 0) {
             egreso.setValor(mov.getValor());
         }
@@ -230,13 +302,68 @@ public class EgresoServiceImpl implements EgresoService {
             egreso.setFromMovimientoOrigenFondosId(anterior.getFromMovimientoOrigenFondosId());
         }
         resolverTipoYNaturaleza(egreso);
-        validarOrigenFondos(egreso);
-        validarMetodoPago(egreso);
-        egreso.setId(id);
-        Egreso saved = egresoRepository.save(egreso);
-        movimientoOrigenFondosService.sincronizarSalidaEgreso(anterior, saved);
-        ajustarEstadisticas(egreso.getFecha());
+        normalizarYValidarOrigenes(egreso);
+
+        Egreso snapshotAnterior = Egreso.builder()
+                .id(anterior.getId())
+                .fecha(anterior.getFecha())
+                .valor(anterior.getValor())
+                .origenFondosId(anterior.getOrigenFondosId())
+                .origenes(copiarLineas(anterior.origenesEfectivos()))
+                .build();
+
+        copiarCamposEgreso(anterior, egreso);
+        reemplazarOrigenes(anterior, egreso.getOrigenes());
+        Egreso saved = egresoRepository.save(anterior);
+        movimientoOrigenFondosService.sincronizarSalidaEgreso(snapshotAnterior, saved);
+        ajustarEstadisticas(saved.getFecha());
         return saved;
+    }
+
+    private void copiarCamposEgreso(Egreso destino, Egreso origen) {
+        destino.setFecha(origen.getFecha());
+        destino.setValor(origen.getValor());
+        destino.setDescripcion(origen.getDescripcion());
+        destino.setProveedor(origen.getProveedor());
+        destino.setPersona(origen.getPersona());
+        destino.setTipoEgreso(origen.getTipoEgreso());
+        destino.setNaturaleza(origen.getNaturaleza());
+        destino.setMetodoPagoId(origen.getMetodoPagoId());
+        destino.setOrigenFondosId(origen.getOrigenFondosId());
+        destino.setFromMovimientoOrigenFondosId(origen.getFromMovimientoOrigenFondosId());
+    }
+
+    private void reemplazarOrigenes(Egreso destino, List<EgresoOrigenFondos> nuevas) {
+        if (destino.getOrigenes() == null) {
+            destino.setOrigenes(new ArrayList<>());
+        }
+        destino.getOrigenes().clear();
+        if (nuevas == null) {
+            return;
+        }
+        int orden = 0;
+        for (EgresoOrigenFondos linea : nuevas) {
+            linea.setId(null);
+            linea.setEgreso(destino);
+            linea.setOrden(orden++);
+            destino.getOrigenes().add(linea);
+        }
+    }
+
+    private List<EgresoOrigenFondos> copiarLineas(List<EgresoOrigenFondos> origen) {
+        List<EgresoOrigenFondos> copia = new ArrayList<>();
+        if (origen == null) {
+            return copia;
+        }
+        for (EgresoOrigenFondos linea : origen) {
+            copia.add(EgresoOrigenFondos.builder()
+                    .origenFondosId(linea.getOrigenFondosId())
+                    .metodoPagoId(linea.getMetodoPagoId())
+                    .valor(linea.getValor())
+                    .orden(linea.getOrden())
+                    .build());
+        }
+        return copia;
     }
 
     /**
