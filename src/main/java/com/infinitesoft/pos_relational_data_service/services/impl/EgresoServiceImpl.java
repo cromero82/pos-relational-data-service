@@ -29,6 +29,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -69,6 +71,9 @@ public class EgresoServiceImpl implements EgresoService {
 
     @Autowired
     private TipoEgresoRepository tipoEgresoRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
      * Normaliza líneas 1:N, valida cada origen y que la suma coincida con {@code valor}.
@@ -222,6 +227,7 @@ public class EgresoServiceImpl implements EgresoService {
 
         Egreso saved = egresoRepository.save(egreso);
         movimientoOrigenFondosService.registrarSalidaEgreso(saved);
+        vincularNotificacionSiFormalizo(saved);
 
         ajustarEstadisticas(requestDate);
 
@@ -301,6 +307,9 @@ public class EgresoServiceImpl implements EgresoService {
         if (egreso.getFromMovimientoOrigenFondosId() == null) {
             egreso.setFromMovimientoOrigenFondosId(anterior.getFromMovimientoOrigenFondosId());
         }
+        if (egreso.getNotificacionEmailPagoId() == null) {
+            egreso.setNotificacionEmailPagoId(anterior.getNotificacionEmailPagoId());
+        }
         resolverTipoYNaturaleza(egreso);
         normalizarYValidarOrigenes(egreso);
 
@@ -331,6 +340,7 @@ public class EgresoServiceImpl implements EgresoService {
         destino.setMetodoPagoId(origen.getMetodoPagoId());
         destino.setOrigenFondosId(origen.getOrigenFondosId());
         destino.setFromMovimientoOrigenFondosId(origen.getFromMovimientoOrigenFondosId());
+        destino.setNotificacionEmailPagoId(origen.getNotificacionEmailPagoId());
     }
 
     private void reemplazarOrigenes(Egreso destino, List<EgresoOrigenFondos> nuevas) {
@@ -445,12 +455,56 @@ public class EgresoServiceImpl implements EgresoService {
         Egreso existente = findById(id);
         if (existente != null) {
             LocalDate fechaEgreso = existente.getFecha();
+            desvincularNotificacionDeEgreso(id);
             movimientoOrigenFondosService.revertirMovimientosEgreso(id, "Eliminación egreso #" + id);
             egresoRepository.deleteById(id);
             ajustarEstadisticas(fechaEgreso);
             return true;
         }
         return false;
+    }
+
+    /**
+     * Formalizar desde movimiento de notificación: marca el correo como ASOCIADA
+     * (el dinero ya está en la bolsa; no se fusiona / no se reversa).
+     */
+    private void vincularNotificacionSiFormalizo(Egreso saved) {
+        if (saved == null || saved.getFromMovimientoOrigenFondosId() == null) {
+            return;
+        }
+        MovimientoOrigenFondos mov = movimientoOrigenFondosRepository
+                .findById(saved.getFromMovimientoOrigenFondosId())
+                .orElse(null);
+        if (mov == null || mov.getIdReferencia() == null) {
+            return;
+        }
+        Long notifId = mov.getIdReferencia();
+        saved.setNotificacionEmailPagoId(notifId);
+        egresoRepository.save(saved);
+        int updated = entityManager.createNativeQuery(
+                        "UPDATE notificacion_email_pago "
+                                + "SET egreso_id = :egresoId, vinculo_operacion = 'ASOCIADA' "
+                                + "WHERE id = :notifId "
+                                + "AND (egreso_id IS NULL OR egreso_id = :egresoId)")
+                .setParameter("egresoId", saved.getId())
+                .setParameter("notifId", notifId)
+                .executeUpdate();
+        if (updated == 0) {
+            throw new IllegalArgumentException(
+                    "La notificación #" + notifId + " ya está asociada a otro egreso.");
+        }
+        log.info("Formalizar egreso #{} ligado a notificacion #{}", saved.getId(), notifId);
+    }
+
+    private void desvincularNotificacionDeEgreso(Long egresoId) {
+        entityManager.createNativeQuery(
+                        "UPDATE notificacion_email_pago "
+                                + "SET egreso_id = NULL, "
+                                + "vinculo_operacion = CASE WHEN vinculo_operacion = 'ASOCIADA' "
+                                + "THEN 'PENDIENTE' ELSE vinculo_operacion END "
+                                + "WHERE egreso_id = :id")
+                .setParameter("id", egresoId)
+                .executeUpdate();
     }
 
     private void ajustarEstadisticas(LocalDate requestDate) {

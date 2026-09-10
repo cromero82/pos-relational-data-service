@@ -97,6 +97,13 @@ public class Egreso {
     @Column(name = "from_movimiento_origen_fondos_id")
     private Long fromMovimientoOrigenFondosId;
 
+    /**
+     * Notificación de medio electrónico ligada a este egreso
+     * (formalizada desde el movimiento o asociada a posteriori).
+     */
+    @Column(name = "notificacion_email_pago_id")
+    private Long notificacionEmailPagoId;
+
     @PrePersist
     @PreUpdate
     protected void onPrePersistUpdate() {
