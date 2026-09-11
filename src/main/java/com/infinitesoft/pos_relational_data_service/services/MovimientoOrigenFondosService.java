@@ -35,6 +35,15 @@ public interface MovimientoOrigenFondosService {
             LocalDate hasta
     );
 
+    /**
+     * Movimientos de un tipo de ledger en rango de fecha de negocio.
+     */
+    List<MovimientoOrigenFondosDto> findPorTipo(
+            String tipoMovimiento,
+            LocalDate desde,
+            LocalDate hasta
+    );
+
     MovimientoOrigenFondosDto registrarEntradaManual(MovimientoEntradaRequest request);
 
     /**

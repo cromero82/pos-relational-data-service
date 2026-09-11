@@ -18,7 +18,7 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
     @Query("SELECT COALESCE(SUM(m.impacto), 0) FROM MovimientoOrigenFondos m WHERE m.origenFondosId = :cuentaId")
     BigDecimal sumImpactoByCuentaId(@Param("cuentaId") Integer cuentaId);
 
-    List<MovimientoOrigenFondos> findByOrigenFondosIdOrderByFechaCreacionDescIdDesc(Integer origenFondosId);
+    List<MovimientoOrigenFondos> findByOrigenFondosIdOrderByIdDesc(Integer origenFondosId);
 
     /**
      * Entradas «por identificar» en bolsas (p.ej. Para ordenar) aún no formalizadas como egreso.
@@ -47,6 +47,15 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
             @Param("desde") java.time.LocalDate desde,
             @Param("hasta") java.time.LocalDate hasta);
 
+    @Query("SELECT m FROM MovimientoOrigenFondos m "
+            + "WHERE m.tipoMovimiento = :tipo "
+            + "AND m.fecha >= :desde AND m.fecha <= :hasta "
+            + "ORDER BY m.fecha DESC, m.id DESC")
+    List<MovimientoOrigenFondos> findByTipoMovimientoAndFechaBetween(
+            @Param("tipo") TipoMovimientoOrigenFondos tipo,
+            @Param("desde") java.time.LocalDate desde,
+            @Param("hasta") java.time.LocalDate hasta);
+
     List<MovimientoOrigenFondos> findByOrigenTipoAndIdReferenciaOrderByIdAsc(String origenTipo, Long idReferencia);
 
     Optional<MovimientoOrigenFondos> findFirstByOrigenTipoOrderByIdAsc(String origenTipo);
@@ -71,16 +80,37 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
             @Param("end") LocalDateTime end);
 
     /**
-     * Otros movimientos del ledger por medio (excluye egresos documento y ventas del corte).
-     * Excepción: {@code QR_MONTO_DISTINTO} (sobrepago/faltante QR) SÍ suma aunque el tipo sea
-     * {@code SALIDA_EGRESO} / {@code ENTRADA_MANUAL} — no es egreso de proveedor.
+     * Filtro compartido de la columna «Movimientos» del cierre.
+     * <p>
+     * Excluye egresos documento y posteos de venta. {@code QR_MONTO_DISTINTO} sí suma
+     * (sobrepago/faltante; no es egreso de proveedor).
+     * <p>
+     * Si un PAGASTE ({@code MOVIMIENTO BANCO POR IDENTIFICAR}) ya se formalizó como
+     * egreso, el débito del medio electrónico (QR, Nequi, …) no vuelve a restar aquí:
+     * esa plata vive en la columna Egresos. Antes de formalizar, el débito sí suma
+     * para que Esperado coincida con el saldo de la OF raíz.
      */
+    String FILTRO_CIERRE_MOVIMIENTOS =
+            "AND m.metodoPagoId IS NOT NULL "
+            + "AND (m.tipoMovimiento NOT IN :excluidos "
+            + "     OR UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'QR_MONTO_DISTINTO') "
+            + "AND NOT ("
+            + "  UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'MOVIMIENTO BANCO POR IDENTIFICAR' "
+            + "  AND EXISTS ("
+            + "    SELECT 1 FROM Egreso e, MovimientoOrigenFondos pair "
+            + "    WHERE e.fromMovimientoOrigenFondosId = pair.id "
+            + "    AND UPPER(TRIM(COALESCE(pair.origenTipo, ''))) = 'MOVIMIENTO BANCO POR IDENTIFICAR' "
+            + "    AND ("
+            + "      (m.grupoTrasladoId IS NOT NULL AND m.grupoTrasladoId = pair.grupoTrasladoId) "
+            + "      OR (m.idReferencia IS NOT NULL AND m.idReferencia = pair.idReferencia)"
+            + "    )"
+            + "  )"
+            + ") ";
+
     @Query("SELECT m.metodoPagoId, COALESCE(SUM(m.impacto), 0) "
             + "FROM MovimientoOrigenFondos m "
             + "WHERE m.fechaCreacion >= :start AND m.fechaCreacion <= :end "
-            + "AND m.metodoPagoId IS NOT NULL "
-            + "AND (m.tipoMovimiento NOT IN :excluidos "
-            + "     OR UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'QR_MONTO_DISTINTO') "
+            + FILTRO_CIERRE_MOVIMIENTOS
             + "GROUP BY m.metodoPagoId")
     List<Object[]> findResumenMovimientosPorMetodoPago(
             @Param("start") LocalDateTime start,
@@ -94,9 +124,7 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
             + "FROM MovimientoOrigenFondos m "
             + "WHERE m.id > :afterId "
             + "AND m.fechaCreacion <= :end "
-            + "AND m.metodoPagoId IS NOT NULL "
-            + "AND (m.tipoMovimiento NOT IN :excluidos "
-            + "     OR UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'QR_MONTO_DISTINTO') "
+            + FILTRO_CIERRE_MOVIMIENTOS
             + "GROUP BY m.metodoPagoId")
     List<Object[]> findResumenMovimientosPorMetodoPagoAfterId(
             @Param("afterId") Long afterId,

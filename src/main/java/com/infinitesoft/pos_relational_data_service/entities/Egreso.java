@@ -46,7 +46,7 @@ public class Egreso {
     private Proveedor proveedor;
 
     /**
-     * Beneficiario persona (PERSONAL / DIVIDENDOS). Excluyente con proveedor.
+     * Beneficiario persona. Excluyente con proveedor (un solo beneficiario por egreso).
      */
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "persona_id")

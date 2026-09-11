@@ -31,6 +31,7 @@ import com.infinitesoft.pos_relational_data_service.repositories.OrigenFondosRep
 import com.infinitesoft.pos_relational_data_service.entities.enums.TipoMovimientoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.CorteVentaService;
+import com.infinitesoft.pos_relational_data_service.services.EstadisticaFinancieraService;
 import com.infinitesoft.pos_relational_data_service.services.MovimientoOrigenFondosService;
 import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import lombok.extern.log4j.Log4j2;
@@ -82,6 +83,9 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
     @Autowired
     private MotivoMovimientoRepository motivoMovimientoRepository;
+
+    @Autowired
+    private EstadisticaFinancieraService estadisticaFinancieraService;
 
     @Override
     public CorteVenta create(CorteVenta corteVenta) {
@@ -160,6 +164,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
             saved.setDistribucionEfectivoEstado("PENDIENTE");
             repository.save(saved);
         }
+        sincronizarEstadisticaDeCorte(saved);
         return saved;
     }
 
@@ -362,7 +367,25 @@ public class CorteVentaServiceImpl implements CorteVentaService {
         movimientoOrigenFondosService.revertirEntradasVentaCorte(id);
         corte.setEstado("eliminado");
         repository.save(corte);
+        sincronizarEstadisticaDeCorte(corte);
         return true;
+    }
+
+    private void sincronizarEstadisticaDeCorte(CorteVenta corte) {
+        if (corte == null || estadisticaFinancieraService == null) {
+            return;
+        }
+        try {
+            LocalDateTime ref = corte.getFechaCreacion() != null
+                    ? corte.getFechaCreacion()
+                    : corte.getFechaIni();
+            if (ref != null) {
+                estadisticaFinancieraService.sincronizarPeriodosDeFecha(ref.toLocalDate());
+            }
+        } catch (Exception e) {
+            log.warn("No se pudo sincronizar resumen económico tras corte #{}: {}",
+                    corte.getId(), e.getMessage());
+        }
     }
 
     @Override
@@ -616,6 +639,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
             // Columna «movimientos»: excluye egresos documento y posteos de venta del corte.
             // QR_MONTO_DISTINTO se incluye aunque el tipo sea SALIDA_EGRESO (ver query del repo).
+            // PAGASTE formalizado (cualquier medio electrónico) tampoco suma: ya está en Egresos.
             List<TipoMovimientoOrigenFondos> excluidosMov = Arrays.asList(
                     TipoMovimientoOrigenFondos.SALIDA_EGRESO,
                     TipoMovimientoOrigenFondos.ENTRADA_VENTA,

@@ -31,8 +31,9 @@ public class CierreUsuarioService {
     private void ejecutarRutinaEstadisticas() {
         LocalDate hoy = DateUtils.obtenerFechaSistema().toLocalDate();
         
-        // Días
+        // Días: hoy si ya hay movimiento (corte/egreso/cobranza); luego hacia atrás.
         log.info("[CierreUsuario] Procesando estadísticas por DÍA.");
+        crearSiFalta(hoy.format(DateTimeFormatter.ISO_LOCAL_DATE), "DÍA");
         LocalDate diaIter = hoy.minusDays(1);
         while (true) {
             String valorTiempo = diaIter.format(DateTimeFormatter.ISO_LOCAL_DATE);
@@ -52,6 +53,7 @@ public class CierreUsuarioService {
         // Meses
         log.info("[CierreUsuario] Procesando estadísticas por MES.");
         YearMonth mesActual = YearMonth.from(hoy);
+        crearSiFalta(mesActual.toString(), "MES");
         YearMonth mesIter = mesActual.minusMonths(1);
         while (true) {
             String valorTiempo = mesIter.toString(); // Formato YYYY-MM
@@ -70,6 +72,7 @@ public class CierreUsuarioService {
 
         // Años
         log.info("[CierreUsuario] Procesando estadísticas por AÑO.");
+        crearSiFalta(String.valueOf(hoy.getYear()), "AÑO");
         int anioIter = hoy.getYear() - 1;
         while (true) {
             String valorTiempo = String.valueOf(anioIter);
@@ -85,5 +88,16 @@ public class CierreUsuarioService {
             estadisticaFinancieraService.crearEstadisticaAsync(valorTiempo);
             anioIter--;
         }
+    }
+
+    private void crearSiFalta(String valorTiempo, String etiqueta) {
+        if (estadisticaFinancieraService.existeEstadistica(valorTiempo)) {
+            return;
+        }
+        if (!estadisticaFinancieraService.tieneDatos(valorTiempo)) {
+            return;
+        }
+        log.info("[CierreUsuario] Creando estadística {} {}.", etiqueta, valorTiempo);
+        estadisticaFinancieraService.crearEstadisticaAsync(valorTiempo);
     }
 }

@@ -19,6 +19,7 @@ public class EstadisticaDiariaResponse {
     private LocalDateTime fechaCreacion;
     private BigDecimal totalEgresos;
     private BigDecimal totalVentas;
+    private BigDecimal totalCobranzas;
     private BigDecimal utilidad;
     private BigDecimal porcentajeUtilidad;
     private Date dia;

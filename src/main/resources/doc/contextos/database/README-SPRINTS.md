@@ -144,6 +144,7 @@ Scripts (después de `20`):
 | `55_notificaciones_activa.sql` | `configuracion_app.notificaciones.activa` (ocultar panel UI) | (manual, idempotente) |
 | `56_ticket_observaciones.sql` | `ticket.observaciones` TEXT | (manual, idempotente) |
 | `58_asociaciones_egresos_obligatorio.sql` | `configuracion_app` key `notificaciones.asociaciones-egresos.obligatorio` | (manual, idempotente) |
+| `60_estadistica_fin_total_cobranzas.sql` | `estadistica_fin.total_cobranzas` (abonos CxC en Resumen) | (manual, idempotente) |
 
 ### QA — desde la última oleada que trajo SQL (`53`→`54`, 2026-09-02)
 

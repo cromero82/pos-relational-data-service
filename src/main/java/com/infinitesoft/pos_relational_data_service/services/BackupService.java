@@ -675,7 +675,7 @@ public class BackupService {
     private void crearHojaEstadisticaFin(Workbook workbook) {
         Sheet sheet = workbook.createSheet("Estadistica Fin");
         String[] headers = {
-                "ID", "Fecha Creación", "Total Egresos", "Total Ventas", "Utilidad",
+                "ID", "Fecha Creación", "Total Egresos", "Total Ventas", "Total Cobranzas", "Utilidad",
                 "Porcentaje Utilidad", "Formato Tiempo", "Valor Tiempo", "Tipo Resultado Fin ID"
         };
         createHeaderRow(sheet, headers);
@@ -688,11 +688,12 @@ public class BackupService {
             row.createCell(1).setCellValue(formatDate(item.getFechaCreacion()));
             row.createCell(2).setCellValue(item.getTotalEgresos() != null ? item.getTotalEgresos().doubleValue() : 0.0);
             row.createCell(3).setCellValue(item.getTotalVentas() != null ? item.getTotalVentas().doubleValue() : 0.0);
-            row.createCell(4).setCellValue(item.getUtilidad() != null ? item.getUtilidad().doubleValue() : 0.0);
-            row.createCell(5).setCellValue(item.getPorcentajeUtilidad() != null ? item.getPorcentajeUtilidad().doubleValue() : 0.0);
-            row.createCell(6).setCellValue(clean(item.getFormatoTiempo()));
-            row.createCell(7).setCellValue(clean(item.getValorTiempo()));
-            row.createCell(8).setCellValue(item.getTipoResultadoFin() != null ? item.getTipoResultadoFin().getId() : 0);
+            row.createCell(4).setCellValue(item.getTotalCobranzas() != null ? item.getTotalCobranzas().doubleValue() : 0.0);
+            row.createCell(5).setCellValue(item.getUtilidad() != null ? item.getUtilidad().doubleValue() : 0.0);
+            row.createCell(6).setCellValue(item.getPorcentajeUtilidad() != null ? item.getPorcentajeUtilidad().doubleValue() : 0.0);
+            row.createCell(7).setCellValue(clean(item.getFormatoTiempo()));
+            row.createCell(8).setCellValue(clean(item.getValorTiempo()));
+            row.createCell(9).setCellValue(item.getTipoResultadoFin() != null ? item.getTipoResultadoFin().getId() : 0);
         }
     }
 

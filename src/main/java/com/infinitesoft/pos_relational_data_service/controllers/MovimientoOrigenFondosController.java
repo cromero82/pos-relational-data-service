@@ -62,6 +62,18 @@ public class MovimientoOrigenFondosController {
         return service.findPorClasificacion(clasificacionOperativa, desde, hasta);
     }
 
+    /**
+     * Ledger por tipo y fecha de negocio. El dashboard de Ingresos usa {@code ENTRADA_COBRANZA}.
+     */
+    @GetMapping("/por-tipo")
+    public List<MovimientoOrigenFondosDto> findPorTipo(
+            @RequestParam String tipo,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta
+    ) {
+        return service.findPorTipo(tipo, desde, hasta);
+    }
+
     @PreAuthorize("hasRole('admin')")
     @PostMapping("/entrada-manual")
     public ResponseEntity<MovimientoOrigenFondosDto> entradaManual(@RequestBody MovimientoEntradaRequest request) {

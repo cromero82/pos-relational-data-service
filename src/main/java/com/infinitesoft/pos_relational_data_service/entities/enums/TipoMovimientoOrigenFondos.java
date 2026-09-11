@@ -8,6 +8,8 @@ public enum TipoMovimientoOrigenFondos {
     /**
      * Cobranza de cuenta por cobrar (abono). Entra a caja/OF del medio;
      * no suma a Ventas del día ({@code ENTRADA_VENTA}).
+     * En el dashboard de Ingresos va en la columna Cobranzas (no se mezcla con Ventas).
+     * Sí suma en Cierre de turno (columna Movimientos).
      */
     ENTRADA_COBRANZA,
     TRASLADO,

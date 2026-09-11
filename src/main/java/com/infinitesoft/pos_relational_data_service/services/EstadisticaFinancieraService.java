@@ -6,11 +6,12 @@ import com.infinitesoft.pos_relational_data_service.dto.EstadisticaMensualRespon
 import com.infinitesoft.pos_relational_data_service.entities.EstadisticaFin;
 import com.infinitesoft.pos_relational_data_service.entities.TipoResultadoFin;
 import com.infinitesoft.pos_relational_data_service.entities.Egreso;
-import com.infinitesoft.pos_relational_data_service.entities.CorteVenta;
+import com.infinitesoft.pos_relational_data_service.entities.enums.TipoMovimientoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.repositories.EstadisticaFinRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TipoResultadoFinRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.EgresoRepository;
-import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaDetalleRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.MovimientoOrigenFondosRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,7 +39,8 @@ public class EstadisticaFinancieraService {
     private final EstadisticaFinRepository estadisticaFinRepository;
     private final TipoResultadoFinRepository tipoResultadoFinRepository;
     private final EgresoRepository egresoRepository;
-    private final CorteVentaRepository corteVentaRepository;
+    private final CorteVentaDetalleRepository corteVentaDetalleRepository;
+    private final MovimientoOrigenFondosRepository movimientoOrigenFondosRepository;
 
     public String extraerFormatoDesdeValorTiempo(String valorTiempo) {
         if (valorTiempo == null) return null;
@@ -85,14 +87,35 @@ public class EstadisticaFinancieraService {
             return false;
         }
 
-        // Verificar egresos
         boolean hayEgresos = !egresoRepository.findByFechaBetween(fechaInicio, fechaFin).isEmpty();
-        if (hayEgresos) return true;
-
-        // Verificar ventas
+        if (hayEgresos) {
+            return true;
+        }
+        boolean hayCobranzas = !movimientoOrigenFondosRepository
+                .findByTipoMovimientoAndFechaBetween(
+                        TipoMovimientoOrigenFondos.ENTRADA_COBRANZA, fechaInicio, fechaFin)
+                .isEmpty();
+        if (hayCobranzas) {
+            return true;
+        }
         LocalDateTime ldtInicio = fechaInicio.atStartOfDay();
         LocalDateTime ldtFin = fechaFin.atTime(23, 59, 59);
-        return !corteVentaRepository.findByFechaIniGreaterThanEqualAndFechaIniLessThanEqual(ldtInicio, ldtFin).isEmpty();
+        BigDecimal ventasCorte = corteVentaDetalleRepository
+                .sumVentasSistemaCortesVigentes(ldtInicio, ldtFin);
+        return ventasCorte != null && ventasCorte.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    /**
+     * Recalcula día, mes y año de una fecha de negocio (egreso, corte, PUT).
+     */
+    @Transactional
+    public void sincronizarPeriodosDeFecha(LocalDate fecha) {
+        if (fecha == null) {
+            return;
+        }
+        crearOActualizarEstadisticaSync(fecha.format(DateTimeFormatter.ISO_LOCAL_DATE));
+        crearOActualizarEstadisticaSync(YearMonth.from(fecha).toString());
+        crearOActualizarEstadisticaSync(String.valueOf(fecha.getYear()));
     }
 
     @Async
@@ -160,41 +183,42 @@ public class EstadisticaFinancieraService {
         }
 
         List<Egreso> egresos = egresoRepository.findByFechaBetween(fechaInicio, fechaFin);
-        BigDecimal totalEgresos = null;
-        if (!egresos.isEmpty()) {
-            totalEgresos = egresos.stream()
-                    .map(Egreso::getValor)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-        }
+        BigDecimal totalEgresos = egresos.stream()
+                .map(Egreso::getValor)
+                .filter(v -> v != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         LocalDateTime ldtInicio = fechaInicio.atStartOfDay();
         LocalDateTime ldtFin = fechaFin.atTime(23, 59, 59);
-        List<CorteVenta> ventas = corteVentaRepository.findByFechaIniGreaterThanEqualAndFechaIniLessThanEqual(ldtInicio, ldtFin);
-        BigDecimal totalVentas = null;
-        if (!ventas.isEmpty()) {
-            totalVentas = ventas.stream()
-                    .map(CorteVenta::getTotal)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-        }
+        BigDecimal totalVentas = nz(corteVentaDetalleRepository
+                .sumVentasSistemaCortesVigentes(ldtInicio, ldtFin));
 
-        if (totalEgresos == null && totalVentas == null) {
+        BigDecimal totalCobranzas = movimientoOrigenFondosRepository
+                .findByTipoMovimientoAndFechaBetween(
+                        TipoMovimientoOrigenFondos.ENTRADA_COBRANZA, fechaInicio, fechaFin)
+                .stream()
+                .map(m -> m.getImpacto() != null ? m.getImpacto() : m.getValor())
+                .filter(v -> v != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        boolean hayIngresos = totalVentas.compareTo(BigDecimal.ZERO) > 0
+                || totalCobranzas.compareTo(BigDecimal.ZERO) > 0;
+        boolean hayEgresos = totalEgresos.compareTo(BigDecimal.ZERO) > 0;
+        if (!hayIngresos && !hayEgresos) {
             return null;
         }
 
-        BigDecimal utilidad = null;
+        BigDecimal ingresos = totalVentas.add(totalCobranzas);
+        BigDecimal utilidad = ingresos.subtract(totalEgresos);
         BigDecimal porcentajeUtilidad = null;
-
-        if (totalVentas != null && totalEgresos != null) {
-            utilidad = totalVentas.subtract(totalEgresos);
-            if (totalVentas.compareTo(BigDecimal.ZERO) > 0) {
-                porcentajeUtilidad = utilidad.multiply(new BigDecimal("100"))
-                        .divide(totalVentas, 2, RoundingMode.HALF_UP);
-            } else if (totalEgresos.compareTo(BigDecimal.ZERO) > 0) {
-                porcentajeUtilidad = new BigDecimal("-100");
-            }
+        if (ingresos.compareTo(BigDecimal.ZERO) > 0) {
+            porcentajeUtilidad = utilidad.multiply(new BigDecimal("100"))
+                    .divide(ingresos, 2, RoundingMode.HALF_UP);
+        } else if (hayEgresos) {
+            porcentajeUtilidad = new BigDecimal("-100");
         }
 
-        String sigla = determinarSigla(totalVentas, totalEgresos, porcentajeUtilidad);
+        String sigla = determinarSigla(ingresos, totalEgresos, porcentajeUtilidad);
         TipoResultadoFin tipo = tipoResultadoFinRepository.findFirstBySigla(sigla)
                 .orElse(null);
 
@@ -203,6 +227,7 @@ public class EstadisticaFinancieraService {
         estadistica.setFormatoTiempo(formato);
         estadistica.setTotalEgresos(totalEgresos);
         estadistica.setTotalVentas(totalVentas);
+        estadistica.setTotalCobranzas(totalCobranzas);
         estadistica.setUtilidad(utilidad);
         estadistica.setPorcentajeUtilidad(porcentajeUtilidad);
         estadistica.setTipoResultadoFin(tipo);
@@ -239,6 +264,7 @@ public class EstadisticaFinancieraService {
                 .fechaCreacion(e.getFechaCreacion())
                 .totalEgresos(e.getTotalEgresos())
                 .totalVentas(e.getTotalVentas())
+                .totalCobranzas(e.getTotalCobranzas())
                 .utilidad(e.getUtilidad())
                 .porcentajeUtilidad(e.getPorcentajeUtilidad())
                 .valorTiempo(e.getValorTiempo())
@@ -253,6 +279,7 @@ public class EstadisticaFinancieraService {
                 .fechaCreacion(e.getFechaCreacion())
                 .totalEgresos(e.getTotalEgresos())
                 .totalVentas(e.getTotalVentas())
+                .totalCobranzas(e.getTotalCobranzas())
                 .utilidad(e.getUtilidad())
                 .porcentajeUtilidad(e.getPorcentajeUtilidad())
                 .valorTiempo(e.getValorTiempo())
@@ -267,12 +294,17 @@ public class EstadisticaFinancieraService {
                 .fechaCreacion(e.getFechaCreacion())
                 .totalEgresos(e.getTotalEgresos())
                 .totalVentas(e.getTotalVentas())
+                .totalCobranzas(e.getTotalCobranzas())
                 .utilidad(e.getUtilidad())
                 .porcentajeUtilidad(e.getPorcentajeUtilidad())
                 .valorTiempo(e.getValorTiempo())
                 .anio(java.sql.Date.valueOf(LocalDate.of(Integer.parseInt(e.getValorTiempo()), 1, 1)))
                 .tipoResultadoFin(e.getTipoResultadoFin())
                 .build();
+    }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v != null ? v : BigDecimal.ZERO;
     }
 
     private String determinarSigla(BigDecimal totalVentas, BigDecimal totalEgresos, BigDecimal porcentaje) {

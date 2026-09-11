@@ -21,7 +21,6 @@ import com.infinitesoft.pos_relational_data_service.services.OrigenFondosService
 import com.infinitesoft.pos_relational_data_service.services.EgresoService;
 import com.infinitesoft.pos_relational_data_service.services.EstadisticaFinancieraService;
 import com.infinitesoft.pos_relational_data_service.services.MovimientoOrigenFondosService;
-import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -377,8 +376,9 @@ public class EgresoServiceImpl implements EgresoService {
     }
 
     /**
-     * Resuelve tipo (snapshot), naturaleza (catálogo del tipo si falta) y beneficiario XOR:
-     * PERSONAL/DIVIDENDOS → persona; resto → proveedor.
+     * Resuelve tipo (snapshot), naturaleza (catálogo del tipo si falta) y un solo
+     * beneficiario (proveedor XOR persona). La naturaleza ya no obliga el tipo de ficha:
+     * la misma persona puede ser nómina un día y un gasto ocasional otro.
      */
     private void resolverTipoYNaturaleza(Egreso egreso) {
         boolean hasPersona = egreso.getPersona() != null && egreso.getPersona().getId() != null;
@@ -389,7 +389,7 @@ public class EgresoServiceImpl implements EgresoService {
         }
         if (!hasPersona && !hasProveedor) {
             throw new IllegalArgumentException(
-                    "Debe indicar el proveedor o la persona beneficiaria del egreso.");
+                    "Debe indicar a quién se pagó (empresa o persona).");
         }
 
         Proveedor proveedor = null;
@@ -405,7 +405,7 @@ public class EgresoServiceImpl implements EgresoService {
         if (tipoId == null) {
             throw new IllegalArgumentException(
                     "Debe indicar el tipo de egreso"
-                            + (hasProveedor ? " (o asigne un tipo al proveedor)." : "."));
+                            + (hasProveedor ? " (o asigne un tipo usual al proveedor)." : "."));
         }
         TipoEgreso tipo = tipoEgresoRepository.findById(tipoId)
                 .orElseThrow(() -> new IllegalArgumentException("Tipo de egreso no encontrado."));
@@ -425,13 +425,7 @@ public class EgresoServiceImpl implements EgresoService {
             }
         }
 
-        NaturalezaEgreso nat = egreso.getNaturaleza();
-        boolean requierePersona = nat == NaturalezaEgreso.PERSONAL || nat == NaturalezaEgreso.DIVIDENDOS;
-        if (requierePersona) {
-            if (!hasPersona) {
-                throw new IllegalArgumentException(
-                        "Para naturaleza " + nat + " debe indicar la persona beneficiaria (no proveedor).");
-            }
+        if (hasPersona) {
             Persona persona = personaRepository.findById(egreso.getPersona().getId())
                     .orElseThrow(() -> new IllegalArgumentException("Persona no encontrada."));
             if (Boolean.FALSE.equals(persona.getActivo())) {
@@ -440,10 +434,6 @@ public class EgresoServiceImpl implements EgresoService {
             egreso.setPersona(persona);
             egreso.setProveedor(null);
         } else {
-            if (!hasProveedor) {
-                throw new IllegalArgumentException(
-                        "Para naturaleza " + nat + " debe indicar el proveedor.");
-            }
             egreso.setProveedor(proveedor);
             egreso.setPersona(null);
         }
@@ -511,31 +501,7 @@ public class EgresoServiceImpl implements EgresoService {
         if (requestDate == null) {
             return;
         }
-        LocalDate currentDate = DateUtils.obtenerFechaSistema().toLocalDate();
-
-        if (requestDate.isBefore(currentDate)) {
-            log.info("La fecha del egreso {} es menor a la fecha actual {}. Iniciando ajuste de estadísticas.", requestDate, currentDate);
-
-            String valorTiempoDia = requestDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
-            log.info("Ajustando estadística de DÍA para: {}", valorTiempoDia);
-            estadisticaFinancieraService.crearOActualizarEstadisticaSync(valorTiempoDia);
-
-            java.time.YearMonth requestMonth = java.time.YearMonth.from(requestDate);
-            java.time.YearMonth currentMonth = java.time.YearMonth.from(currentDate);
-            if (requestMonth.isBefore(currentMonth)) {
-                String valorTiempoMes = requestMonth.toString();
-                log.info("Ajustando estadística de MES para: {}", valorTiempoMes);
-                estadisticaFinancieraService.crearOActualizarEstadisticaSync(valorTiempoMes);
-            }
-
-            int requestYear = requestDate.getYear();
-            int currentYear = currentDate.getYear();
-            if (requestYear < currentYear) {
-                String valorTiempoAnio = String.valueOf(requestYear);
-                log.info("Ajustando estadística de AÑO para: {}", valorTiempoAnio);
-                estadisticaFinancieraService.crearOActualizarEstadisticaSync(valorTiempoAnio);
-            }
-        }
+        estadisticaFinancieraService.sincronizarPeriodosDeFecha(requestDate);
     }
 
     @Override

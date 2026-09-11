@@ -18,6 +18,7 @@ import com.infinitesoft.pos_relational_data_service.repositories.PersonaReposito
 import com.infinitesoft.pos_relational_data_service.repositories.ProveedorRepository;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.EstablecimientoService;
+import com.infinitesoft.pos_relational_data_service.services.EstadisticaFinancieraService;
 import com.infinitesoft.pos_relational_data_service.services.MovimientoOrigenFondosService;
 import com.infinitesoft.pos_relational_data_service.util.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +55,9 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
     @Autowired
     private EstablecimientoService establecimientoService;
 
+    @Autowired(required = false)
+    private EstadisticaFinancieraService estadisticaFinancieraService;
+
     @Override
     public BigDecimal calcularSaldo(Integer origenFondosId) {
         BigDecimal saldo = movimientoRepository.sumImpactoByCuentaId(origenFondosId);
@@ -62,7 +66,7 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
 
     @Override
     public List<MovimientoOrigenFondosDto> findByOrigen(Integer origenFondosId) {
-        return movimientoRepository.findByOrigenFondosIdOrderByFechaCreacionDescIdDesc(origenFondosId)
+        return movimientoRepository.findByOrigenFondosIdOrderByIdDesc(origenFondosId)
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
@@ -123,6 +127,34 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
         }
         return movimientoRepository
                 .findPorClasificacionOperativa(clasif, desde, hasta)
+                .stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MovimientoOrigenFondosDto> findPorTipo(
+            String tipoMovimiento,
+            LocalDate desde,
+            LocalDate hasta
+    ) {
+        if (desde == null || hasta == null) {
+            throw new IllegalArgumentException("desde y hasta son obligatorios");
+        }
+        if (hasta.isBefore(desde)) {
+            throw new IllegalArgumentException("hasta no puede ser anterior a desde");
+        }
+        TipoMovimientoOrigenFondos tipo;
+        try {
+            tipo = TipoMovimientoOrigenFondos.valueOf(
+                    tipoMovimiento == null ? "" : tipoMovimiento.trim().toUpperCase()
+            );
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("tipo de movimiento inválido");
+        }
+        return movimientoRepository
+                .findByTipoMovimientoAndFechaBetween(tipo, desde, hasta)
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
@@ -194,6 +226,9 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                 abonoCxcId,
                 null
         );
+        if (estadisticaFinancieraService != null) {
+            estadisticaFinancieraService.sincronizarPeriodosDeFecha(fecha);
+        }
         return toDto(saved);
     }
 

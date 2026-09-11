@@ -32,6 +32,10 @@ public class EstadisticaFin {
     @Column(name = "total_ventas", nullable = true, precision = 15, scale = 2)
     private BigDecimal totalVentas;
 
+    /** Abonos CxC ({@code ENTRADA_COBRANZA}) del periodo. */
+    @Column(name = "total_cobranzas", nullable = true, precision = 15, scale = 2)
+    private BigDecimal totalCobranzas;
+
     @Column(nullable = true, precision = 15, scale = 2)
     private BigDecimal utilidad;
 

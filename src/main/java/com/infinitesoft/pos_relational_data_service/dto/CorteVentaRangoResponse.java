@@ -32,9 +32,11 @@ public class CorteVentaRangoResponse {
         /** Egresos registrados con este medio de pago. */
         private BigDecimal totalEgresosSistema;
         /**
-         * Otros movimientos del ledger (traslados, entradas manuales, ajustes).
+         * Otros movimientos del ledger (traslados, entradas manuales, ajustes, cobranzas).
          * No incluye SALIDA_EGRESO de egreso documento ni ENTRADA_VENTA (columnas propias).
          * Sí incluye ajustes {@code QR_MONTO_DISTINTO} aunque el tipo sea SALIDA_EGRESO.
+         * No incluye el débito PAGASTE ({@code MOVIMIENTO BANCO POR IDENTIFICAR}) de un
+         * medio electrónico (QR, Nequi, …) cuando ese par ya se formalizó como egreso.
          */
         private BigDecimal totalMovimientosSistema;
         /**
