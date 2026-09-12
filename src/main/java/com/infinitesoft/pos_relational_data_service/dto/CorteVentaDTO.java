@@ -23,8 +23,12 @@ public class CorteVentaDTO {
     private Long ultimoMovimientoOrigenFondosId;
     private String distribucionEfectivoEstado;
     private BigDecimal baseSiguienteEfectivo;
+    /** Contado / declarado (arqueo). */
     private BigDecimal total;
+    /** Esperado = base + ventas − egresos ± movimientos. */
     private BigDecimal totalSistema;
+    /** Σ tickets cobrados. Fuente de verdad para dashboard Ingresos. */
+    private BigDecimal totalVentasSistema;
     private List<VentasTipoDTO> ventasTipo;
     private List<CorteVentaDetalleDTO> detalles;
     private String estado;

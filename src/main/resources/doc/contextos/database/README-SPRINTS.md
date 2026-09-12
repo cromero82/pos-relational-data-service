@@ -13,7 +13,8 @@ psql -U postgres -d controlneg_rmx_db -f 02_motivo_operacion.sql
 psql -U postgres -d controlneg_rmx_db -f 03_tipo_movimiento_inventario.sql
 psql -U postgres -d controlneg_rmx_db -f 04_alinear_estado_recibos.sql
 psql -U postgres -d controlneg_rmx_db -f 05_documento_venta.sql
-psql -U postgres -d controlneg_rmx_db -f 05_backfill_documento_venta.sql   # una vez, ventas históricas
+psql -U postgres -d controlneg_rmx_db -f 05_backfill_documento_venta.sql   # una vez, ventas históricas → VTA-######
+psql -U postgres -d controlneg_rmx_db -f 62_normalize_documento_venta_vta.sql  # si un ensayo dejó VTA-LEGACY-*
 ```
 
 O usar: `./apply-sprint0.sh`
@@ -122,7 +123,9 @@ Scripts (después de `20`):
 | `23_distribucion_efectivo.sql` | `base_siguiente_efectivo` + distribución | `apply-distribucion-efectivo.sh` |
 | `24_base_inicial_caja.sql` | Motivo/base inicial instalación | `apply-base-inicial-caja.sh` |
 | `25_repair_entrada_venta_corte1.sql` | Repair puntual de prueba — **no** en migrate prod | — |
-| `26_unlink_caja_menor_metodo_pago.sql` | Caja Menor sin `metodo_pago_id` | `apply-unlink-caja-menor-mp.sh` |
+| `26_unlink_caja_menor_metodo_pago.sql` | Caja Menor sin `metodo_pago_id` (solo si el nombre ya es Caja Menor/General) | `apply-unlink-caja-menor-mp.sh` |
+| `63_align_caja_menor_general.sql` | OF 4/5: labels prod → **Caja Menor** / **Caja General** (FISICA, sin MP) | (incluido en migrate, tras `26_`) |
+| `64_migrate_distribucion_contado_legacy.sql` | Contado efectivo del último corte prod → base config + resto Caja Menor | (incluido en migrate, tras `32_`) |
 | `27_movimiento_id_referencia.sql` | `origen_id` → `id_referencia` | (incluido en migrate) |
 | `28_origen_fondos_estado_archivar.sql` | `estado` ACTIVO/ARCHIVADO + unique nombre hermanos | `apply-origen-fondos-estado-archivar.sh` |
 | `30_historial_recibo_pago.sql` | Multipago: `historial_recibo_pago` + `metodo_pago.codigo_dian_payment_means` + backfill 1:1 | (incluido en migrate) |
@@ -145,6 +148,9 @@ Scripts (después de `20`):
 | `56_ticket_observaciones.sql` | `ticket.observaciones` TEXT | (manual, idempotente) |
 | `58_asociaciones_egresos_obligatorio.sql` | `configuracion_app` key `notificaciones.asociaciones-egresos.obligatorio` | (manual, idempotente) |
 | `60_estadistica_fin_total_cobranzas.sql` | `estadistica_fin.total_cobranzas` (abonos CxC en Resumen) | (manual, idempotente) |
+| `61_sync_catalogos_dev_a_v02.sql` | Config, plantillas QR/Nequi, tipo_egreso, Sin Clasificar (solo v02) | (manual, idempotente; **no** sobre `controlneg_rmx_db`) |
+| `32_historial_recibos_electronicos_nombre_cliente.sql` | HRE `nombre_cliente` — **sin esto Historial Tickets 500** | (incluido en migrate, tras `45_`) |
+| `62_normalize_documento_venta_vta.sql` | `VTA-LEGACY-*` → `VTA-######` (mismo formato que ventas nuevas) | (incluido en migrate, tras `05_backfill`) |
 
 ### QA — desde la última oleada que trajo SQL (`53`→`54`, 2026-09-02)
 
@@ -163,7 +169,7 @@ No hay SQL para el asistente de cierre de caja ni para minimizar el panel (UI / 
 
 **Núcleo ingresos:** dashboard = Ventas sistema. Glosario: `prompts-general-pos/GLOSARIO-NUCLEO-FINANCIERO.md`. Canónico de corte: `corte_venta_detalle`.
 
-> Nota: `28_confirmacion_pagos_electronicos.sql` / `29_notificacion_email_archivada.sql` son de pagos QR/email; no forman parte del wrapper OF. El multipago es **`30_`**.
+> Nota: `28_confirmacion_pagos_electronicos.sql` / `29_notificacion_email_archivada.sql` son de pagos QR/email; no forman parte del wrapper OF. El multipago es **`30_`**. El wrapper **sí** aplica `32_` (HRE.nombre_cliente) y `62_` (VTA-). `32_` exige que ya exista `historial_recibos_electronicos` (prereq `28_confirmacion`). Sin `32_`, Historial Tickets no carga.
 
 Contexto de dominio: `../AI-HANDOFF-FINANZAS-2026-08.md`.
 

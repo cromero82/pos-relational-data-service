@@ -55,6 +55,11 @@ public class CorteVenta {
     @Column(name = "total_sistema", precision = 12, scale = 2)
     private BigDecimal totalSistema;
 
+    /** Σ tickets cobrados del corte. Dashboard Ingresos; no es Contado ni Esperado. */
+    @Column(name = "total_ventas_sistema", precision = 14, scale = 2)
+    @Builder.Default
+    private BigDecimal totalVentasSistema = BigDecimal.ZERO;
+
     @Column(name = "sesion_id")
     private Long sesionId;
 

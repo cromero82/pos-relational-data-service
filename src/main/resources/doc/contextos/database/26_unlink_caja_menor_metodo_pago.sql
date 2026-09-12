@@ -1,6 +1,8 @@
 -- Caja Menor / Caja General son bolsillos internos, no medios de pago de tickets.
 -- Estaban mal enlazados a metodo_pago id 4 ("Efectivo: base para proveedores"),
 -- lo que contaminaba el cierre de ventas con egresos/traslados de Caja Menor.
+-- Este script busca por nombre Caja Menor/General. Si el dump aún tiene los
+-- labels de prod, aplicar después 63_align_caja_menor_general.sql.
 
 UPDATE origen_fondos
 SET metodo_pago_id = NULL

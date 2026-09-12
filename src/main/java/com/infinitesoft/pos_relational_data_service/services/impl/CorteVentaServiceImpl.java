@@ -124,6 +124,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
             entity.setFechaIni(rango.getFechaIni());
             entity.setFechaFin(rango.getFechaFin());
             entity.setTotalSistema(rango.getTotal());
+            entity.setTotalVentasSistema(nz(rango.getTotalVentasSistema()));
 
             if (dto.getVentasTipo() != null) {
                 for (VentasTipo vt : entity.getVentasTipo()) {
@@ -151,6 +152,8 @@ public class CorteVentaServiceImpl implements CorteVentaService {
         CorteVenta saved = repository.save(entity);
         List<CorteVentaDetalle> detalles = construirDetalles(dto, saved, admin);
         detalleRepository.saveAll(detalles);
+        saved.setTotalVentasSistema(sumarVentasSistema(detalles, saved.getVentasTipo()));
+        repository.save(saved);
         // Contabiliza ventas en ledger ANTES de ajustes de desfase y watermark.
         movimientoOrigenFondosService.registrarEntradasVentaCorte(saved.getId(), detalles);
         registrarAjustesCierre(detalles, saved.getId());
@@ -343,6 +346,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
         existing.setUltimoHistorialReciboId(corteVenta.getUltimoHistorialReciboId());
         existing.setTotal(corteVenta.getTotal());
         existing.setTotalSistema(corteVenta.getTotalSistema());
+        existing.setTotalVentasSistema(corteVenta.getTotalVentasSistema());
         existing.setVentasTipo(corteVenta.getVentasTipo());
         
         return repository.save(existing);
@@ -502,21 +506,15 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 if (ultimoCorteVenta.getUltimoHistorialReciboId() != null) {
                     historialAfterId = ultimoCorteVenta.getUltimoHistorialReciboId();
                 }
-                // Base: preferir base_siguiente_efectivo del corte anterior (post-distribución);
-                // si no, físico declarado del detalle.
+                // Base: efectivo post-distribución; el resto = saldo OF al watermark
+                // (no el Contado del corte: en dump prod no hay ledger y ese total infla QR/Nequi).
                 if (ultimoCorteVenta.getBaseSiguienteEfectivo() != null) {
                     OrigenFondos cajaEfectivo = resolverOrigenPorNombres("Caja: Efectivo", "Caja Efectivo");
                     if (cajaEfectivo != null && cajaEfectivo.getMetodoPagoId() != null) {
                         basePorMedio.put(cajaEfectivo.getMetodoPagoId(), ultimoCorteVenta.getBaseSiguienteEfectivo());
                     }
                 }
-                for (CorteVentaDetalle det : detalleRepository
-                        .findByCorteVentaIdOrderByOrdenAscIdAsc(ultimoCorteVenta.getId())) {
-                    if (det.getMetodoPagoId() != null && det.getTotal() != null
-                            && !basePorMedio.containsKey(det.getMetodoPagoId())) {
-                        basePorMedio.put(det.getMetodoPagoId(), det.getTotal());
-                    }
-                }
+                aplicarBaseDesdeLedgerOf(basePorMedio, movimientoAfterId);
 
                 // Watermark por id: evita recontar el último ticket del corte
                 // (fechaIni inclusiva coincidía con fecha_fin del corte).
@@ -687,13 +685,18 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
             response.setVentasTipo(ventasTipo);
 
-            BigDecimal total = ventasTipo.stream()
+            BigDecimal totalEsperado = ventasTipo.stream()
                     .map(CorteVentaRangoResponse.VentasTipoResumenDTO::getTotalSistema)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            response.setTotal(total);
+            BigDecimal totalVentas = ventasTipo.stream()
+                    .map(v -> nz(v.getTotalVentasSistema()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            response.setTotal(totalEsperado);
+            response.setTotalVentasSistema(totalVentas);
         } else {
             response.setVentasTipo(Collections.emptyList());
             response.setTotal(BigDecimal.ZERO);
+            response.setTotalVentasSistema(BigDecimal.ZERO);
         }
 
         return response;
@@ -803,6 +806,9 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 .baseSiguienteEfectivo(entity.getBaseSiguienteEfectivo())
                 .total(entity.getTotal())
                 .totalSistema(entity.getTotalSistema())
+                .totalVentasSistema(entity.getTotalVentasSistema() != null
+                        ? entity.getTotalVentasSistema()
+                        : sumarVentasSistemaDto(detalles, ventasTipoDTOList))
                 .ventasTipo(ventasTipoDTOList)
                 .detalles(detalles)
                 .estado(entity.getEstado())
@@ -866,6 +872,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 .baseSiguienteEfectivo(dto.getBaseSiguienteEfectivo())
                 .total(dto.getTotal())
                 .totalSistema(dto.getTotalSistema())
+                .totalVentasSistema(dto.getTotalVentasSistema())
                 .estado(dto.getEstado() != null ? dto.getEstado() : "creada")
                 .observacion(dto.getObservacion())
                 .revisadoPor(dto.getRevisadoPor())
@@ -1029,6 +1036,28 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 .build();
     }
 
+    /**
+     * Base de QR/Nequi (y cualquier medio con OF) = saldo del ledger al watermark
+     * del último corte. Sin watermark no hay posición OF conocida (dump prod) → 0.
+     * No usar {@code corte_venta_detalle.total}: ese Contado legacy no está en OF.
+     */
+    private void aplicarBaseDesdeLedgerOf(Map<Long, BigDecimal> basePorMedio, Long movimientoThroughId) {
+        for (OrigenFondos of : origenFondosRepository.findByActivoTrueOrderByOrdenAscIdAsc()) {
+            if (of.getMetodoPagoId() == null || of.getParentOrigenFondosId() != null) {
+                continue;
+            }
+            if (basePorMedio.containsKey(of.getMetodoPagoId())) {
+                continue;
+            }
+            BigDecimal saldo = BigDecimal.ZERO;
+            if (movimientoThroughId != null && movimientoThroughId > 0L) {
+                saldo = nz(movimientoOrigenFondosRepository.sumImpactoByCuentaIdThroughId(
+                        of.getId(), movimientoThroughId));
+            }
+            basePorMedio.put(of.getMetodoPagoId(), saldo);
+        }
+    }
+
     private OrigenFondos resolverOrigenPorNombres(String... nombres) {
         List<OrigenFondos> todos = origenFondosRepository.findByActivoTrueOrderByOrdenAscIdAsc();
         for (String nombre : nombres) {
@@ -1060,6 +1089,38 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
     private BigDecimal nz(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
+    }
+
+    /** Σ tickets cobrados. Prefiere detalle; si no hay, ventasTipo. */
+    private BigDecimal sumarVentasSistema(List<CorteVentaDetalle> detalles, List<VentasTipo> ventasTipo) {
+        if (detalles != null && !detalles.isEmpty()) {
+            return detalles.stream()
+                    .map(d -> nz(d.getTotalVentasSistema()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+        if (ventasTipo == null || ventasTipo.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return ventasTipo.stream()
+                .map(vt -> nz(vt.getTotalVentasSistema()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal sumarVentasSistemaDto(
+            List<CorteVentaDetalleDTO> detalles,
+            List<VentasTipoDTO> ventasTipo
+    ) {
+        if (detalles != null && !detalles.isEmpty()) {
+            return detalles.stream()
+                    .map(d -> nz(d.getTotalVentasSistema()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+        if (ventasTipo == null || ventasTipo.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return ventasTipo.stream()
+                .map(vt -> nz(vt.getTotalVentasSistema()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private boolean sameMoney(BigDecimal a, BigDecimal b) {

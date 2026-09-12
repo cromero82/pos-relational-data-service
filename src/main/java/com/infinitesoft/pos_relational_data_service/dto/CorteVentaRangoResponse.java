@@ -18,7 +18,13 @@ public class CorteVentaRangoResponse {
     private LocalDateTime fechaFin;
     private LocalDateTime ultimoCorte;
     private List<VentasTipoResumenDTO> ventasTipo;
+    /**
+     * Esperado del turno = Σ {@code totalSistema} (base + ventas − egresos ± movimientos).
+     * No es la venta del día; ver {@link #totalVentasSistema}.
+     */
     private BigDecimal total;
+    /** Σ tickets cobrados del rango. Fuente de verdad para Ingresos / dashboard. */
+    private BigDecimal totalVentasSistema;
     private List<CorteVentaDTO> otrosCortesIntersectados;
 
     @Data

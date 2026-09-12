@@ -530,10 +530,15 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
             return;
         }
         Map<Long, String> estados = new HashMap<>();
-        for (HistorialReciboElectronico hre : historialReciboElectronicoRepository.findByHistorialReciboIdIn(ids)) {
-            if (hre.getHistorialReciboId() != null && hre.getEstado() != null) {
-                estados.put(hre.getHistorialReciboId(), hre.getEstado());
+        try {
+            for (HistorialReciboElectronico hre : historialReciboElectronicoRepository.findByHistorialReciboIdIn(ids)) {
+                if (hre.getHistorialReciboId() != null && hre.getEstado() != null) {
+                    estados.put(hre.getHistorialReciboId(), hre.getEstado());
+                }
             }
+        } catch (Exception ignored) {
+            // Schema HRE incompleto (p.ej. sin nombre_cliente): la lista de tickets no debe fallar.
+            return;
         }
         for (HistorialRecibo item : items) {
             item.setEstadoNotificacionElectronica(estados.get(item.getId()));

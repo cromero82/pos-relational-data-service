@@ -18,6 +18,12 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
     @Query("SELECT COALESCE(SUM(m.impacto), 0) FROM MovimientoOrigenFondos m WHERE m.origenFondosId = :cuentaId")
     BigDecimal sumImpactoByCuentaId(@Param("cuentaId") Integer cuentaId);
 
+    @Query("SELECT COALESCE(SUM(m.impacto), 0) FROM MovimientoOrigenFondos m "
+            + "WHERE m.origenFondosId = :cuentaId AND m.id <= :throughId")
+    BigDecimal sumImpactoByCuentaIdThroughId(
+            @Param("cuentaId") Integer cuentaId,
+            @Param("throughId") Long throughId);
+
     List<MovimientoOrigenFondos> findByOrigenFondosIdOrderByIdDesc(Integer origenFondosId);
 
     /**
@@ -92,6 +98,7 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
      */
     String FILTRO_CIERRE_MOVIMIENTOS =
             "AND m.metodoPagoId IS NOT NULL "
+            + "AND UPPER(TRIM(COALESCE(m.origenTipo, ''))) NOT IN ('DISTRIBUCION', 'MIGRACION_CONTADO_LEGACY') "
             + "AND (m.tipoMovimiento NOT IN :excluidos "
             + "     OR UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'QR_MONTO_DISTINTO') "
             + "AND NOT ("
