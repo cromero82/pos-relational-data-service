@@ -7,7 +7,8 @@
 **Rutas locales (macOS):** `/Users/carlosromero/Documents/dev/repos/...`
 
 > Docs más viejos (`AI-ONBOARDING-v2.md`, `AI-CONTEXT.md` Influx, `info.md`) siguen útiles por dominio.  
-> **Fuente de verdad operativa:** este archivo + handoffs `AI-HANDOFF-*-2026-08.md`.
+> **Fuente de verdad operativa de este BE:** este archivo + handoffs `AI-HANDOFF-*-2026-08.md`.  
+> **Contexto general de la app + instalación prod (Tienda Infinito):** `prompts-general-pos/` (mismo `…/repos/`). SQL de schema sigue aquí (`database/`).
 
 ---
 
@@ -29,6 +30,7 @@
 
 | Path | Uso |
 |------|-----|
+| `prompts-general-pos/README.md` + `CURSOR-IA-PC-TIENDA-V02.md` | Contexto general + instalar Tienda Infinito en la PC de prod |
 | `prompts-general-pos/RESET-TABLAS-FINANCIERAS-TRANSACCIONALES.md` | Reset prueba + gotchas DBeaver |
 | `prompts-general-pos/reset-tablas-financieras-transaccionales-v2.sql` | SQL canónico truncate |
 | `prompts-general-pos/MIGRATE-PROD-TO-DIAN-V2.md` | Migración schema |

@@ -1,6 +1,8 @@
 # Orden canónico PC de tienda / launcher «Ejecutar scripts».
-# Destino MUST ser controlneg_rmx_db_v02. Nunca controlneg_rmx_db.
-# No incluye 25_repair ni 61_sync_catalogos (solo laptop).
+# Destino MUST ser controlneg_rmx_db_v02 (esta BD se exporta a prod / tienda-infinito).
+# Nunca controlneg_rmx_db.
+# No incluye 25_repair ni 61_sync_catalogos (61 pisa plantillas/values de la laptop).
+# El gap de config/catálogo de prod es 67_.
 entrada_inventario.sql
 historial_precio_producto.sql
 00_establecimiento.sql
@@ -31,9 +33,9 @@ historial_precio_producto.sql
 23_distribucion_efectivo.sql
 24_base_inicial_caja.sql
 26_unlink_caja_menor_metodo_pago.sql
-63_align_caja_menor_general.sql
 27_movimiento_id_referencia.sql
 28_origen_fondos_estado_archivar.sql
+63_align_caja_menor_general.sql
 28_confirmacion_pagos_electronicos.sql
 29_notificacion_email_archivada.sql
 30_plantilla_notificacion_pago.sql
@@ -71,3 +73,4 @@ historial_precio_producto.sql
 64_migrate_distribucion_contado_legacy.sql
 65_corte_venta_total_ventas_sistema.sql
 66_tienda_infinito_email_alerta.sql
+67_configuracion_app_leyenda_y_claves.sql

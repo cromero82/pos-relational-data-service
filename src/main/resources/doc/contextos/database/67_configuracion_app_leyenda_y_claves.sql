@@ -1,23 +1,20 @@
--- Sincroniza catálogos paramétricos desde la laptop (controlneg_rmx_db)
--- hacia controlneg_rmx_db_v02. PISA values y plantillas con texto de esta laptop.
--- NO va en el manifiesto de tienda. El gap de prod es 67_configuracion_app_leyenda_y_claves.sql.
--- Ejecutar SOLO sobre controlneg_rmx_db_v02 y solo si se quiere copiar la laptop.
+-- Gap de configuracion_app + catálogo que 61_sync hacía solo en laptop.
+-- Destino: controlneg_rmx_db_v02 (esta BD es la que se exporta a prod / tienda-infinito).
+-- Idempotente. NO pisa values ya presentes. NO copia sistema.sandbox.
+-- NO actualiza plantillas existentes (texto de cuenta de la laptop).
+-- Ejecutar SOLO sobre controlneg_rmx_db_v02.
 
 ALTER TABLE configuracion_app
     ADD COLUMN IF NOT EXISTS leyenda VARCHAR(255);
 
--- Contadores de catálogo de v02 se conservan (3417 productos).
--- No se copia `sistema.sandbox` (reset transaccional sobre datos de prod).
-
-CREATE TEMP TABLE cfg_src (
+CREATE TEMP TABLE cfg_gap (
     k VARCHAR(50) PRIMARY KEY,
     v VARCHAR(1000) NOT NULL,
     ley VARCHAR(255)
 );
-INSERT INTO cfg_src (k, v, ley) VALUES
+INSERT INTO cfg_gap (k, v, ley) VALUES
     ('longitud-vertical-panel-productos', '650', NULL),
     ('alerta-precios', '{"porcentaje_minimo":10,"porc_maximo":80}', NULL),
-    ('ultimo-corte-egresos', '2026-03-28', NULL),
     ('notificaciones.qr.asuntos-permitidos', '{"permitidas":["Alertas y Notificaciones"]}', NULL),
     ('monitor-bug', '{"mostrar":true}', NULL),
     ('corte-venta.limite-permitido-revisada', '20000', NULL),
@@ -30,28 +27,23 @@ INSERT INTO cfg_src (k, v, ley) VALUES
     ('corte-venta.base-efectivo', '150000', 'Base dinero en efectivo sugerida para las cajas'),
     ('notificaciones.asociaciones-egresos.obligatorio', 'false', NULL);
 
-UPDATE configuracion_app c
-SET value = s.v,
-    leyenda = COALESCE(s.ley, c.leyenda)
-FROM cfg_src s
-WHERE c.key = s.k;
-
 INSERT INTO configuracion_app (key, value, leyenda)
 SELECT s.k, s.v, s.ley
-FROM cfg_src s
+FROM cfg_gap s
 WHERE NOT EXISTS (SELECT 1 FROM configuracion_app c WHERE c.key = s.k);
 
--- Nequi debe extraer correos igual que QR.
+UPDATE configuracion_app c
+SET leyenda = s.ley
+FROM cfg_gap s
+WHERE c.key = s.k
+  AND s.ley IS NOT NULL
+  AND (c.leyenda IS NULL OR btrim(c.leyenda) = '');
+
+-- Nequi debe extraer correos igual que QR (53_ / 61_).
 UPDATE metodo_pago
 SET permite_notificacion = TRUE
 WHERE id = 3
    OR UPPER(TRIM(COALESCE(sigla, ''))) = 'NEQUI';
-
-UPDATE tipo_egreso
-SET nombre = 'Otro tipo de egreso     Otro tipo de egreso',
-    descripcion = 'Otro tipo de egreso     Otro tipo de egreso',
-    naturaleza_tipo_egreso_id = 6
-WHERE id = 12;
 
 INSERT INTO tipo_egreso (id, nombre, descripcion, naturaleza_tipo_egreso_id)
 SELECT 13,
@@ -62,7 +54,6 @@ WHERE NOT EXISTS (SELECT 1 FROM tipo_egreso WHERE id = 13);
 
 SELECT setval('tipo_egreso_id_seq', GREATEST((SELECT MAX(id) FROM tipo_egreso), 1));
 
--- Plantillas EGRESO apuntan a Bancolombia QR → Sin Clasificar (hijo).
 INSERT INTO origen_fondos (
     nombre, tipo_origen_fondos_id, naturaleza, visible_en_egreso,
     requiere_conciliacion, activo, orden, color, parent_origen_fondos_id, estado
@@ -74,7 +65,7 @@ WHERE NOT EXISTS (
     SELECT 1 FROM origen_fondos WHERE lower(btrim(nombre)) = 'sin clasificar'
 );
 
-CREATE TEMP TABLE pnp_src (
+CREATE TEMP TABLE pnp_gap (
     nombre VARCHAR(40) PRIMARY KEY,
     cuerpo TEXT NOT NULL,
     icono VARCHAR(120),
@@ -86,17 +77,11 @@ CREATE TEMP TABLE pnp_src (
     of_origen_nombre VARCHAR(120),
     of_dest_nombre VARCHAR(120)
 );
-INSERT INTO pnp_src VALUES
-    ('QR', 'Bancolombia: AUTOSERVICIO INFINITO, recibiste un pago de {{nombrePagador}} por {{monto}} en tu cuenta *{{referenciaCuenta}}',
-     'qr-bancolombia.png', TRUE, 1, 'INGRESO', 'MOVIMIENTO BANCO POR IDENTIFICAR', 2, NULL, NULL),
-    ('BREVE', 'Bancolombia: AUTOSERVICIO INFINITO, recibiste una transferencia de {{nombrePagador}} por {{monto}} en tu cuenta *{{referenciaCuenta}} conectada a la llave 86070384 el 31/07/26 a las 20:34. Con llaves es de una y gratis. Dudas al 018000912345',
-     'breve-logo.png', TRUE, 2, 'INGRESO', 'MOVIMIENTO BANCO POR IDENTIFICAR', 2, NULL, NULL),
+INSERT INTO pnp_gap VALUES
     ('EGRESO LULO', 'Realizaste una compra en {{nombrePagador}} por {{monto}}',
      'otro-metodo.png', TRUE, 4, 'EGRESO', 'MOVIMIENTO BANCO POR IDENTIFICAR', 2, 'Bancolombia - QR', 'Sin Clasificar'),
     ('PAGOS QR', 'Hiciste un pago a {{nombrePagador}} por {{monto}}',
      'qr-bancolombia.png', TRUE, 5, 'EGRESO', 'MOVIMIENTO BANCO POR IDENTIFICAR', 2, 'Bancolombia - QR', 'Sin Clasificar'),
-    ('BANCOLOMBA CARLOS INFINITO', 'Bancolombia: CARLOS, recibiste una transferencia de {{nombrePagador}} por {{monto}} en tu cuenta *{{referenciaCuenta}}',
-     'qr-bancolombia.png', TRUE, 6, 'INGRESO', 'MOVIMIENTO BANCO POR IDENTIFICAR', 2, 'Bancolombia - QR', 'Sin Clasificar'),
     ('TRANSFERENCIA EGRESO', 'Bancolombia: Transferiste {{monto}} desde tu cuenta *{{referenciaCuenta}} a la cuenta',
      'qr-bancolombia.png', TRUE, 7, 'EGRESO', 'MOVIMIENTO BANCO POR IDENTIFICAR', 2, 'Bancolombia - QR', 'Sin Clasificar'),
     ('COMPRASTE', 'Compraste {{monto}} en {{nombrePagador}} con',
@@ -107,29 +92,6 @@ INSERT INTO pnp_src VALUES
      NULL, TRUE, 9, 'INGRESO', 'MOVIMIENTO BANCO POR IDENTIFICAR', 3, NULL, NULL),
     ('PAGASTE', 'pagaste {{monto}} por codigo QR desde tu cuenta',
      'qr-bancolombia.png', TRUE, 1, 'EGRESO', 'MOVIMIENTO BANCO POR IDENTIFICAR', 2, 'Bancolombia - QR', 'Sin Clasificar');
-
-UPDATE plantilla_notificacion_pago p
-SET cuerpo = s.cuerpo,
-    icono = s.icono,
-    activo = s.activo,
-    orden = s.orden,
-    naturaleza = s.naturaleza,
-    origen_tipo = s.origen_tipo,
-    metodo_pago_id = s.metodo_pago_id,
-    origen_fondos_origen_id = (
-        SELECT o.id FROM origen_fondos o
-        WHERE s.of_origen_nombre IS NOT NULL AND o.nombre = s.of_origen_nombre
-          AND o.parent_origen_fondos_id IS NULL
-        LIMIT 1
-    ),
-    origen_fondos_destino_id = (
-        SELECT o.id FROM origen_fondos o
-        WHERE s.of_dest_nombre IS NOT NULL AND lower(btrim(o.nombre)) = lower(s.of_dest_nombre)
-        LIMIT 1
-    ),
-    actualizado_en = CURRENT_TIMESTAMP
-FROM pnp_src s
-WHERE p.nombre = s.nombre;
 
 INSERT INTO plantilla_notificacion_pago (
     nombre, cuerpo, icono, activo, orden, naturaleza, origen_tipo, metodo_pago_id,
@@ -142,7 +104,7 @@ SELECT
        AND o.parent_origen_fondos_id IS NULL LIMIT 1),
     (SELECT o.id FROM origen_fondos o
      WHERE s.of_dest_nombre IS NOT NULL AND lower(btrim(o.nombre)) = lower(s.of_dest_nombre) LIMIT 1)
-FROM pnp_src s
+FROM pnp_gap s
 WHERE NOT EXISTS (
     SELECT 1 FROM plantilla_notificacion_pago p WHERE p.nombre = s.nombre
 );

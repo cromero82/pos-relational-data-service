@@ -148,7 +148,8 @@ Scripts (después de `20`):
 | `56_ticket_observaciones.sql` | `ticket.observaciones` TEXT | (manual, idempotente) |
 | `58_asociaciones_egresos_obligatorio.sql` | `configuracion_app` key `notificaciones.asociaciones-egresos.obligatorio` | (manual, idempotente) |
 | `60_estadistica_fin_total_cobranzas.sql` | `estadistica_fin.total_cobranzas` (abonos CxC en Resumen) | (manual, idempotente) |
-| `61_sync_catalogos_dev_a_v02.sql` | Config, plantillas QR/Nequi, tipo_egreso, Sin Clasificar (solo v02) | (manual, idempotente; **no** sobre `controlneg_rmx_db`) |
+| `61_sync_catalogos_dev_a_v02.sql` | Copia laptop → v02 (pisa plantillas/values). **No** en manifiesto de tienda | (manual; **no** sobre `controlneg_rmx_db`) |
+| `67_configuracion_app_leyenda_y_claves.sql` | `leyenda`, claves faltantes, Nequi, plantillas INSERT-only, Sin Clasificar | (incluido en migrate v02; no pisa existentes) |
 | `32_historial_recibos_electronicos_nombre_cliente.sql` | HRE `nombre_cliente` — **sin esto Historial Tickets 500** | (incluido en migrate, tras `45_`) |
 | `62_normalize_documento_venta_vta.sql` | `VTA-LEGACY-*` → `VTA-######` (mismo formato que ventas nuevas) | (incluido en migrate, tras `05_backfill`) |
 
