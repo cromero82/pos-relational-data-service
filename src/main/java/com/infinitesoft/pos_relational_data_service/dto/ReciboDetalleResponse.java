@@ -1,0 +1,40 @@
+package com.infinitesoft.pos_relational_data_service.dto;
+
+import com.infinitesoft.pos_relational_data_service.entities.Product;
+import com.infinitesoft.pos_relational_data_service.entities.ProductoPresentacion;
+import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalleHistorico;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ReciboDetalleResponse {
+    private Long id;
+    private Long reciboId;
+    private Long productoId;
+    private Long presentacionId;
+    private Integer cantidad;
+    private BigDecimal cantidadBase;
+    private BigDecimal precioUnitarioSnapshot;
+    private BigDecimal factorSnapshot;
+    private BigDecimal subtotal;
+    private LocalDateTime fechaCreacion;
+    private UUID usuarioCreacion;
+    private String nombreUsuarioAtendio;
+
+    // Enriched product information (optional, but keep consistent with Dto if needed)
+    private Product producto;
+
+    private ProductoPresentacion presentacion;
+
+    private List<ReciboDetalleHistorico> historicoAcciones;
+}

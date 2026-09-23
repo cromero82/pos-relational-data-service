@@ -1,0 +1,140 @@
+package com.infinitesoft.pos_relational_data_service.repositories;
+
+import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFondos;
+import com.infinitesoft.pos_relational_data_service.entities.enums.TipoMovimientoOrigenFondos;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface MovimientoOrigenFondosRepository extends JpaRepository<MovimientoOrigenFondos, Long> {
+
+    @Query("SELECT COALESCE(SUM(m.impacto), 0) FROM MovimientoOrigenFondos m WHERE m.origenFondosId = :cuentaId")
+    BigDecimal sumImpactoByCuentaId(@Param("cuentaId") Integer cuentaId);
+
+    @Query("SELECT COALESCE(SUM(m.impacto), 0) FROM MovimientoOrigenFondos m "
+            + "WHERE m.origenFondosId = :cuentaId AND m.id <= :throughId")
+    BigDecimal sumImpactoByCuentaIdThroughId(
+            @Param("cuentaId") Integer cuentaId,
+            @Param("throughId") Long throughId);
+
+    List<MovimientoOrigenFondos> findByOrigenFondosIdOrderByIdDesc(Integer origenFondosId);
+
+    /**
+     * Entradas «por identificar» en bolsas (p.ej. Para ordenar) aún no formalizadas como egreso.
+     */
+    @Query("SELECT m FROM MovimientoOrigenFondos m "
+            + "WHERE m.origenFondosId IN :origenFondosIds "
+            + "AND m.valor = :valor "
+            + "AND m.impacto > 0 "
+            + "AND UPPER(TRIM(m.origenTipo)) = 'MOVIMIENTO BANCO POR IDENTIFICAR' "
+            + "AND NOT EXISTS ("
+            + "  SELECT 1 FROM Egreso e WHERE e.fromMovimientoOrigenFondosId = m.id"
+            + ") "
+            + "ORDER BY m.id DESC")
+    List<MovimientoOrigenFondos> findCandidatosFormalizarEgreso(
+            @Param("origenFondosIds") List<Integer> origenFondosIds,
+            @Param("valor") BigDecimal valor);
+
+    @Query("SELECT m FROM MovimientoOrigenFondos m "
+            + "WHERE m.clasificacionOperativa IS NOT NULL "
+            + "AND (:clasificacion IS NULL OR m.clasificacionOperativa = :clasificacion) "
+            + "AND m.fecha >= :desde AND m.fecha <= :hasta "
+            + "AND m.impacto > 0 "
+            + "ORDER BY m.fecha DESC, m.id DESC")
+    List<MovimientoOrigenFondos> findPorClasificacionOperativa(
+            @Param("clasificacion") String clasificacion,
+            @Param("desde") java.time.LocalDate desde,
+            @Param("hasta") java.time.LocalDate hasta);
+
+    @Query("SELECT m FROM MovimientoOrigenFondos m "
+            + "WHERE m.tipoMovimiento = :tipo "
+            + "AND m.fecha >= :desde AND m.fecha <= :hasta "
+            + "ORDER BY m.fecha DESC, m.id DESC")
+    List<MovimientoOrigenFondos> findByTipoMovimientoAndFechaBetween(
+            @Param("tipo") TipoMovimientoOrigenFondos tipo,
+            @Param("desde") java.time.LocalDate desde,
+            @Param("hasta") java.time.LocalDate hasta);
+
+    List<MovimientoOrigenFondos> findByOrigenTipoAndIdReferenciaOrderByIdAsc(String origenTipo, Long idReferencia);
+
+    Optional<MovimientoOrigenFondos> findFirstByOrigenTipoOrderByIdAsc(String origenTipo);
+
+    boolean existsByOrigenTipo(String origenTipo);
+
+    List<MovimientoOrigenFondos> findByGrupoTrasladoIdOrderByIdAsc(String grupoTrasladoId);
+
+    @Query("SELECT MAX(m.id) FROM MovimientoOrigenFondos m")
+    Optional<Long> findMaxId();
+
+    @Query("SELECT MIN(m.fechaCreacion) FROM MovimientoOrigenFondos m WHERE m.id > :afterId")
+    Optional<LocalDateTime> findMinFechaCreacionByIdGreaterThan(@Param("afterId") Long afterId);
+
+    @Query("SELECT MAX(m.fechaCreacion) FROM MovimientoOrigenFondos m WHERE m.id > :afterId")
+    Optional<LocalDateTime> findMaxFechaCreacionByIdGreaterThan(@Param("afterId") Long afterId);
+
+    @Query("SELECT MAX(m.id) FROM MovimientoOrigenFondos m "
+            + "WHERE m.fechaCreacion >= :start AND m.fechaCreacion <= :end")
+    Optional<Long> findMaxIdByFechaCreacionBetween(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+
+    /**
+     * Filtro compartido de la columna «Movimientos» del cierre.
+     * <p>
+     * Excluye egresos documento y posteos de venta. {@code QR_MONTO_DISTINTO} sí suma
+     * (sobrepago/faltante; no es egreso de proveedor).
+     * <p>
+     * Si un PAGASTE ({@code MOVIMIENTO BANCO POR IDENTIFICAR}) ya se formalizó como
+     * egreso, el débito del medio electrónico (QR, Nequi, …) no vuelve a restar aquí:
+     * esa plata vive en la columna Egresos. Antes de formalizar, el débito sí suma
+     * para que Esperado coincida con el saldo de la OF raíz.
+     */
+    String FILTRO_CIERRE_MOVIMIENTOS =
+            "AND m.metodoPagoId IS NOT NULL "
+            + "AND UPPER(TRIM(COALESCE(m.origenTipo, ''))) NOT IN ('DISTRIBUCION', 'MIGRACION_CONTADO_LEGACY') "
+            + "AND (m.tipoMovimiento NOT IN :excluidos "
+            + "     OR UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'QR_MONTO_DISTINTO') "
+            + "AND NOT ("
+            + "  UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'MOVIMIENTO BANCO POR IDENTIFICAR' "
+            + "  AND EXISTS ("
+            + "    SELECT 1 FROM Egreso e, MovimientoOrigenFondos pair "
+            + "    WHERE e.fromMovimientoOrigenFondosId = pair.id "
+            + "    AND UPPER(TRIM(COALESCE(pair.origenTipo, ''))) = 'MOVIMIENTO BANCO POR IDENTIFICAR' "
+            + "    AND ("
+            + "      (m.grupoTrasladoId IS NOT NULL AND m.grupoTrasladoId = pair.grupoTrasladoId) "
+            + "      OR (m.idReferencia IS NOT NULL AND m.idReferencia = pair.idReferencia)"
+            + "    )"
+            + "  )"
+            + ") ";
+
+    @Query("SELECT m.metodoPagoId, COALESCE(SUM(m.impacto), 0) "
+            + "FROM MovimientoOrigenFondos m "
+            + "WHERE m.fechaCreacion >= :start AND m.fechaCreacion <= :end "
+            + FILTRO_CIERRE_MOVIMIENTOS
+            + "GROUP BY m.metodoPagoId")
+    List<Object[]> findResumenMovimientosPorMetodoPago(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("excluidos") List<TipoMovimientoOrigenFondos> excluidos);
+
+    /**
+     * Movimientos del turno abierto: id estrictamente mayor al watermark del último corte.
+     */
+    @Query("SELECT m.metodoPagoId, COALESCE(SUM(m.impacto), 0) "
+            + "FROM MovimientoOrigenFondos m "
+            + "WHERE m.id > :afterId "
+            + "AND m.fechaCreacion <= :end "
+            + FILTRO_CIERRE_MOVIMIENTOS
+            + "GROUP BY m.metodoPagoId")
+    List<Object[]> findResumenMovimientosPorMetodoPagoAfterId(
+            @Param("afterId") Long afterId,
+            @Param("end") LocalDateTime end,
+            @Param("excluidos") List<TipoMovimientoOrigenFondos> excluidos);
+}

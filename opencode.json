@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "google/gemini-3.5-flash",
+  "small_model": "ollama-local/qwen3-8b",
+  "snapshot": false,
+  "disabled_providers": ["ollama"],
+  "provider": {
+    "ollama-local": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Local Ollama",
+      "options": {
+        "baseURL": "http://localhost:11434/v1",
+        "apiKey": "ollama"
+      },
+      "models": {
+        "qwen3:8b": {
+          "name": "Qwen3 8B",
+          "tool_call": false,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        }
+      }
+    }
+  }
+}

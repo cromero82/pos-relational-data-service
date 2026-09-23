@@ -1,0 +1,27 @@
+package com.infinitesoft.pos_relational_data_service.repositories;
+
+import com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleDto;
+import com.infinitesoft.pos_relational_data_service.entities.ReciboDetalle;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Repository
+public interface ReciboDetalleRepository extends JpaRepository<ReciboDetalle, Long> {
+    List<ReciboDetalle> findByReciboIdOrderByIdAsc(Long reciboId);
+
+    @Query("select new com.infinitesoft.pos_relational_data_service.dto.ReciboDetalleDto(" +
+           "d.id, d.reciboId, d.productoId, d.presentacionId, d.cantidad, d.cantidadBase, " +
+           "d.precioUnitarioSnapshot, d.factorSnapshot, d.subtotal, d.fechaCreacion, d.usuarioCreacion, p) " +
+           "from ReciboDetalle d join d.producto p where d.reciboId = :reciboId order by d.id asc")
+    List<ReciboDetalleDto> findDtoByReciboId(@Param("reciboId") Long reciboId);
+
+    @Transactional
+    @Modifying
+    long deleteByReciboId(Long reciboId);
+}
