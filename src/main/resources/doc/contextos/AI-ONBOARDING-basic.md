@@ -2,7 +2,7 @@
 
 **Fecha de corte:** 2026-08-05 (rev. tarde: egreso sin MP + reset v2)  
 **Contexto / fork:** trabajo de **movimientos / orígenes de fondos / cierres**  
-**Branches:** BE `dian-v2` · FE `dian-version`  
+**Branches:** todo el trabajo en `develop` (BE y FE)  
 **Propósito:** punto de entrada para cualquier IA o desarrollador que retome el trabajo.  
 **Rutas locales (macOS):** `/Users/carlosromero/Documents/dev/repos/...`
 
@@ -20,7 +20,7 @@
 | [`AI-HANDOFF-FINANZAS-2026-08.md`](./AI-HANDOFF-FINANZAS-2026-08.md) | Orígenes, ledger, egresos, cierre, distribución, base inicial, **reset** |
 | [`AI-HANDOFF-SANDBOX-SIMULAR-DIA-2026-09.md`](./AI-HANDOFF-SANDBOX-SIMULAR-DIA-2026-09.md) | **Pendiente:** reloj sandbox + simular día 01/02/03 y 2 cortes el mismo día |
 | [`AI-HANDOFF-MONITOR-2026-08.md`](./AI-HANDOFF-MONITOR-2026-08.md) | Botón **Monitor** (bug-reporter), HAR JSON, Ver detalle |
-| [`database/README-SPRINTS.md`](./database/README-SPRINTS.md) | Orden SQL / migrate prod→dian-v2 |
+| `database/` (SQL `NN_…`) | Migraciones: cada cambio de BD se agrega como SQL `NN_…` |
 | [`AI-CONTEXT.md`](./AI-CONTEXT.md) | Logs BE → InfluxDB (no finanzas; no confundir con Monitor FE) |
 | [`contexto-legal-pos-responsabilidad.md`](./contexto-legal-pos-responsabilidad.md) | Diseño legal / responsabilidad POS CO |
 | [`AI-ONBOARDING-v2.md`](./AI-ONBOARDING-v2.md) | Histórico monitoreo (abr 2026); no verdad financiera |
@@ -33,7 +33,6 @@
 | `prompts-general-pos/README.md` + `CURSOR-IA-PC-TIENDA-V02.md` | Contexto general + instalar Tienda Infinito en la PC de prod |
 | `prompts-general-pos/RESET-TABLAS-FINANCIERAS-TRANSACCIONALES.md` | Reset prueba + gotchas DBeaver |
 | `prompts-general-pos/reset-tablas-financieras-transaccionales-v2.sql` | SQL canónico truncate |
-| `prompts-general-pos/MIGRATE-PROD-TO-DIAN-V2.md` | Migración schema |
 | `prompts-general-pos/MULTIPAGO-MEDIOS-POR-TICKET.md` | Cobro 2–3 medios / corte por líneas |
 | `prompts-general-pos/GLOSARIO-NUCLEO-FINANCIERO.md` | Ventas / Esperado / Contado / Diferencia / CxC |
 | `infinito-ai-front/.cursor/rules/movimientos-almacen/ONBOARDING-FINANZAS-ORIGENES-CIERRES.md` | Onboarding FE (julio; delta → handoff Ago) |
@@ -47,8 +46,8 @@ POS para tiendas colombianas, despliegue **local**.
 
 | Pieza | Repo | Branch | Puerto |
 |-------|------|--------|--------|
-| Backend negocio | `pos-relational-data-service` | `dian-v2` | `:8088` |
-| Frontend Angular | `infinito-ai-front` | `dian-version` | `:4200` |
+| Backend negocio | `pos-relational-data-service` | `develop` | `:8088` |
+| Frontend Angular | `infinito-ai-front` | `develop` | `:4200` |
 | Auth / usuarios | `infinito-security` | (entorno) | `:8081` |
 | PostgreSQL | `controlneg_rmx_db` | — | `:5432` |
 | Prompts / reset / HARs | `prompts-general-pos` | — | — |
@@ -66,7 +65,7 @@ Stack FE: Angular 21.x (paquete histórico Vex).
 |-------|----------------|
 | Orígenes / ledger / egresos / cierre / base / **reset** | [`AI-HANDOFF-FINANZAS-2026-08.md`](./AI-HANDOFF-FINANZAS-2026-08.md) |
 | Monitor / HAR / Ver detalle | [`AI-HANDOFF-MONITOR-2026-08.md`](./AI-HANDOFF-MONITOR-2026-08.md) |
-| Orden SQL migrate | [`database/README-SPRINTS.md`](./database/README-SPRINTS.md) |
+| Nuevas migraciones de BD | `database/` (SQL `NN_…`) |
 | Vaciar datos de prueba | `prompts-general-pos/RESET-…md` + script **v2** |
 | Logs → Influx | [`AI-CONTEXT.md`](./AI-CONTEXT.md) |
 | Legal | [`contexto-legal-pos-responsabilidad.md`](./contexto-legal-pos-responsabilidad.md) |
@@ -126,7 +125,7 @@ lsof -iTCP:8081 -sTCP:LISTEN   # auth
 - Reset prueba: **siempre** script v2 (no truncate parcial). DBeaver: Auto-commit ON + Execute Script.
 
 ```bash
-cd .../doc/contextos/database && ./apply-migrate-prod-to-dian-v2.sh
+# Los cambios de BD se agregan como SQL `NN_…` nuevos en `database/`
 # Reset datos:
 bash .../prompts-general-pos/apply-reset-tablas-financieras-transaccionales.sh
 # luego logout + login admin → modal base inicial
