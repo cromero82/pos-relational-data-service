@@ -15,17 +15,18 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
                    "FROM ticket t " +
                    "LEFT JOIN ticket_recibo tr ON t.id = tr.ticket_id " +
                    "LEFT JOIN recibo r ON tr.recibo_id = r.id AND r.cliente_id != :anonId " +
-                   "WHERE t.sesion_id = :sessionId ORDER BY t.orden ASC", nativeQuery = true)
+                   "WHERE t.sesion_id = :sessionId ORDER BY t.orden ASC, t.id ASC", nativeQuery = true)
     List<Object[]> findTicketsWithNonAnonClienteBySessionId(@Param("sessionId") Long sessionId, @Param("anonId") Long anonId);
 
     @Query(value = "SELECT t.id, t.sesion_id, t.nombre, t.orden, t.fecha_creacion, r.cliente_id, t.observaciones " +
                    "FROM ticket t " +
                    "JOIN ticket_recibo tr ON t.id = tr.ticket_id " +
                    "JOIN recibo r ON tr.recibo_id = r.id " +
-                   "WHERE r.cliente_id != :anonId AND t.sesion_id != :sessionId", nativeQuery = true)
+                   "WHERE r.cliente_id != :anonId AND t.sesion_id != :sessionId " +
+                   "ORDER BY t.sesion_id DESC, t.orden ASC, t.id ASC", nativeQuery = true)
     List<Object[]> findTicketsWithNonAnonClienteByNoSessionId(@Param("sessionId") Long sessionId, @Param("anonId") Long anonId);
 
-    List<Ticket> findBySessionIdOrderByOrdenAsc(Long sessionId);
+    List<Ticket> findBySessionIdOrderByOrdenAscIdAsc(Long sessionId);
 
     @Query(value = "SELECT c.id FROM client c " +
                    "JOIN recibo r ON c.id = r.cliente_id " +

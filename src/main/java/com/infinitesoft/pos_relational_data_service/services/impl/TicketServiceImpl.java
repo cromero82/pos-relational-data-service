@@ -86,7 +86,7 @@ public class TicketServiceImpl implements TicketService {
     @Override
     public List<Ticket> findBySessionId(Long sessionId) {
         if (sessionId == null) return List.of();
-        return ticketRepository.findBySessionIdOrderByOrdenAsc(sessionId);
+        return ticketRepository.findBySessionIdOrderByOrdenAscIdAsc(sessionId);
     }
 
     @Override
@@ -107,10 +107,10 @@ public class TicketServiceImpl implements TicketService {
 
         List<Object[]> otherResults = ticketRepository.findTicketsWithNonAnonClienteByNoSessionId(sessionId, idUsuarioAnonimo);
         List<Object[]> sessionResults = ticketRepository.findTicketsWithNonAnonClienteBySessionId(sessionId, idUsuarioAnonimo);
-        
+
         List<Object[]> results = new java.util.ArrayList<>();
-        results.addAll(otherResults);
         results.addAll(sessionResults);
+        results.addAll(otherResults);
 
         Optional<Sesion> sesionOpt = sesionRepository.findById(sessionId);
         UUID sessionUserId = sesionOpt.map(Sesion::getUserId).orElse(null);
