@@ -2,7 +2,6 @@
 
 **Fecha de corte:** 2026-08-05 (rev. tarde: egreso sin MP + reset v2)  
 **Contexto / fork:** trabajo de **movimientos / orígenes de fondos / cierres**  
-**Branches:** todo el trabajo en `develop` (BE y FE)  
 **Propósito:** punto de entrada para cualquier IA o desarrollador que retome el trabajo.  
 **Rutas locales (macOS):** `/Users/carlosromero/Documents/dev/repos/...`
 
@@ -44,13 +43,13 @@
 
 POS para tiendas colombianas, despliegue **local**.
 
-| Pieza | Repo | Branch | Puerto |
-|-------|------|--------|--------|
-| Backend negocio | `pos-relational-data-service` | `develop` | `:8088` |
-| Frontend Angular | `infinito-ai-front` | `develop` | `:4200` |
-| Auth / usuarios | `infinito-security` | (entorno) | `:8081` |
-| PostgreSQL | `controlneg_rmx_db` | — | `:5432` |
-| Prompts / reset / HARs | `prompts-general-pos` | — | — |
+| Pieza | Repo | Puerto |
+|-------|------|--------|
+| Backend negocio | `pos-relational-data-service` | `:8088` |
+| Frontend Angular | `infinito-ai-front` | `:4200` |
+| Auth / usuarios | `infinito-security` | `:8081` |
+| PostgreSQL | `controlneg_rmx_db` | `:5432` |
+| Prompts / reset / HARs | `prompts-general-pos` | — |
 
 Stack BE: Java 11, Spring Boot 2.7.18, JPA, `ddl-auto=none` → **SQL manual**.  
 Stack FE: Angular 21.x (paquete histórico Vex).
@@ -81,7 +80,7 @@ origen_fondos            = cuenta/wallet donde vive el dinero  ← PRIMA en egre
 movimiento_origen_fondos = ledger (saldo = SUM(impacto))
 ```
 
-**Ya implementado (rama movimientos):**
+**Ya implementado:**
 
 - Árbol OF + DnD traslados (hijo → padre/hermanos) + footer tips
 - Ledger: entrada, préstamo, traslado, egreso, ajustes, entradas venta cierre, distribución…
@@ -152,9 +151,9 @@ bash .../prompts-general-pos/apply-reset-tablas-financieras-transaccionales.sh
 
 | Repo | Commit | Nota |
 |------|--------|------|
-| BE `dian-v2` | `b5d23e8` | `idReferencia` |
+| BE | `b5d23e8` | `idReferencia` |
 | BE | `e7b8563` | movimientos / egresos / orígenes |
-| FE `dian-version` | `f51a8b2` | orígenes + Monitor Ver detalle |
+| FE | `f51a8b2` | orígenes + Monitor Ver detalle |
 | FE | `bc44b71` | orígenes, establecimiento, HARs |
 
 Working tree puede tener ajustes no commiteados (egreso MP nullable, polish UI, docs): `git status`.
@@ -166,7 +165,7 @@ Working tree puede tener ajustes no commiteados (egreso MP nullable, polish UI, 
 1. Leer **este** archivo.
 2. Finanzas/cierres/reset → `AI-HANDOFF-FINANZAS-2026-08.md`.
 3. Monitor/HAR → `AI-HANDOFF-MONITOR-2026-08.md`.
-4. Confirmar branch + puertos + `git status` BE/FE.
+4. Confirmar puertos + `git status` BE/FE.
 5. Pedir JSON Monitor o doble clic en orígenes si hay que auditar.
 6. Si “no pide base inicial”: verificar `BASE_INICIAL=0` y cortes=0 **committed**; logout+login admin.
 

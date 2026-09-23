@@ -3,8 +3,8 @@
 **Fecha de captura:** 2026-05-30  
 **Base de datos:** `controlneg_rmx_db`  
 **Motor:** PostgreSQL  
-**Rama activa del MS negocio:** `feature/prod`  
-**Contexto:** snapshot previo a (1) migrar logs de `public.app_log` a InfluxDB (rama `feature/influx`) y (2) diseñar la funcionalidad de **entradas de inventario desde soportes escaneados (OCR)**.
+**MS negocio:** tier de logs en Postgres (`app_log`), pre-InfluxDB.  
+**Contexto:** snapshot previo a (1) migrar logs de `public.app_log` a InfluxDB y (2) diseñar la funcionalidad de **entradas de inventario desde soportes escaneados (OCR)**.
 
 **Conexión usada** (`application.properties`):
 
@@ -344,8 +344,8 @@ Persistencia de logs vía `DbAppender` (Log4j2). Estructura:
 
 Índices: `idx_app_log_fecha`, `idx_app_log_nivel`.
 
-**Estado en rama `feature/prod`:** 21 806 filas en Postgres.  
-**En rama `feature/influx`:** logs van a InfluxDB 3 (`monitor.influx.*`, database `infinito_logs`); `app_log` dejaría de recibir tráfico nuevo.
+**Estado (Postgres):** 21 806 filas en `app_log`.  
+**Con InfluxDB:** logs van a InfluxDB 3 (`monitor.influx.*`, database `infinito_logs`); `app_log` dejaría de recibir tráfico nuevo.
 
 ---
 
@@ -456,7 +456,7 @@ Muchas relaciones lógicas (`recibo.cliente_id`, `recibo.estado_id`, etc.) **no 
 | `migracion_*` vs `cargue_*` | Dos flujos paralelos en código; solo `cargue_*` existe en BD |
 | `recibo_detalle_historico.recibo_detalle_id` | INTEGER en BD vs BIGINT en `recibo_detalle.id` |
 | `sesion.user_id` | Nullable en BD; script original lo marca NOT NULL |
-| Logs | `feature/prod`: Postgres `app_log`; `feature/influx`: InfluxDB 3 |
+| Logs | Postgres `app_log`; con InfluxDB: InfluxDB 3 |
 | Inventario | CSV estático `INVENTARIO_OCTUBRE_10.csv` tiene columna Inventario; **no hay columna equivalente en BD** |
 
 ---
