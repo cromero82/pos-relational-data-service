@@ -9,6 +9,9 @@ import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoResponse;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoPendienteDto;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoRequest;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoResultDto;
+import com.infinitesoft.pos_relational_data_service.dto.DividirCorteRequest;
+import com.infinitesoft.pos_relational_data_service.dto.DividirCorteResultDto;
+import com.infinitesoft.pos_relational_data_service.dto.DistribucionOriginalCorteDto;
 import com.infinitesoft.pos_relational_data_service.dto.FinalizarRevisionCorteRequest;
 import com.infinitesoft.pos_relational_data_service.entities.CorteVenta;
 
@@ -32,4 +35,18 @@ public interface CorteVentaService {
     BaseInicialResultDto confirmarBaseInicial(BaseInicialRequest request);
     CorteVentaDTO convertToDTO(CorteVenta entity);
     CorteVenta convertToEntity(CorteVentaDTO dto);
+
+    /**
+     * Corrige un corte mal generado: con 1 sola partición (mismo rango) actúa como editor
+     * (solo deja traza, tipo EDICION, sin tocar el ledger); con 2+ particiones ejecuta el SPLIT
+     * completo (reverso + puente + re-corte por partición), ver
+     * {@code MovimientoOrigenFondosService#revertirParaSplit}. Motivo obligatorio en ambos casos.
+     */
+    DividirCorteResultDto dividirCorte(Long corteId, DividirCorteRequest request);
+
+    /**
+     * Monto que el corte originalmente distribuyó a Caja Menor / Caja General. Usado por el FE
+     * del asistente Dividir para prellenar y validar el prorrateo entre particiones.
+     */
+    DistribucionOriginalCorteDto obtenerDistribucionOriginal(Long corteId);
 }

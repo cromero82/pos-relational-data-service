@@ -82,6 +82,10 @@ public class CorteVenta {
     @Column(name = "fecha_revision")
     private LocalDateTime fechaRevision;
 
+    /** Si este corte nació de un SPLIT, referencia al evento de corrección que lo generó. */
+    @Column(name = "origen_split_id")
+    private Long origenSplitId;
+
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "corte_venta_id")
     private List<VentasTipo> ventasTipo;

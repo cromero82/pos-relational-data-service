@@ -27,6 +27,13 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
     List<MovimientoOrigenFondos> findByOrigenFondosIdOrderByIdDesc(Integer origenFondosId);
 
     /**
+     * True si la cuenta tiene algún movimiento con id posterior al indicado.
+     * Sirve para decidir si se puede revertir una distribución de efectivo hacia
+     * Caja Menor / Caja General sin dejar el saldo inconsistente.
+     */
+    boolean existsByOrigenFondosIdAndIdGreaterThan(Integer origenFondosId, Long id);
+
+    /**
      * Entradas «por identificar» en bolsas (p.ej. Para ordenar) aún no formalizadas como egreso.
      */
     @Query("SELECT m FROM MovimientoOrigenFondos m "
@@ -98,7 +105,7 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
      */
     String FILTRO_CIERRE_MOVIMIENTOS =
             "AND m.metodoPagoId IS NOT NULL "
-            + "AND UPPER(TRIM(COALESCE(m.origenTipo, ''))) NOT IN ('DISTRIBUCION', 'MIGRACION_CONTADO_LEGACY') "
+            + "AND UPPER(TRIM(COALESCE(m.origenTipo, ''))) NOT IN ('DISTRIBUCION', 'MIGRACION_CONTADO_LEGACY', 'SPLIT_PUENTE', 'SPLIT_REVERSO') "
             + "AND (m.tipoMovimiento NOT IN :excluidos "
             + "     OR UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'QR_MONTO_DISTINTO') "
             + "AND NOT ("

@@ -7,14 +7,26 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface CorteVentaRepository extends JpaRepository<CorteVenta, Long> {
+
+    /**
+     * Estados que sacan a un corte de circulación: ya no cuenta en Ingresos ni puede ser el
+     * "último corte vigente". {@code dividido} es el corte original de un SPLIT: sus ventas
+     * las heredan los cortes nuevos, así que contarlo otra vez las duplicaría.
+     */
+    List<String> ESTADOS_NO_VIGENTES = Arrays.asList("eliminado", "dividido");
+
     Optional<CorteVenta> findFirstByOrderByFechaCreacionDesc();
-    Optional<CorteVenta> findFirstByEstadoNotOrderByFechaCreacionDesc(String estado);
-    Optional<CorteVenta> findFirstByEstadoNotOrderByIdDesc(String estado);
+
+    /** Desempata por id: un SPLIT crea varios cortes con la misma fechaCreacion. */
+    Optional<CorteVenta> findFirstByEstadoNotInOrderByFechaCreacionDescIdDesc(List<String> estados);
+
+    Optional<CorteVenta> findFirstByEstadoNotInOrderByIdDesc(List<String> estados);
 
     List<CorteVenta> findByFechaIniBetweenOrFechaFinBetween(
             LocalDateTime rangeStart1, LocalDateTime rangeEnd1,

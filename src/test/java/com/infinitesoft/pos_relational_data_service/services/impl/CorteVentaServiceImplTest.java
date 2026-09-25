@@ -38,7 +38,7 @@ class CorteVentaServiceImplTest {
     void eliminarUltimoCorteHaceSoftDeleteYRevierteAjustes() {
         CorteVenta corte = CorteVenta.builder().id(10L).estado("creada").build();
         when(repository.findById(10L)).thenReturn(Optional.of(corte));
-        when(repository.findFirstByEstadoNotOrderByIdDesc("eliminado"))
+        when(repository.findFirstByEstadoNotInOrderByIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES))
                 .thenReturn(Optional.of(corte));
 
         assertTrue(service.delete(10L));
@@ -53,7 +53,7 @@ class CorteVentaServiceImplTest {
         CorteVenta corte = CorteVenta.builder().id(9L).estado("revisada").build();
         CorteVenta ultimo = CorteVenta.builder().id(10L).estado("creada").build();
         when(repository.findById(9L)).thenReturn(Optional.of(corte));
-        when(repository.findFirstByEstadoNotOrderByIdDesc("eliminado"))
+        when(repository.findFirstByEstadoNotInOrderByIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES))
                 .thenReturn(Optional.of(ultimo));
 
         IllegalStateException error =
@@ -61,6 +61,19 @@ class CorteVentaServiceImplTest {
 
         assertTrue(error.getMessage().contains("último corte"));
         verify(movimientoOrigenFondosService, never()).revertirAjustesCierre(anyLong());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void eliminarCorteYaDivididoEsRechazado() {
+        CorteVenta corte = CorteVenta.builder().id(10L).estado("dividido").build();
+        when(repository.findById(10L)).thenReturn(Optional.of(corte));
+
+        IllegalStateException error =
+                assertThrows(IllegalStateException.class, () -> service.delete(10L));
+
+        assertTrue(error.getMessage().contains("dividido"));
+        verifyNoInteractions(movimientoOrigenFondosService);
         verify(repository, never()).save(any());
     }
 

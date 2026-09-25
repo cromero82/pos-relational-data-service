@@ -18,5 +18,20 @@ public enum TipoMovimientoOrigenFondos {
     AJUSTE_SALDO,
     AJUSTE_CIERRE,
     REVERSO_AJUSTE_CIERRE,
-    REVERSO_ENTRADA_VENTA
+    REVERSO_ENTRADA_VENTA,
+    /**
+     * Reverso de un traslado de distribución de efectivo (por eliminación del corte).
+     * @deprecated legacy: no generar nuevos movimientos con este tipo, usar {@link #REVERSO_TRASLADO}.
+     *             Se conserva para no romper la deserialización de filas ya existentes.
+     */
+    @Deprecated
+    REVERSO_TRASLADO_DISTRIBUCION,
+    /** Reverso de un traslado (distribución de efectivo), por eliminación de corte o por SPLIT. */
+    REVERSO_TRASLADO,
+    /**
+     * Asiento puente transitorio usado por el SPLIT de corte de ventas para evitar saldo negativo
+     * en el OF destino (Caja Menor/General) cuando ya hubo egresos posteriores a la distribución
+     * original. No es ingreso: se excluye de Ventas/Movimientos igual que DISTRIBUCION.
+     */
+    AJUSTE_PUENTE_SPLIT
 }

@@ -10,10 +10,15 @@ import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoResponse;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoPendienteDto;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoRequest;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoResultDto;
+import com.infinitesoft.pos_relational_data_service.dto.DividirCorteRequest;
+import com.infinitesoft.pos_relational_data_service.dto.DividirCorteResultDto;
+import com.infinitesoft.pos_relational_data_service.dto.DistribucionOriginalCorteDto;
 import com.infinitesoft.pos_relational_data_service.dto.FinalizarRevisionCorteRequest;
 import com.infinitesoft.pos_relational_data_service.dto.MovimientoOrigenFondosDto;
 import com.infinitesoft.pos_relational_data_service.dto.VentasTipoDTO;
 import com.infinitesoft.pos_relational_data_service.entities.CorteVenta;
+import com.infinitesoft.pos_relational_data_service.entities.CorteVentaCorreccion;
+import com.infinitesoft.pos_relational_data_service.entities.CorteVentaCorreccionDetalle;
 import com.infinitesoft.pos_relational_data_service.entities.CorteVentaDetalle;
 import com.infinitesoft.pos_relational_data_service.entities.HistorialRecibo;
 import com.infinitesoft.pos_relational_data_service.entities.MotivoMovimiento;
@@ -21,6 +26,8 @@ import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFon
 import com.infinitesoft.pos_relational_data_service.entities.OrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.VentasTipo;
 import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaCorreccionRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaCorreccionDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.EgresoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboRepository;
@@ -62,6 +69,12 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
     @Autowired
     private CorteVentaDetalleRepository detalleRepository;
+
+    @Autowired
+    private CorteVentaCorreccionRepository correccionRepository;
+
+    @Autowired
+    private CorteVentaCorreccionDetalleRepository correccionDetalleRepository;
 
     @Autowired
     private HistorialReciboRepository historialReciboRepository;
@@ -362,17 +375,328 @@ public class CorteVentaServiceImpl implements CorteVentaService {
         if ("eliminado".equals(corte.getEstado())) {
             return true;
         }
-        CorteVenta ultimo = repository.findFirstByEstadoNotOrderByIdDesc("eliminado")
+        if ("dividido".equals(corte.getEstado())) {
+            throw new IllegalStateException(
+                    "El corte ya fue dividido; corrija los cortes generados a partir de él.");
+        }
+        CorteVenta ultimo = repository.findFirstByEstadoNotInOrderByIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES)
                 .orElseThrow(() -> new IllegalStateException("No existe un último corte vigente."));
         if (!ultimo.getId().equals(id)) {
             throw new IllegalStateException("Solo se puede eliminar el último corte de ventas vigente.");
         }
+        // Bloquea si CUALQUIER OF tocada por el corte (medios de pago y cajas destino) tuvo
+        // movimientos posteriores; se valida antes de revertir nada.
+        movimientoOrigenFondosService.validarCorteEliminable(id);
         movimientoOrigenFondosService.revertirAjustesCierre(id);
+        // Distribución antes que ventas: revertir el traslado acredita la caja del medio de pago,
+        // de modo que el posterior débito del reverso de ventas nunca deja saldo negativo.
+        movimientoOrigenFondosService.revertirDistribucionEfectivo(id);
         movimientoOrigenFondosService.revertirEntradasVentaCorte(id);
         corte.setEstado("eliminado");
         repository.save(corte);
         sincronizarEstadisticaDeCorte(corte);
         return true;
+    }
+
+    @Override
+    @Transactional
+    public DividirCorteResultDto dividirCorte(Long corteId, DividirCorteRequest request) {
+        if (!isAdmin()) {
+            throw new IllegalArgumentException("Solo un administrador puede dividir/editar un corte.");
+        }
+        if (request == null || request.getMotivo() == null || request.getMotivo().trim().isEmpty()) {
+            throw new IllegalArgumentException("El motivo es obligatorio para dividir o editar un corte.");
+        }
+        String motivo = request.getMotivo().trim();
+        if (motivo.length() > 500) {
+            throw new IllegalArgumentException("El motivo no puede superar 500 caracteres.");
+        }
+        CorteVenta corte = repository.findById(corteId)
+                .orElseThrow(() -> new IllegalArgumentException("Corte no encontrado: " + corteId));
+        if ("eliminado".equals(corte.getEstado()) || "dividido".equals(corte.getEstado())) {
+            throw new IllegalStateException("El corte ya está eliminado o dividido.");
+        }
+        CorteVenta ultimo = repository.findFirstByEstadoNotInOrderByIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES)
+                .orElseThrow(() -> new IllegalStateException("No existe un último corte vigente."));
+        if (!ultimo.getId().equals(corteId)) {
+            throw new IllegalStateException("Solo se puede dividir/editar el último corte de ventas vigente.");
+        }
+        if (correccionRepository.existsByCorteOriginalId(corteId)) {
+            throw new IllegalStateException("Este corte ya tiene una corrección registrada.");
+        }
+
+        List<DividirCorteRequest.Particion> particiones = request.getParticiones();
+        if (particiones == null || particiones.isEmpty()) {
+            throw new IllegalArgumentException("Debe indicar al menos una partición.");
+        }
+        particiones = particiones.stream()
+                .sorted((a, b) -> a.getFechaDesde().compareTo(b.getFechaDesde()))
+                .collect(Collectors.toList());
+        validarParticiones(particiones, corte);
+
+        String usuarioId = SecurityContextHelper.getUserId() != null
+                ? SecurityContextHelper.getUserId().toString()
+                : corte.getUsuarioId();
+
+        if (particiones.size() == 1) {
+            // Modo editor: mismo rango, no se restructura el ledger. Solo deja traza.
+            CorteVentaCorreccion correccion = correccionRepository.save(CorteVentaCorreccion.builder()
+                    .corteOriginalId(corteId)
+                    .tipo("EDICION")
+                    .estado("creado")
+                    .motivo(motivo)
+                    .usuarioId(usuarioId)
+                    .totalVentasOriginal(nz(corte.getTotalVentasSistema()))
+                    .rangoIniOriginal(corte.getFechaIni())
+                    .rangoFinOriginal(corte.getFechaFin())
+                    .build());
+            correccionDetalleRepository.save(CorteVentaCorreccionDetalle.builder()
+                    .correccionId(correccion.getId())
+                    .corteNuevoId(corteId)
+                    .fechaDesde(corte.getFechaIni())
+                    .fechaHasta(corte.getFechaFin())
+                    .orden(0)
+                    .build());
+            return DividirCorteResultDto.builder()
+                    .ok(true)
+                    .correccionId(correccion.getId())
+                    .tipo("EDICION")
+                    .corteOriginalId(corteId)
+                    .cortesNuevosIds(Collections.emptyList())
+                    .build();
+        }
+
+        // --- SPLIT completo (N >= 2) ---
+        OrigenFondos caja = requireOrigenPorNombres("Caja: Efectivo", "Caja Efectivo");
+        OrigenFondos menor = requireOrigenPorNombres("Caja Menor");
+        OrigenFondos general = requireOrigenPorNombres("Caja General", "Caja general / Fondo administracion");
+
+        // Montos originalmente distribuidos por este corte (para validar el prorrateo).
+        BigDecimal montoMenorOriginal = sumaDistribucion(corteId, menor.getId());
+        BigDecimal montoGeneralOriginal = sumaDistribucion(corteId, general.getId());
+        BigDecimal sumaMenorParticiones = particiones.stream()
+                .map(p -> nz(p.getMontoCajaMenor())).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal sumaGeneralParticiones = particiones.stream()
+                .map(p -> nz(p.getMontoCajaGeneral())).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (sumaMenorParticiones.compareTo(montoMenorOriginal) != 0) {
+            throw new IllegalArgumentException(
+                    "La suma del prorrateo a Caja Menor (" + sumaMenorParticiones
+                            + ") debe igualar el monto original distribuido (" + montoMenorOriginal + ").");
+        }
+        if (sumaGeneralParticiones.compareTo(montoGeneralOriginal) != 0) {
+            throw new IllegalArgumentException(
+                    "La suma del prorrateo a Caja General (" + sumaGeneralParticiones
+                            + ") debe igualar el monto original distribuido (" + montoGeneralOriginal + ").");
+        }
+
+        // Resumen de cada partición (misma lógica del cierre de turno) ANTES de tocar el ledger:
+        // si las particiones no cubren exactamente las ventas del corte original, se aborta aquí
+        // sin haber reversado ni creado nada.
+        List<CorteVentaRangoResponse> resumenes = new ArrayList<>();
+        BigDecimal totalVentasReparticionado = BigDecimal.ZERO;
+        for (DividirCorteRequest.Particion particion : particiones) {
+            CorteVentaRangoResponse rango = this.consultarRango(CorteVentaRangoRequest.builder()
+                    .ultimoCorte(false)
+                    .actual(false)
+                    .fechaIni(particion.getFechaDesde())
+                    .fechaFin(particion.getFechaHasta())
+                    .build());
+            resumenes.add(rango);
+            totalVentasReparticionado = totalVentasReparticionado.add(nz(rango.getTotalVentasSistema()));
+        }
+        if (totalVentasReparticionado.compareTo(nz(corte.getTotalVentasSistema())) != 0) {
+            throw new IllegalArgumentException(
+                    "Las particiones no cubren exactamente las ventas del corte original: repartido "
+                            + totalVentasReparticionado + " vs " + nz(corte.getTotalVentasSistema())
+                            + ". Ajuste las fechas: no deben quedar ventas fuera de las particiones"
+                            + " ni contarse dos veces en un borde compartido.");
+        }
+
+        CorteVentaCorreccion correccion = correccionRepository.save(CorteVentaCorreccion.builder()
+                .corteOriginalId(corteId)
+                .tipo("SPLIT")
+                .estado("creado")
+                .motivo(motivo)
+                .usuarioId(usuarioId)
+                .totalVentasOriginal(nz(corte.getTotalVentasSistema()))
+                .rangoIniOriginal(corte.getFechaIni())
+                .rangoFinOriginal(corte.getFechaFin())
+                .build());
+        Long correccionId = correccion.getId();
+
+        // 1) Revertir el corte original (reverso + puente; incondicional, a diferencia de delete()).
+        movimientoOrigenFondosService.revertirParaSplit(corteId, correccionId);
+        corte.setEstado("dividido");
+        repository.save(corte);
+
+        // 2) Re-corte por partición, reutilizando la lógica de cierre de turno + distribución.
+        List<Long> cortesNuevosIds = new ArrayList<>();
+        CorteVenta ultimoNuevo = null;
+        int orden = 0;
+        for (DividirCorteRequest.Particion particion : particiones) {
+            CorteVentaRangoResponse rango = resumenes.get(orden);
+
+            CorteVenta nuevo = CorteVenta.builder()
+                    .usuarioId(usuarioId)
+                    .fechaCreacion(DateUtils.obtenerFechaSistema())
+                    .fechaIni(particion.getFechaDesde())
+                    .fechaFin(particion.getFechaHasta())
+                    .totalVentasSistema(nz(rango.getTotalVentasSistema()))
+                    .totalSistema(rango.getTotal())
+                    .estado("revisada")
+                    .revisadoPor(usuarioId)
+                    .fechaRevision(DateUtils.obtenerFechaSistema())
+                    .observacion("Generado por SPLIT (corrección #" + correccionId + ") del corte #" + corteId)
+                    .origenSplitId(correccionId)
+                    .distribucionEfectivoEstado("CONFIRMADA")
+                    .baseSiguienteEfectivo(orden == particiones.size() - 1 ? corte.getBaseSiguienteEfectivo() : BigDecimal.ZERO)
+                    .build();
+            historialReciboRepository.findMaxIdByFechaCreacionBetween(particion.getFechaDesde(), particion.getFechaHasta())
+                    .ifPresent(nuevo::setUltimoHistorialReciboId);
+            nuevo = repository.save(nuevo);
+            Long nuevoId = nuevo.getId();
+            cortesNuevosIds.add(nuevoId);
+
+            List<CorteVentaDetalle> detalles = new ArrayList<>();
+            int ordenDetalle = 0;
+            if (rango.getVentasTipo() != null) {
+                for (CorteVentaRangoResponse.VentasTipoResumenDTO vt : rango.getVentasTipo()) {
+                    BigDecimal ventas = nz(vt.getTotalVentasSistema());
+                    if (ventas.compareTo(BigDecimal.ZERO) <= 0) {
+                        continue;
+                    }
+                    detalles.add(CorteVentaDetalle.builder()
+                            .corteVentaId(nuevoId)
+                            .metodoPagoId(vt.getMetodoPagoId())
+                            .totalVentasSistema(ventas)
+                            .totalSistema(ventas)
+                            .modoCaptura("SOLO_VISIBLE")
+                            .revisionEstado("OK")
+                            .ajusteGenerado(false)
+                            .orden(ordenDetalle++)
+                            .build());
+                }
+            }
+            detalleRepository.saveAll(detalles);
+            movimientoOrigenFondosService.registrarEntradasVentaCorte(nuevoId, detalles);
+
+            BigDecimal montoMenor = nz(particion.getMontoCajaMenor());
+            BigDecimal montoGeneral = nz(particion.getMontoCajaGeneral());
+            String obsDistribucion = "Distribución de efectivo corte #" + nuevoId
+                    + " (SPLIT corrección #" + correccionId + " del corte #" + corteId + ")";
+            if (montoMenor.compareTo(BigDecimal.ZERO) > 0) {
+                movimientoOrigenFondosService.registrarTrasladoDistribucion(
+                        caja.getId(), menor.getId(), montoMenor, nuevoId, obsDistribucion);
+            }
+            if (montoGeneral.compareTo(BigDecimal.ZERO) > 0) {
+                movimientoOrigenFondosService.registrarTrasladoDistribucion(
+                        caja.getId(), general.getId(), montoGeneral, nuevoId, obsDistribucion);
+            }
+            movimientoOrigenFondosRepository.findMaxId().ifPresent(nuevo::setUltimoMovimientoOrigenFondosId);
+            ultimoNuevo = repository.save(nuevo);
+
+            correccionDetalleRepository.save(CorteVentaCorreccionDetalle.builder()
+                    .correccionId(correccionId)
+                    .corteNuevoId(nuevoId)
+                    .fechaDesde(particion.getFechaDesde())
+                    .fechaHasta(particion.getFechaHasta())
+                    .orden(orden)
+                    .build());
+            orden++;
+        }
+
+        // 3) Cerrar el puente ahora que el re-corte ya posteó sus nuevas entradas de traslado.
+        movimientoOrigenFondosService.cerrarPuenteSplit(corteId, correccionId);
+
+        // El cierre del puente genera movimientos POSTERIORES al último corte creado. Si quedaran
+        // fuera de su watermark, el siguiente cierre de turno tomaría como Base el saldo con el
+        // puente todavía abierto (inflado) y no los vería en la columna Movimientos, porque
+        // AJUSTE_PUENTE_SPLIT está excluido de ese filtro. Se amplía el watermark del último corte.
+        if (ultimoNuevo != null) {
+            final CorteVenta destinoWatermark = ultimoNuevo;
+            movimientoOrigenFondosRepository.findMaxId().ifPresent(maxId -> {
+                Long actual = destinoWatermark.getUltimoMovimientoOrigenFondosId();
+                if (actual == null || maxId > actual) {
+                    destinoWatermark.setUltimoMovimientoOrigenFondosId(maxId);
+                    repository.save(destinoWatermark);
+                }
+            });
+        }
+
+        sincronizarEstadisticaDeCorte(corte);
+        return DividirCorteResultDto.builder()
+                .ok(true)
+                .correccionId(correccionId)
+                .tipo("SPLIT")
+                .corteOriginalId(corteId)
+                .cortesNuevosIds(cortesNuevosIds)
+                .build();
+    }
+
+    @Override
+    public DistribucionOriginalCorteDto obtenerDistribucionOriginal(Long corteId) {
+        repository.findById(corteId)
+                .orElseThrow(() -> new IllegalArgumentException("Corte no encontrado: " + corteId));
+        OrigenFondos menor = requireOrigenPorNombres("Caja Menor");
+        OrigenFondos general = requireOrigenPorNombres("Caja General", "Caja general / Fondo administracion");
+        return DistribucionOriginalCorteDto.builder()
+                .corteVentaId(corteId)
+                .cajaMenorId(menor.getId())
+                .montoCajaMenor(sumaDistribucion(corteId, menor.getId()))
+                .cajaGeneralId(general.getId())
+                .montoCajaGeneral(sumaDistribucion(corteId, general.getId()))
+                .build();
+    }
+
+    private BigDecimal sumaDistribucion(Long corteVentaId, Integer origenDestinoId) {
+        return movimientoOrigenFondosRepository
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc("DISTRIBUCION", corteVentaId)
+                .stream()
+                .filter(m -> m.getOrigenFondosId().equals(origenDestinoId))
+                .filter(m -> m.getImpacto().compareTo(BigDecimal.ZERO) > 0)
+                .map(MovimientoOrigenFondos::getImpacto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Las particiones deben caber dentro del rango del corte original y no solaparse, pero SÍ se
+     * permiten huecos entre ellas (p. ej. terminar una a las 23:59:59 y empezar la siguiente a las
+     * 00:00:00 del día siguiente, para que cada corte nuevo quede en su propio día de calendario:
+     * Ingresos agrupa por la fecha de inicio del corte). La cobertura total se garantiza aparte,
+     * comparando la suma de ventas de las particiones contra el total del corte original.
+     * <p>
+     * Nota: las consultas de ventas son inclusivas en ambos extremos, así que dos particiones que
+     * comparten exactamente el mismo instante de borde pueden contar dos veces un ticket ubicado
+     * justo ahí; dejar un hueco de al menos un segundo lo evita.
+     */
+    private void validarParticiones(List<DividirCorteRequest.Particion> particiones, CorteVenta corte) {
+        for (DividirCorteRequest.Particion p : particiones) {
+            if (p.getFechaDesde() == null || p.getFechaHasta() == null) {
+                throw new IllegalArgumentException("Cada partición requiere fechaDesde y fechaHasta.");
+            }
+            if (!p.getFechaHasta().isAfter(p.getFechaDesde())) {
+                throw new IllegalArgumentException("fechaHasta debe ser posterior a fechaDesde en cada partición.");
+            }
+            if (p.getFechaDesde().isBefore(corte.getFechaIni())) {
+                throw new IllegalArgumentException(
+                        "Ninguna partición puede iniciar antes del corte original ("
+                                + corte.getFechaIni() + ").");
+            }
+            if (p.getFechaHasta().isAfter(corte.getFechaFin())) {
+                throw new IllegalArgumentException(
+                        "Ninguna partición puede terminar después del corte original ("
+                                + corte.getFechaFin() + ").");
+            }
+        }
+        for (int i = 1; i < particiones.size(); i++) {
+            LocalDateTime finAnterior = particiones.get(i - 1).getFechaHasta();
+            LocalDateTime iniActual = particiones.get(i).getFechaDesde();
+            if (iniActual.isBefore(finAnterior)) {
+                throw new IllegalArgumentException(
+                        "Las particiones no pueden solaparse: la partición " + (i + 1)
+                                + " inicia en " + iniActual + " pero la anterior termina en " + finAnterior + ".");
+            }
+        }
     }
 
     private void sincronizarEstadisticaDeCorte(CorteVenta corte) {
@@ -493,7 +817,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
         if (request.isUltimoCorte()) {
             Optional<CorteVenta> ultimoCorteVentaOpt =
-                    repository.findFirstByEstadoNotOrderByFechaCreacionDesc("eliminado");
+                    repository.findFirstByEstadoNotInOrderByFechaCreacionDescIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES);
             Optional<HistorialRecibo> posteriorHistorialRecibo;
 
             if (ultimoCorteVentaOpt.isPresent()) {
@@ -598,7 +922,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                     request.getFechaIni(), request.getFechaFin());
             
             otrosCortes = intersectados.stream()
-                    .filter(c -> !"eliminado".equals(c.getEstado()))
+                    .filter(c -> !CorteVentaRepository.ESTADOS_NO_VIGENTES.contains(c.getEstado()))
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
         }
@@ -790,7 +1114,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                         .map(this::toDetalleDTO)
                         .collect(Collectors.toList());
         boolean ultimoVigente = entity.getId() != null
-                && repository.findFirstByEstadoNotOrderByIdDesc("eliminado")
+                && repository.findFirstByEstadoNotInOrderByIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES)
                         .map(c -> c.getId().equals(entity.getId()))
                         .orElse(false);
 
@@ -885,7 +1209,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
     @Transactional
     public DistribucionEfectivoPendienteDto obtenerDistribucionPendiente() {
         Optional<CorteVenta> ultimoOpt =
-                repository.findFirstByEstadoNotOrderByFechaCreacionDesc("eliminado");
+                repository.findFirstByEstadoNotInOrderByFechaCreacionDescIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES);
         if (ultimoOpt.isEmpty()) {
             return DistribucionEfectivoPendienteDto.builder().pendiente(false).build();
         }
@@ -996,7 +1320,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
     @Override
     public BaseInicialPendienteDto obtenerBaseInicialPendiente() {
-        boolean hayCorte = repository.findFirstByEstadoNotOrderByFechaCreacionDesc("eliminado").isPresent();
+        boolean hayCorte = repository.findFirstByEstadoNotInOrderByFechaCreacionDescIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES).isPresent();
         boolean hayBaseInicial = movimientoOrigenFondosRepository.existsByOrigenTipo(
                 MovimientoOrigenFondosServiceImpl.ORIGEN_TIPO_BASE_INICIAL);
         if (hayCorte || hayBaseInicial) {

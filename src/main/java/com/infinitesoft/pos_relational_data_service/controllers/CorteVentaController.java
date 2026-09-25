@@ -9,6 +9,9 @@ import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoResponse;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoPendienteDto;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoRequest;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoResultDto;
+import com.infinitesoft.pos_relational_data_service.dto.DividirCorteRequest;
+import com.infinitesoft.pos_relational_data_service.dto.DividirCorteResultDto;
+import com.infinitesoft.pos_relational_data_service.dto.DistribucionOriginalCorteDto;
 import com.infinitesoft.pos_relational_data_service.dto.FinalizarRevisionCorteRequest;
 import com.infinitesoft.pos_relational_data_service.entities.CorteVenta;
 import com.infinitesoft.pos_relational_data_service.services.CorteVentaService;
@@ -134,5 +137,23 @@ public class CorteVentaController {
             @PathVariable Long id,
             @RequestBody FinalizarRevisionCorteRequest request) {
         return ResponseEntity.ok(service.finalizarRevision(id, request));
+    }
+
+    /**
+     * SPLIT / editor: corrige un corte mal generado. 1 partición = editor (traza EDICION,
+     * sin tocar el ledger); 2+ particiones = SPLIT completo (reverso + puente + re-corte).
+     */
+    @PostMapping("/{id}/dividir")
+    @PreAuthorize("hasRole('admin')")
+    public ResponseEntity<DividirCorteResultDto> dividir(
+            @PathVariable Long id,
+            @RequestBody DividirCorteRequest request) {
+        return ResponseEntity.ok(service.dividirCorte(id, request));
+    }
+
+    /** Monto originalmente distribuido a Caja Menor/General; prellenar/validar el prorrateo del split. */
+    @GetMapping("/{id}/distribucion-original")
+    public ResponseEntity<DistribucionOriginalCorteDto> distribucionOriginal(@PathVariable Long id) {
+        return ResponseEntity.ok(service.obtenerDistribucionOriginal(id));
     }
 }

@@ -30,7 +30,10 @@ import javax.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -502,7 +505,7 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                     .saldoAntes(saldoAntes)
                     .saldoDespues(saldoAntes.add(impacto))
                     .metodoPagoId(entrada.getMetodoPagoId())
-                    .observacion("Reverso ventas por eliminación del cierre #" + corteVentaId)
+                    .observacion("Reverso por eliminación del cierre #" + corteVentaId)
                     .valorSistema(entrada.getValorSistema())
                     .origenTipo(ORIGEN_TIPO_CORTE_VENTA_REVERSO)
                     .idReferencia(corteVentaId)
@@ -632,6 +635,280 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                     .build();
             movimientoRepository.save(reverso);
         }
+    }
+
+    public static final String ORIGEN_TIPO_DISTRIBUCION = "DISTRIBUCION";
+    public static final String ORIGEN_TIPO_DISTRIBUCION_REVERSO = "DISTRIBUCION_REVERSO";
+
+    @Override
+    @Transactional
+    public void revertirDistribucionEfectivo(Long corteVentaId) {
+        if (corteVentaId == null) {
+            return;
+        }
+        if (!movimientoRepository
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_DISTRIBUCION_REVERSO, corteVentaId)
+                .isEmpty()) {
+            return;
+        }
+        List<MovimientoOrigenFondos> movimientos = movimientoRepository
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_DISTRIBUCION, corteVentaId);
+        if (movimientos.isEmpty()) {
+            return;
+        }
+
+        Map<String, List<MovimientoOrigenFondos>> porGrupo = movimientos.stream()
+                .filter(m -> m.getGrupoTrasladoId() != null)
+                .collect(Collectors.groupingBy(MovimientoOrigenFondos::getGrupoTrasladoId));
+
+        for (List<MovimientoOrigenFondos> patas : porGrupo.values()) {
+            MovimientoOrigenFondos salida = patas.stream()
+                    .filter(m -> m.getImpacto().compareTo(BigDecimal.ZERO) < 0)
+                    .findFirst()
+                    .orElse(null);
+            MovimientoOrigenFondos entrada = patas.stream()
+                    .filter(m -> m.getImpacto().compareTo(BigDecimal.ZERO) > 0)
+                    .findFirst()
+                    .orElse(null);
+            if (salida == null || entrada == null) {
+                continue;
+            }
+
+            // Caja Menor / Caja General (destino): si ya hubo movimientos posteriores en esa
+            // OF (p.ej. un egreso que gastó el dinero distribuido), no se puede revertir sin dejar
+            // el saldo inconsistente -> se bloquea toda la eliminación (no se revierte nada).
+            boolean huboMovimientosPosteriores = movimientoRepository
+                    .existsByOrigenFondosIdAndIdGreaterThan(entrada.getOrigenFondosId(), entrada.getId());
+            if (huboMovimientosPosteriores) {
+                throw new IllegalStateException(
+                        "Existen movimientos generados luego del corte, reintente Dividir o Editar el corte");
+            }
+        }
+
+        for (List<MovimientoOrigenFondos> patas : porGrupo.values()) {
+            MovimientoOrigenFondos salida = patas.stream()
+                    .filter(m -> m.getImpacto().compareTo(BigDecimal.ZERO) < 0)
+                    .findFirst()
+                    .orElse(null);
+            MovimientoOrigenFondos entrada = patas.stream()
+                    .filter(m -> m.getImpacto().compareTo(BigDecimal.ZERO) > 0)
+                    .findFirst()
+                    .orElse(null);
+            if (salida == null || entrada == null) {
+                continue;
+            }
+            // OF de método de pago (p.ej. Caja: Efectivo): se revierte siempre.
+            revertirPataDistribucion(salida, corteVentaId);
+            // Destino (Caja Menor/General): ya validado arriba que no tuvo movimientos posteriores.
+            revertirPataDistribucion(entrada, corteVentaId);
+        }
+    }
+
+    private void revertirPataDistribucion(MovimientoOrigenFondos original, Long corteVentaId) {
+        BigDecimal impacto = original.getImpacto().negate();
+        BigDecimal saldoAntes = calcularSaldo(original.getOrigenFondosId());
+        MovimientoOrigenFondos reverso = MovimientoOrigenFondos.builder()
+                .fecha(DateUtils.obtenerFechaSistema().toLocalDate())
+                .usuarioId(requireUsuarioId())
+                .origenFondosId(original.getOrigenFondosId())
+                .tipoMovimiento(TipoMovimientoOrigenFondos.REVERSO_TRASLADO)
+                .valor(impacto.abs())
+                .impacto(impacto)
+                .saldoAntes(saldoAntes)
+                .saldoDespues(saldoAntes.add(impacto))
+                .metodoPagoId(original.getMetodoPagoId())
+                .observacion("Reverso por eliminación del cierre #" + corteVentaId)
+                .origenTipo(ORIGEN_TIPO_DISTRIBUCION_REVERSO)
+                .idReferencia(corteVentaId)
+                .grupoTrasladoId(original.getGrupoTrasladoId())
+                .build();
+        movimientoRepository.save(reverso);
+    }
+
+    public static final String ORIGEN_TIPO_SPLIT_REVERSO = "SPLIT_REVERSO";
+    public static final String ORIGEN_TIPO_SPLIT_PUENTE = "SPLIT_PUENTE";
+
+    @Override
+    public void validarCorteEliminable(Long corteVentaId) {
+        if (corteVentaId == null) {
+            return;
+        }
+        List<MovimientoOrigenFondos> delCorte = new ArrayList<>();
+        delCorte.addAll(movimientoRepository
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_CORTE_VENTA, corteVentaId));
+        delCorte.addAll(movimientoRepository
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_DISTRIBUCION, corteVentaId));
+        delCorte.addAll(movimientoRepository
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc("CIERRE", corteVentaId));
+        if (delCorte.isEmpty()) {
+            return;
+        }
+        // Último movimiento del corte en cada OF afectada: medios de pago (Caja: Efectivo,
+        // Bancolombia - QR, Nequi…) y cajas destino de la distribución (Caja Menor/General).
+        Map<Integer, Long> ultimoPorOrigen = new LinkedHashMap<>();
+        for (MovimientoOrigenFondos m : delCorte) {
+            ultimoPorOrigen.merge(m.getOrigenFondosId(), m.getId(), Math::max);
+        }
+        for (Map.Entry<Integer, Long> entrada : ultimoPorOrigen.entrySet()) {
+            if (movimientoRepository.existsByOrigenFondosIdAndIdGreaterThan(
+                    entrada.getKey(), entrada.getValue())) {
+                throw new IllegalStateException(
+                        "Existen movimientos generados luego del corte, reintente Dividir o Editar el corte");
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void revertirParaSplit(Long corteVentaId, Long correccionId) {
+        if (corteVentaId == null || correccionId == null) {
+            throw new IllegalArgumentException("corteVentaId y correccionId son obligatorios.");
+        }
+        if (!movimientoRepository
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_SPLIT_REVERSO, corteVentaId)
+                .isEmpty()) {
+            return;
+        }
+        String observacion = "Reverso por corrección #" + correccionId + " del corte #" + corteVentaId;
+
+        // TODO lo que el corte posteó en el ledger: ventas de CADA medio de pago (incluidos los
+        // que no se distribuyen, como QR o Nequi) y ambas patas de cada traslado de distribución.
+        // Si aquí faltara alguna entrada de venta, el re-corte la volvería a postear y quedaría
+        // contada dos veces.
+        List<MovimientoOrigenFondos> aRevertir = new ArrayList<>();
+        aRevertir.addAll(movimientoRepository
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_CORTE_VENTA, corteVentaId)
+                .stream()
+                .filter(m -> m.getTipoMovimiento() == TipoMovimientoOrigenFondos.ENTRADA_VENTA)
+                .collect(Collectors.toList()));
+        aRevertir.addAll(movimientoRepository
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_DISTRIBUCION, corteVentaId));
+        if (aRevertir.isEmpty()) {
+            return;
+        }
+
+        // Impacto neto del corte en cada OF. Si es positivo, revertirlo implica un débito que
+        // podría dejar saldo negativo (ese dinero ya pudo gastarse en un egreso posterior), así
+        // que se pre-financia con un asiento puente que se cierra en cerrarPuenteSplit, una vez
+        // que el re-corte ya repuso el monto. Caja: Efectivo suele quedar en neto 0 (entra la
+        // venta y sale el traslado), así que no necesita puente.
+        Map<Integer, BigDecimal> netoPorOrigen = new LinkedHashMap<>();
+        Map<Integer, Long> metodoPagoPorOrigen = new LinkedHashMap<>();
+        for (MovimientoOrigenFondos m : aRevertir) {
+            netoPorOrigen.merge(m.getOrigenFondosId(), m.getImpacto(), BigDecimal::add);
+            metodoPagoPorOrigen.putIfAbsent(m.getOrigenFondosId(), m.getMetodoPagoId());
+        }
+        for (Map.Entry<Integer, BigDecimal> neto : netoPorOrigen.entrySet()) {
+            if (neto.getValue().compareTo(BigDecimal.ZERO) > 0) {
+                reversoDirecto(
+                        neto.getKey(),
+                        TipoMovimientoOrigenFondos.AJUSTE_PUENTE_SPLIT,
+                        neto.getValue(),
+                        metodoPagoPorOrigen.get(neto.getKey()),
+                        observacion,
+                        ORIGEN_TIPO_SPLIT_PUENTE,
+                        corteVentaId,
+                        null
+                );
+            }
+        }
+
+        // Créditos antes que débitos: el reverso de una salida (impacto < 0) suma, el de una
+        // entrada resta. Ordenando por el signo del original, el saldo nunca pasa por negativo.
+        aRevertir.sort(Comparator.comparingInt((MovimientoOrigenFondos m) -> m.getImpacto().signum()));
+        for (MovimientoOrigenFondos m : aRevertir) {
+            TipoMovimientoOrigenFondos tipo =
+                    m.getTipoMovimiento() == TipoMovimientoOrigenFondos.ENTRADA_VENTA
+                            ? TipoMovimientoOrigenFondos.REVERSO_ENTRADA_VENTA
+                            : TipoMovimientoOrigenFondos.REVERSO_TRASLADO;
+            reversoDirecto(
+                    m.getOrigenFondosId(),
+                    tipo,
+                    m.getImpacto().negate(),
+                    m.getMetodoPagoId(),
+                    observacion,
+                    ORIGEN_TIPO_SPLIT_REVERSO,
+                    corteVentaId,
+                    m.getGrupoTrasladoId()
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public void cerrarPuenteSplit(Long corteVentaId, Long correccionId) {
+        if (corteVentaId == null || correccionId == null) {
+            throw new IllegalArgumentException("corteVentaId y correccionId son obligatorios.");
+        }
+        List<MovimientoOrigenFondos> puentesAbiertos = movimientoRepository
+                .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_SPLIT_PUENTE, corteVentaId)
+                .stream()
+                .filter(m -> m.getTipoMovimiento() == TipoMovimientoOrigenFondos.AJUSTE_PUENTE_SPLIT)
+                .filter(m -> m.getImpacto().compareTo(BigDecimal.ZERO) > 0)
+                .collect(Collectors.toList());
+        String observacionCierre = "Cierre de puente por corrección #" + correccionId + " del corte #" + corteVentaId;
+        for (MovimientoOrigenFondos puente : puentesAbiertos) {
+            boolean yaCerrado = movimientoRepository
+                    .findByOrigenTipoAndIdReferenciaOrderByIdAsc(ORIGEN_TIPO_SPLIT_PUENTE, corteVentaId)
+                    .stream()
+                    .anyMatch(m -> m.getTipoMovimiento() == TipoMovimientoOrigenFondos.AJUSTE_PUENTE_SPLIT
+                            && m.getImpacto().compareTo(BigDecimal.ZERO) < 0
+                            && m.getOrigenFondosId().equals(puente.getOrigenFondosId())
+                            && puente.getValor().negate().compareTo(m.getImpacto()) == 0);
+            if (yaCerrado) {
+                continue;
+            }
+            reversoDirecto(
+                    puente.getOrigenFondosId(),
+                    TipoMovimientoOrigenFondos.AJUSTE_PUENTE_SPLIT,
+                    puente.getImpacto().negate(),
+                    puente.getMetodoPagoId(),
+                    observacionCierre,
+                    ORIGEN_TIPO_SPLIT_PUENTE,
+                    corteVentaId,
+                    puente.getGrupoTrasladoId()
+            );
+        }
+    }
+
+    /**
+     * Inserta un movimiento directamente (sin pasar por la validación estricta de
+     * {@code persistirMovimiento}), recalculando saldoAntes/saldoDespues en el momento.
+     * Usado por los flujos de reverso/puente de SPLIT, donde el orden de las operaciones ya
+     * garantiza que el saldo nunca queda negativo; se valida igual como red de seguridad.
+     */
+    private void reversoDirecto(
+            Integer origenFondosId,
+            TipoMovimientoOrigenFondos tipo,
+            BigDecimal impacto,
+            Long metodoPagoId,
+            String observacion,
+            String origenTipo,
+            Long idReferencia,
+            String grupoTrasladoId
+    ) {
+        BigDecimal saldoAntes = calcularSaldo(origenFondosId);
+        BigDecimal saldoDespues = saldoAntes.add(impacto);
+        if (saldoDespues.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalStateException(
+                    "La corrección dejaría saldo negativo en el origen de fondos id=" + origenFondosId);
+        }
+        MovimientoOrigenFondos reverso = MovimientoOrigenFondos.builder()
+                .fecha(DateUtils.obtenerFechaSistema().toLocalDate())
+                .usuarioId(requireUsuarioId())
+                .origenFondosId(origenFondosId)
+                .tipoMovimiento(tipo)
+                .valor(impacto.abs())
+                .impacto(impacto)
+                .saldoAntes(saldoAntes)
+                .saldoDespues(saldoDespues)
+                .metodoPagoId(metodoPagoId)
+                .observacion(observacion)
+                .origenTipo(origenTipo)
+                .idReferencia(idReferencia)
+                .grupoTrasladoId(grupoTrasladoId)
+                .build();
+        movimientoRepository.save(reverso);
     }
 
     @Override

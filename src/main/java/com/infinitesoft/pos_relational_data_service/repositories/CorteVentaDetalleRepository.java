@@ -19,7 +19,7 @@ public interface CorteVentaDetalleRepository extends JpaRepository<CorteVentaDet
      * (mismo criterio de día que el dashboard de Ingresos).
      */
     @Query("SELECT COALESCE(SUM(d.totalVentasSistema), 0) FROM CorteVentaDetalle d, CorteVenta c "
-            + "WHERE d.corteVentaId = c.id AND c.estado <> 'eliminado' "
+            + "WHERE d.corteVentaId = c.id AND c.estado NOT IN ('eliminado', 'dividido') "
             + "AND c.fechaCreacion >= :start AND c.fechaCreacion <= :end")
     BigDecimal sumVentasSistemaCortesVigentes(
             @Param("start") LocalDateTime start,

@@ -495,7 +495,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
     }
 
     private Long resolveUltimoHistorialReciboWatermark() {
-        return corteVentaRepository.findFirstByEstadoNotOrderByIdDesc("eliminado")
+        return corteVentaRepository.findFirstByEstadoNotInOrderByIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES)
                 .map(c -> c.getUltimoHistorialReciboId() != null ? c.getUltimoHistorialReciboId() : 0L)
                 .orElse(0L);
     }
