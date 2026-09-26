@@ -144,4 +144,33 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
             @Param("afterId") Long afterId,
             @Param("end") LocalDateTime end,
             @Param("excluidos") List<TipoMovimientoOrigenFondos> excluidos);
+
+    /**
+     * Solo cobranzas CxC ({@code ENTRADA_COBRANZA}) por medio, en el mismo rango del cierre.
+     * Se separa de la columna «Movimientos» —que además trae traslados, entradas manuales y
+     * ajustes— para poder mostrar «Vendido = ventas + cobranzas» sin contaminarlo.
+     */
+    @Query("SELECT m.metodoPagoId, COALESCE(SUM(m.impacto), 0) "
+            + "FROM MovimientoOrigenFondos m "
+            + "WHERE m.fechaCreacion >= :start AND m.fechaCreacion <= :end "
+            + "AND m.metodoPagoId IS NOT NULL "
+            + "AND m.tipoMovimiento = :tipo "
+            + "GROUP BY m.metodoPagoId")
+    List<Object[]> findResumenPorTipoYMetodoPago(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("tipo") TipoMovimientoOrigenFondos tipo);
+
+    /** Variante watermark: id estrictamente mayor al del último corte. */
+    @Query("SELECT m.metodoPagoId, COALESCE(SUM(m.impacto), 0) "
+            + "FROM MovimientoOrigenFondos m "
+            + "WHERE m.id > :afterId "
+            + "AND m.fechaCreacion <= :end "
+            + "AND m.metodoPagoId IS NOT NULL "
+            + "AND m.tipoMovimiento = :tipo "
+            + "GROUP BY m.metodoPagoId")
+    List<Object[]> findResumenPorTipoYMetodoPagoAfterId(
+            @Param("afterId") Long afterId,
+            @Param("end") LocalDateTime end,
+            @Param("tipo") TipoMovimientoOrigenFondos tipo);
 }

@@ -46,6 +46,13 @@ public class CorteVentaRangoResponse {
          */
         private BigDecimal totalMovimientosSistema;
         /**
+         * Cobranzas CxC ({@code ENTRADA_COBRANZA}) del periodo para este medio.
+         * Subconjunto de {@link #totalMovimientosSistema}, expuesto aparte para el
+         * indicador «Vendido» del cierre (ventas + cobranzas) sin arrastrar traslados
+         * ni ajustes. No suma a Ventas ni al dashboard de Ingresos.
+         */
+        private BigDecimal totalCobranzasSistema;
+        /**
          * Base provisional del turno: total físico declarado en el corte anterior
          * (hasta existir Distribución de efectivo / BASE_TURNO).
          */

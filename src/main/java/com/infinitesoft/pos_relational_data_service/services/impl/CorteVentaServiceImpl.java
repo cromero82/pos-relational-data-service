@@ -952,12 +952,22 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                         historialReciboPagoRepository.findResumenVentasPorMetodoPago(
                                 response.getFechaIni(), finVentas));
             }
-            Map<Long, BigDecimal> egresosPorMedio = toResumenMap(
-                    egresoRepository.findResumenEgresosPorMetodoPago(
-                            response.getFechaIni(),
-                            finEgresos,
-                            response.getFechaIni().toLocalDate(),
-                            finEgresos.toLocalDate()));
+            // Egresos del turno: con watermark cuando el cierre arranca del último corte, igual
+            // que ventas y movimientos. Por fechas se colaban egresos del corte anterior (el
+            // rango empieza el mismo día) que la Base ya tenía descontados.
+            Map<Long, BigDecimal> egresosPorMedio;
+            if (request.isUltimoCorte()) {
+                egresosPorMedio = toResumenMap(
+                        egresoRepository.findResumenEgresosPorMetodoPagoAfterId(
+                                movimientoAfterId, finEgresos));
+            } else {
+                egresosPorMedio = toResumenMap(
+                        egresoRepository.findResumenEgresosPorMetodoPago(
+                                response.getFechaIni(),
+                                finEgresos,
+                                response.getFechaIni().toLocalDate(),
+                                finEgresos.toLocalDate()));
+            }
 
             // Columna «movimientos»: excluye egresos documento y posteos de venta del corte.
             // QR_MONTO_DISTINTO se incluye aunque el tipo sea SALIDA_EGRESO (ver query del repo).
@@ -983,6 +993,23 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                                 excluidosMov));
             }
 
+            // Cobranzas CxC aparte: viven dentro de «movimientos», pero el cierre las necesita
+            // separadas para el indicador «Vendido» (ventas + cobranzas).
+            Map<Long, BigDecimal> cobranzasPorMedio;
+            if (request.isUltimoCorte()) {
+                cobranzasPorMedio = toResumenMap(
+                        movimientoOrigenFondosRepository.findResumenPorTipoYMetodoPagoAfterId(
+                                movimientoAfterId,
+                                finEgresos,
+                                TipoMovimientoOrigenFondos.ENTRADA_COBRANZA));
+            } else {
+                cobranzasPorMedio = toResumenMap(
+                        movimientoOrigenFondosRepository.findResumenPorTipoYMetodoPago(
+                                response.getFechaIni(),
+                                finEgresos,
+                                TipoMovimientoOrigenFondos.ENTRADA_COBRANZA));
+            }
+
             Set<Long> medios = new HashSet<>();
             medios.addAll(ventasPorMedio.keySet());
             medios.addAll(egresosPorMedio.keySet());
@@ -996,12 +1023,14 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                         BigDecimal ventas = ventasPorMedio.getOrDefault(metodoPagoId, BigDecimal.ZERO);
                         BigDecimal egresos = egresosPorMedio.getOrDefault(metodoPagoId, BigDecimal.ZERO);
                         BigDecimal movimientos = movimientosPorMedio.getOrDefault(metodoPagoId, BigDecimal.ZERO);
+                        BigDecimal cobranzas = cobranzasPorMedio.getOrDefault(metodoPagoId, BigDecimal.ZERO);
                         return CorteVentaRangoResponse.VentasTipoResumenDTO.builder()
                                 .metodoPagoId(metodoPagoId)
                                 .base(base)
                                 .totalVentasSistema(ventas)
                                 .totalEgresosSistema(egresos)
                                 .totalMovimientosSistema(movimientos)
+                                .totalCobranzasSistema(cobranzas)
                                 .totalSistema(base.add(ventas).subtract(egresos).add(movimientos))
                                 .build();
                     })

@@ -64,4 +64,24 @@ public interface EgresoRepository extends JpaRepository<Egreso, Long> {
                                                    @Param("end") LocalDateTime end,
                                                    @Param("fechaDesde") LocalDate fechaDesde,
                                                    @Param("fechaHasta") LocalDate fechaHasta);
+
+    /**
+     * Egresos del turno abierto: los que golpearon el ledger DESPUÉS del watermark del último
+     * corte ({@code origenTipo='EGRESO'}, {@code idReferencia=egreso.id}).
+     * <p>
+     * La variante por fechas no sirve aquí: al abrir un cierre nuevo el rango arranca el mismo
+     * día del corte anterior, así que un egreso ya incluido en ese corte —y ya descontado del
+     * saldo que alimenta la Base— se volvía a restar y el Esperado del medio quedaba corto
+     * (Bancolombia – QR en 0 en vez de su base).
+     */
+    @Query("SELECT o.metodoPagoId, SUM(o.valor) FROM Egreso e JOIN e.origenes o "
+            + "WHERE o.metodoPagoId IS NOT NULL "
+            + "AND EXISTS (SELECT 1 FROM MovimientoOrigenFondos m "
+            + "            WHERE m.idReferencia = e.id "
+            + "            AND UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'EGRESO' "
+            + "            AND m.id > :afterId "
+            + "            AND m.fechaCreacion <= :end) "
+            + "GROUP BY o.metodoPagoId")
+    List<Object[]> findResumenEgresosPorMetodoPagoAfterId(@Param("afterId") Long afterId,
+                                                          @Param("end") LocalDateTime end);
 }
