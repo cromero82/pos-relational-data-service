@@ -84,4 +84,21 @@ public interface EgresoRepository extends JpaRepository<Egreso, Long> {
             + "GROUP BY o.metodoPagoId")
     List<Object[]> findResumenEgresosPorMetodoPagoAfterId(@Param("afterId") Long afterId,
                                                           @Param("end") LocalDateTime end);
+
+    /**
+     * Egresos del rango posteriores al piso de un corte vigente solapado.
+     * Sin el OR por fecha calendario: ese predicado volvía a restar egresos ya cerrados el mismo día.
+     */
+    @Query("SELECT o.metodoPagoId, SUM(o.valor) FROM Egreso e JOIN e.origenes o "
+            + "WHERE o.metodoPagoId IS NOT NULL "
+            + "AND EXISTS (SELECT 1 FROM MovimientoOrigenFondos m "
+            + "            WHERE m.idReferencia = e.id "
+            + "            AND UPPER(TRIM(COALESCE(m.origenTipo, ''))) = 'EGRESO' "
+            + "            AND m.id > :afterId "
+            + "            AND m.fechaCreacion >= :start "
+            + "            AND m.fechaCreacion <= :end) "
+            + "GROUP BY o.metodoPagoId")
+    List<Object[]> findResumenEgresosPorMetodoPagoAfterIdEntre(@Param("afterId") Long afterId,
+                                                                @Param("start") LocalDateTime start,
+                                                                @Param("end") LocalDateTime end);
 }

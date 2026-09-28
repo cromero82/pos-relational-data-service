@@ -89,6 +89,12 @@ public class ReciboController {
         return ResponseEntity.ok(updated);
     }
 
+    @PostMapping("/{id}/descartar-edicion")
+    public ResponseEntity<Void> descartarEdicion(@PathVariable Long id) {
+        reciboService.descartarEdicionSinCambios(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         boolean deleted = reciboService.delete(id);

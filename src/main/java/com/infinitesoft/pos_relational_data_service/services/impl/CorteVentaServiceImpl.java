@@ -154,6 +154,9 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                             });
                 }
             }
+        } else if (!dto.isUltimoCorte()
+                && entity.getFechaIni() != null && entity.getFechaFin() != null) {
+            recalcularSistemaPorRango(entity, dto);
         }
 
         // Calcular ultimoHistorialReciboId si fechaIni y fechaFin están presentes
@@ -182,6 +185,94 @@ public class CorteVentaServiceImpl implements CorteVentaService {
         }
         sincronizarEstadisticaDeCorte(saved);
         return saved;
+    }
+
+    /**
+     * Cierre por fechas (sin watermark): los totales de sistema salen del rango, no del cliente.
+     * El contado declarado se conserva; el desfase se recalcula y se vuelve a exigir motivo.
+     */
+    private void recalcularSistemaPorRango(CorteVenta entity, CorteVentaDTO dto) {
+        CorteVentaRangoResponse rango = this.consultarRango(CorteVentaRangoRequest.builder()
+                .ultimoCorte(false)
+                .actual(false)
+                .fechaIni(entity.getFechaIni())
+                .fechaFin(entity.getFechaFin())
+                .build());
+        entity.setTotalSistema(rango.getTotal());
+        entity.setTotalVentasSistema(nz(rango.getTotalVentasSistema()));
+
+        Map<Long, CorteVentaRangoResponse.VentasTipoResumenDTO> porMedio = new HashMap<>();
+        if (rango.getVentasTipo() != null) {
+            for (CorteVentaRangoResponse.VentasTipoResumenDTO item : rango.getVentasTipo()) {
+                if (item.getMetodoPagoId() != null) {
+                    porMedio.put(item.getMetodoPagoId(), item);
+                }
+            }
+        }
+        if (entity.getVentasTipo() != null) {
+            for (VentasTipo vt : entity.getVentasTipo()) {
+                CorteVentaRangoResponse.VentasTipoResumenDTO res = porMedio.get(vt.getMetodoPagoId());
+                BigDecimal sistema = res == null ? BigDecimal.ZERO : nz(res.getTotalSistema());
+                vt.setTotalVentasSistema(res == null ? BigDecimal.ZERO : nz(res.getTotalVentasSistema()));
+                vt.setTotalEgresosSistema(res == null ? BigDecimal.ZERO : nz(res.getTotalEgresosSistema()));
+                vt.setTotalSistema(sistema);
+                if (vt.getTotal() != null) {
+                    vt.setDesfase(vt.getTotal().subtract(sistema));
+                }
+            }
+        }
+        if (dto.getVentasTipo() != null) {
+            for (VentasTipoDTO vt : dto.getVentasTipo()) {
+                CorteVentaRangoResponse.VentasTipoResumenDTO res = porMedio.get(vt.getMetodoPagoId());
+                BigDecimal sistema = res == null ? BigDecimal.ZERO : nz(res.getTotalSistema());
+                vt.setTotalVentasSistema(res == null ? BigDecimal.ZERO : nz(res.getTotalVentasSistema()));
+                vt.setTotalEgresosSistema(res == null ? BigDecimal.ZERO : nz(res.getTotalEgresosSistema()));
+                vt.setTotalSistema(sistema);
+                if (vt.getTotal() != null) {
+                    vt.setDesfase(vt.getTotal().subtract(sistema));
+                }
+            }
+        }
+        if (dto.getDetalles() != null) {
+            for (CorteVentaDetalleDTO d : dto.getDetalles()) {
+                CorteVentaRangoResponse.VentasTipoResumenDTO res = porMedio.get(d.getMetodoPagoId());
+                BigDecimal sistema = res == null ? BigDecimal.ZERO : nz(res.getTotalSistema());
+                d.setTotalVentasSistema(res == null ? BigDecimal.ZERO : nz(res.getTotalVentasSistema()));
+                d.setTotalEgresosSistema(res == null ? BigDecimal.ZERO : nz(res.getTotalEgresosSistema()));
+                d.setTotalMovimientosSistema(res == null ? BigDecimal.ZERO : nz(res.getTotalMovimientosSistema()));
+                d.setTotalSistema(sistema);
+                if (d.getTotal() != null) {
+                    d.setDesfase(d.getTotal().subtract(sistema));
+                }
+            }
+        }
+        validarMotivosDesfase(dto);
+    }
+
+    /**
+     * Piso de ids ya cerrados por otro corte vigente que solapa el rango.
+     * [0] = max ultimoHistorialReciboId, [1] = max ultimoMovimientoOrigenFondosId.
+     * {@code excluirCorteId} es el corte que se divide: su propio watermark no puede ser el piso.
+     */
+    private long[] pisoDeCortesSolapados(LocalDateTime ini, LocalDateTime fin, Long excluirCorteId) {
+        long historial = 0L;
+        long movimiento = 0L;
+        for (CorteVenta corte : repository.findSolapadosConRango(ini, fin)) {
+            if (corte.getEstado() != null
+                    && CorteVentaRepository.ESTADOS_NO_VIGENTES.contains(corte.getEstado())) {
+                continue;
+            }
+            if (excluirCorteId != null && excluirCorteId.equals(corte.getId())) {
+                continue;
+            }
+            if (corte.getUltimoHistorialReciboId() != null) {
+                historial = Math.max(historial, corte.getUltimoHistorialReciboId());
+            }
+            if (corte.getUltimoMovimientoOrigenFondosId() != null) {
+                movimiento = Math.max(movimiento, corte.getUltimoMovimientoOrigenFondosId());
+            }
+        }
+        return new long[] { historial, movimiento };
     }
 
     private void validarMotivosDesfase(CorteVentaDTO dto) {
@@ -500,6 +591,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                     .actual(false)
                     .fechaIni(particion.getFechaDesde())
                     .fechaFin(particion.getFechaHasta())
+                    .excluirCorteId(corteId)
                     .build());
             resumenes.add(rango);
             totalVentasReparticionado = totalVentasReparticionado.add(nz(rango.getTotalVentasSistema()));
@@ -925,6 +1017,12 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                     .filter(c -> !CorteVentaRepository.ESTADOS_NO_VIGENTES.contains(c.getEstado()))
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
+            if (request.getFechaIni() != null && request.getFechaFin() != null) {
+                long[] piso = pisoDeCortesSolapados(
+                        request.getFechaIni(), request.getFechaFin(), request.getExcluirCorteId());
+                historialAfterId = piso[0];
+                movimientoAfterId = piso[1];
+            }
         }
 
         response.setOtrosCortesIntersectados(otrosCortes);
@@ -947,6 +1045,10 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 ventasPorMedio = toResumenMap(
                         historialReciboPagoRepository.findResumenVentasPorMetodoPagoAfterId(
                                 historialAfterId, finVentasWatermark));
+            } else if (historialAfterId > 0L) {
+                ventasPorMedio = toResumenMap(
+                        historialReciboPagoRepository.findResumenVentasPorMetodoPagoAfterIdEntre(
+                                historialAfterId, response.getFechaIni(), finVentas));
             } else {
                 ventasPorMedio = toResumenMap(
                         historialReciboPagoRepository.findResumenVentasPorMetodoPago(
@@ -960,6 +1062,10 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 egresosPorMedio = toResumenMap(
                         egresoRepository.findResumenEgresosPorMetodoPagoAfterId(
                                 movimientoAfterId, finEgresos));
+            } else if (movimientoAfterId > 0L) {
+                egresosPorMedio = toResumenMap(
+                        egresoRepository.findResumenEgresosPorMetodoPagoAfterIdEntre(
+                                movimientoAfterId, response.getFechaIni(), finEgresos));
             } else {
                 egresosPorMedio = toResumenMap(
                         egresoRepository.findResumenEgresosPorMetodoPago(
@@ -985,6 +1091,13 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                                 movimientoAfterId,
                                 finEgresos,
                                 excluidosMov));
+            } else if (movimientoAfterId > 0L) {
+                movimientosPorMedio = toResumenMap(
+                        movimientoOrigenFondosRepository.findResumenMovimientosPorMetodoPagoAfterIdEntre(
+                                movimientoAfterId,
+                                response.getFechaIni(),
+                                finEgresos,
+                                excluidosMov));
             } else {
                 movimientosPorMedio = toResumenMap(
                         movimientoOrigenFondosRepository.findResumenMovimientosPorMetodoPago(
@@ -1000,6 +1113,13 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 cobranzasPorMedio = toResumenMap(
                         movimientoOrigenFondosRepository.findResumenPorTipoYMetodoPagoAfterId(
                                 movimientoAfterId,
+                                finEgresos,
+                                TipoMovimientoOrigenFondos.ENTRADA_COBRANZA));
+            } else if (movimientoAfterId > 0L) {
+                cobranzasPorMedio = toResumenMap(
+                        movimientoOrigenFondosRepository.findResumenPorTipoYMetodoPagoAfterIdEntre(
+                                movimientoAfterId,
+                                response.getFechaIni(),
                                 finEgresos,
                                 TipoMovimientoOrigenFondos.ENTRADA_COBRANZA));
             } else {

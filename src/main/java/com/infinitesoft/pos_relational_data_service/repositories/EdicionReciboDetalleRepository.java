@@ -13,6 +13,8 @@ import java.util.List;
 public interface EdicionReciboDetalleRepository extends JpaRepository<EdicionReciboDetalle, Long> {
     List<EdicionReciboDetalle> findByEdicionId(Long edicionId);
 
+    void deleteByEdicionId(Long edicionId);
+
     @Query("SELECT new com.infinitesoft.pos_relational_data_service.dto.EdicionReciboDetalleDto(d.id, d.edicionId, d.productoId, d.cantidad, d.subtotal, p) " +
            "FROM EdicionReciboDetalle d JOIN Product p ON d.productoId = p.id WHERE d.edicionId = :edicionId")
     List<EdicionReciboDetalleDto> findDtoByEdicionId(@Param("edicionId") Long edicionId);

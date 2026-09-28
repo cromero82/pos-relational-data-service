@@ -6,12 +6,14 @@ import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoResponseDto;
 import com.infinitesoft.pos_relational_data_service.dto.ReciboUpdateResult;
 import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
+import com.infinitesoft.pos_relational_data_service.repositories.EdicionReciboDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ClientRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboElectronicoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MetodoPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ProductRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.ReciboRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.SesionRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.TicketReciboRepository;
 import com.infinitesoft.pos_relational_data_service.security.util.SecurityContextHelper;
 import com.infinitesoft.pos_relational_data_service.services.*;
@@ -52,6 +54,15 @@ public class ReciboServiceImpl implements ReciboService {
 
     @Autowired
     private EdicionReciboService edicionReciboService;
+
+    @Autowired
+    private EdicionReciboDetalleRepository edicionReciboDetalleRepository;
+
+    @Autowired
+    private SesionRepository sesionRepository;
+
+    @Autowired
+    private MovimientoOrigenFondosService movimientoOrigenFondosService;
 
     @Autowired
     private TicketService ticketService;
@@ -124,6 +135,24 @@ public class ReciboServiceImpl implements ReciboService {
         if (existingOpt.isEmpty()) return ReciboUpdateResult.fromRecibo(null);
 
         Recibo existing = existingOpt.get();
+        BigDecimal totalVentaAnterior = null;
+        Long metodoVentaAnterior = null;
+        if (ReciboEstado.PAGADO.getId().equals(dto.getEstadoId())) {
+            Optional<EdicionRecibo> edicionPrevia = edicionReciboService.findByReciboId(id);
+            if (edicionPrevia.isPresent() && edicionPrevia.get().getHistorialReciboId() != null) {
+                HistorialRecibo ventaAnterior = historialReciboService.findById(
+                        edicionPrevia.get().getHistorialReciboId());
+                if (ventaAnterior != null) {
+                    totalVentaAnterior = ventaAnterior.getTotal();
+                    metodoVentaAnterior = ventaAnterior.getMetodoPagoId();
+                }
+                historialReciboService.retirarPorEdicionConfirmada(edicionPrevia.get().getHistorialReciboId());
+                existing = reciboRepository.findById(id).orElse(null);
+                if (existing == null) {
+                    return ReciboUpdateResult.fromRecibo(null);
+                }
+            }
+        }
         // Update mutable fields, keep id and fechaCreacion
         existing.setClienteId(resolverClienteIdActualizacion(existing.getClienteId(), dto.getClienteId()));
         existing.setEstadoId(dto.getEstadoId());
@@ -174,6 +203,17 @@ public class ReciboServiceImpl implements ReciboService {
                 } catch (Exception e) {
                     // Sprint 0 SQL pendiente: el pago no debe fallar por documento_venta.
                 }
+            }
+            if (targetEstado == ReciboEstado.PAGADO
+                    && dto.getOrigenFondosDevolucionId() != null
+                    && totalVentaAnterior != null
+                    && existing.getTotal() != null
+                    && totalVentaAnterior.compareTo(existing.getTotal()) > 0) {
+                movimientoOrigenFondosService.registrarDevolucionEdicionVenta(
+                        dto.getOrigenFondosDevolucionId(),
+                        metodoVentaAnterior,
+                        totalVentaAnterior.subtract(existing.getTotal()),
+                        savedHist.getId());
             }
 
             // 2) Find the link to the ticket
@@ -434,6 +474,38 @@ public class ReciboServiceImpl implements ReciboService {
                             + "indicado el medio de pago al crear el crédito.");
         }
         return lineas;
+    }
+
+    @Override
+    @Transactional
+    public void descartarEdicionSinCambios(Long reciboId) {
+        if (reciboId == null || !reciboRepository.existsById(reciboId)) {
+            throw new IllegalArgumentException("Recibo no encontrado");
+        }
+        Optional<EdicionRecibo> edicionOpt = edicionReciboService.findByReciboId(reciboId);
+        if (edicionOpt.isEmpty()) {
+            throw new IllegalStateException("Este ticket no es una edición de una venta.");
+        }
+        EdicionRecibo edicion = edicionOpt.get();
+        edicionReciboDetalleRepository.deleteByEdicionId(edicion.getId());
+        edicionReciboService.deleteByReciboId(reciboId);
+        reciboDetalleService.deleteByReciboId(reciboId);
+
+        Optional<TicketRecibo> link = ticketReciboRepository.findFirstByReciboId(reciboId);
+        if (link.isPresent()) {
+            Long ticketId = link.get().getTicketId();
+            ticketReciboRepository.delete(link.get());
+            Recibo recibo = reciboRepository.findById(reciboId).orElse(null);
+            if (recibo != null && recibo.getSesionId() != null) {
+                Sesion sesion = sesionRepository.findById(recibo.getSesionId()).orElse(null);
+                if (sesion != null && ticketId.equals(sesion.getUltimoTicketId())) {
+                    sesion.setUltimoTicketId(null);
+                    sesionRepository.save(sesion);
+                }
+            }
+            ticketService.delete(ticketId);
+        }
+        reciboRepository.deleteById(reciboId);
     }
 
     @Override

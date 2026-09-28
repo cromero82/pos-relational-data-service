@@ -21,4 +21,7 @@ public class ConfiguracionApp {
 
     @Column(name = "`value`", length = 1000, nullable = false)
     private String value;
+
+    @Column(name = "leyenda", length = 255)
+    private String leyenda;
 }

@@ -203,6 +203,63 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
 
     @Override
     @Transactional
+    public void registrarDevolucionEdicionVenta(
+            Integer origenFondosDevolucionId,
+            Long metodoPagoIdVenta,
+            BigDecimal monto,
+            Long historialReciboId
+    ) {
+        validarValorPositivo(monto);
+        OrigenFondos origenDevolucion = requireOrigen(origenFondosDevolucionId);
+        OrigenFondos origenVenta = metodoPagoIdVenta == null
+                ? null
+                : cuentaRepository.findByMetodoPagoId(metodoPagoIdVenta).orElse(null);
+        if (origenVenta != null && origenVenta.getId().equals(origenDevolucion.getId())) {
+            return;
+        }
+        LocalDate fecha = DateUtils.obtenerFechaSistema().toLocalDate();
+        String obs = "Reembolso de venta en otro origen, historial " + historialReciboId;
+        persistirMovimiento(
+                origenDevolucion,
+                origenVenta != null ? origenVenta.getId() : null,
+                TipoMovimientoOrigenFondos.SALIDA_DEVOLUCION_VENTA,
+                monto,
+                monto.negate(),
+                fecha,
+                null,
+                null,
+                obs,
+                null,
+                null,
+                "DEVOLUCION_VENTA",
+                historialReciboId,
+                null
+        );
+        if (origenVenta != null) {
+            persistirMovimiento(
+                    origenVenta,
+                    origenDevolucion.getId(),
+                    TipoMovimientoOrigenFondos.ENTRADA_CRUCE_DEVOLUCION_VENTA,
+                    monto,
+                    monto,
+                    fecha,
+                    null,
+                    null,
+                    obs,
+                    null,
+                    null,
+                    "DEVOLUCION_VENTA",
+                    historialReciboId,
+                    null
+            );
+        }
+        if (estadisticaFinancieraService != null) {
+            estadisticaFinancieraService.sincronizarPeriodosDeFecha(fecha);
+        }
+    }
+
+    @Override
+    @Transactional
     public MovimientoOrigenFondosDto registrarEntradaCobranza(
             Integer origenFondosId,
             BigDecimal monto,
@@ -1203,7 +1260,8 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
             String grupoTrasladoId,
             String clasificacionOperativa
     ) {
-        if (impacto.compareTo(BigDecimal.ZERO) < 0) {
+        if (impacto.compareTo(BigDecimal.ZERO) < 0
+                && tipo != TipoMovimientoOrigenFondos.SALIDA_DEVOLUCION_VENTA) {
             validarSalidaSuficiente(cuenta.getId(), impacto.abs());
         }
 

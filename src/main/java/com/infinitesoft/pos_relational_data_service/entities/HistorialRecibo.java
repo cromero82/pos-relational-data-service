@@ -81,6 +81,10 @@ public class HistorialRecibo {
     @Transient
     private java.util.UUID sesionUserId;
 
+    /** Origen del reembolso al anular. No se persiste en historial_recibo. */
+    @Transient
+    private Integer origenFondosDevolucionId;
+
     @PrePersist
     protected void onPrePersist() {
         if (fechaCreacion == null) {

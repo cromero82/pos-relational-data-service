@@ -14,6 +14,16 @@ public enum TipoMovimientoOrigenFondos {
     ENTRADA_COBRANZA,
     TRASLADO,
     SALIDA_EGRESO,
+    /**
+     * Efectivo devuelto al editar una venta, cuando sale de un origen distinto al del medio de esa venta.
+     * No es venta: la baja de ventas queda en el ticket nuevo.
+     */
+    SALIDA_DEVOLUCION_VENTA,
+    /**
+     * Compensa el origen del medio cuando la devolución salió de otro origen.
+     * El cajón de ese medio sigue teniendo el efectivo; el ticket nuevo ya es más bajo.
+     */
+    ENTRADA_CRUCE_DEVOLUCION_VENTA,
     SALIDA_DEVOLUCION_PRESTAMO,
     AJUSTE_SALDO,
     AJUSTE_CIERRE,

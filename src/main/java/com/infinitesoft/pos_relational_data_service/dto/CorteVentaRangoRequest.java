@@ -17,6 +17,11 @@ public class CorteVentaRangoRequest {
     private LocalDateTime fechaFin;
     private boolean ultimoCorte;
     private boolean actual;
+    /**
+     * Corte que se está dividiendo. Su rango contiene las particiones; si entra al piso,
+     * su watermark deja las particiones en cero. Los demás cortes vigentes que solapan sí cuentan.
+     */
+    private Long excluirCorteId;
 
     // Las validaciones de "Si el campo 'ultimocorte' es falso ¿Entonces fechaini No puede ser nulo" 
     // y "actual es falso Entonces el campo 'fechafin' no puede ser nulo"

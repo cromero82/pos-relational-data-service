@@ -28,7 +28,7 @@ public class DocumentoVenta {
     @Column(nullable = false)
     private Integer anio;
 
-    @Column(name = "historial_recibo_id", nullable = false, unique = true)
+    @Column(name = "historial_recibo_id", unique = true)
     private Long historialReciboId;
 
     @Column(name = "fecha_hecho", nullable = false)

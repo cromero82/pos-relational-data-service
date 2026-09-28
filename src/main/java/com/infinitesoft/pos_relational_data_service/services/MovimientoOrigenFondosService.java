@@ -50,6 +50,18 @@ public interface MovimientoOrigenFondosService {
      * Cobranza CxC: entrada a OF del medio, origenTipo ABONO_CXC.
      * No usa {@code ENTRADA_VENTA} (cobranza ≠ ventas del día).
      */
+    /**
+     * Devolución al bajar una venta en edición.
+     * Si el origen elegido es el del medio de la venta, no escribe ledger: el ticket nuevo ya baja los tickets sin corte.
+     * Si es otro, sale de ese origen y compensa el del medio para no descontar dos veces.
+     */
+    void registrarDevolucionEdicionVenta(
+            Integer origenFondosDevolucionId,
+            Long metodoPagoIdVenta,
+            BigDecimal monto,
+            Long historialReciboId
+    );
+
     MovimientoOrigenFondosDto registrarEntradaCobranza(
             Integer origenFondosId,
             java.math.BigDecimal monto,

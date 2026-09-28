@@ -8,9 +8,11 @@ import com.infinitesoft.pos_relational_data_service.entities.*;
 import com.infinitesoft.pos_relational_data_service.entities.enums.DocumentoVentaEstado;
 import com.infinitesoft.pos_relational_data_service.entities.enums.ReciboEstado;
 import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.CuentaPorCobrarRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.DocumentoVentaRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.EdicionReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboElectronicoRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.MovimientoInventarioRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboPagoRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.HistorialReciboRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.SesionRepository;
@@ -67,6 +69,9 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
     private CorteVentaRepository corteVentaRepository;
 
     @Autowired
+    private CuentaPorCobrarRepository cuentaPorCobrarRepository;
+
+    @Autowired
     private ProductRepository productRepository;
 
     @Autowired
@@ -110,6 +115,12 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
     @Autowired
     private MovimientoInventarioService movimientoInventarioService;
+
+    @Autowired
+    private MovimientoOrigenFondosService movimientoOrigenFondosService;
+
+    @Autowired
+    private MovimientoInventarioRepository movimientoInventarioRepository;
 
     @Autowired
     private NotaAjusteDocumentoRepository notaAjusteDocumentoRepository;
@@ -224,7 +235,15 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
 
         if (ReciboEstado.ANULADO.getId().equals(historialRecibo.getEstadoId())
                 && ReciboEstado.PAGADO.getId().equals(estadoAnterior)) {
+            rechazarSiDineroContadoOEnCartera(existing.getId(), BloqueoOperacion.ANULAR);
             procesarAnulacionConNotaCredito(existing, "ANULACION_ADMIN", null, false);
+            if (historialRecibo.getOrigenFondosDevolucionId() != null && existing.getTotal() != null) {
+                movimientoOrigenFondosService.registrarDevolucionEdicionVenta(
+                        historialRecibo.getOrigenFondosDevolucionId(),
+                        existing.getMetodoPagoId(),
+                        existing.getTotal(),
+                        existing.getId());
+            }
         }
 
         HistorialRecibo saved = repository.save(existing);
@@ -295,6 +314,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         if (!ReciboEstado.PAGADO.getId().equals(historial.getEstadoId())) {
             throw new IllegalStateException("Solo se puede restaurar una venta pagada");
         }
+        rechazarSiDineroContadoOEnCartera(historial.getId(), BloqueoOperacion.RESTAURAR);
 
         DocumentoVenta documento = resolveDocumentoVenta(historial);
         if (documento == null) {
@@ -325,6 +345,7 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
         }
 
         moveToEdition(historialReciboId, sesionId);
+        retirarPorEdicionConfirmada(historialReciboId);
 
         Sesion sesion = sesionService.findById(sesionId);
         Long ticketId = sesion != null ? sesion.getUltimoTicketId() : null;
@@ -492,6 +513,66 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
             }
             return cb.and(preds.toArray(new javax.persistence.criteria.Predicate[0]));
         };
+    }
+
+    private enum BloqueoOperacion {
+        ANULAR, RESTAURAR, EDITAR
+    }
+
+    /**
+     * Anular, restaurar o editar solo si el dinero aún no se contó en un corte ni quedó en cartera.
+     * El watermark es el mismo de sinCorte: último corte vigente por id, no el máximo watermark.
+     */
+    private void rechazarSiDineroContadoOEnCartera(Long historialReciboId, BloqueoOperacion operacion) {
+        if (historialReciboId != null
+                && cuentaPorCobrarRepository.existsByHistorialReciboId(historialReciboId)) {
+            throw new IllegalStateException(mensajeBloqueo(operacion, true));
+        }
+        Long watermark = resolveUltimoHistorialReciboWatermark();
+        if (historialReciboId != null && watermark != null && watermark > 0
+                && historialReciboId <= watermark) {
+            throw new IllegalStateException(mensajeBloqueo(operacion, false));
+        }
+    }
+
+    private String mensajeBloqueo(BloqueoOperacion operacion, boolean cartera) {
+        if (cartera) {
+            if (operacion == BloqueoOperacion.RESTAURAR) {
+                return "Esta venta está en cartera. Restaurar el ticket queda pendiente.";
+            }
+            if (operacion == BloqueoOperacion.EDITAR) {
+                return "Esta venta está en cartera. Editarla en ventas queda pendiente.";
+            }
+            return "Esta venta está en cartera. La devolución queda pendiente y no se anula desde aquí.";
+        }
+        if (operacion == BloqueoOperacion.RESTAURAR) {
+            return "Esta venta ya está contada en un corte. Corregir el medio de pago queda pendiente y no se restaura desde aquí.";
+        }
+        if (operacion == BloqueoOperacion.EDITAR) {
+            return "Esta venta ya está contada en un corte. Editarla en ventas queda pendiente.";
+        }
+        return "Esta venta ya está contada en un corte. La devolución queda pendiente y no se anula desde aquí.";
+    }
+
+    /**
+     * El comprobante sigue (anulado, con nota crédito). historial_recibo_id queda null
+     * para poder borrar la fila. Requiere 69_documento_venta_historial_nullable.sql.
+     */
+    private void soltarReferenciasAntesDeBorrarHistorial(HistorialRecibo historial) {
+        Long id = historial.getId();
+        procesarAnulacionConNotaCredito(historial, "RESTAURACION_TICKET", null, true);
+
+        historial.setDocumentoVentaId(null);
+        repository.saveAndFlush(historial);
+        documentoVentaRepository.findByHistorialReciboId(id).ifPresent(doc -> {
+            doc.setHistorialReciboId(null);
+            documentoVentaRepository.saveAndFlush(doc);
+        });
+
+        movimientoInventarioRepository.detachHistorialRecibo(id);
+        historialReciboElectronicoRepository.detachNotificaciones(id);
+        historialReciboElectronicoRepository.deleteTicketsSinNotificacion(id);
+        historialReciboElectronicoRepository.deleteByHistorialReciboId(id);
     }
 
     private Long resolveUltimoHistorialReciboWatermark() {
@@ -721,9 +802,9 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
     public void moveToEdition(Long historialReciboId, Long sesionId) {
         HistorialRecibo historial = findById(historialReciboId);
         if (historial == null) {
-            // Or throw an exception
             return;
         }
+        rechazarSiDineroContadoOEnCartera(historial.getId(), BloqueoOperacion.EDITAR);
 
         // 1. Move HistorialRecibo to Recibo
         Recibo nuevoRecibo = Recibo.builder()
@@ -809,10 +890,20 @@ public class HistorialReciboServiceImpl implements HistorialReciboService {
             sesionService.update(sesionId, sesion);
         }
 
-        // 7. Delete original HistorialRecibo and its details
+    }
+
+    @Override
+    @Transactional
+    public void retirarPorEdicionConfirmada(Long historialReciboId) {
+        HistorialRecibo historial = findById(historialReciboId);
+        if (historial == null) {
+            return;
+        }
+        rechazarSiDineroContadoOEnCartera(historial.getId(), BloqueoOperacion.EDITAR);
+        soltarReferenciasAntesDeBorrarHistorial(historial);
         historialReciboDetalleService.deleteByReciboId(historialReciboId);
         historialReciboPagoRepository.deleteByHistorialReciboId(historialReciboId);
-        repository.delete(historial);
+        repository.deleteById(historialReciboId);
     }
 
     @Override

@@ -60,13 +60,15 @@ public class CorteVentaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaIni,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin,
             @RequestParam(defaultValue = "false") boolean ultimoCorte,
-            @RequestParam(defaultValue = "false") boolean actual) {
+            @RequestParam(defaultValue = "false") boolean actual,
+            @RequestParam(required = false) Long excluirCorteId) {
 
         CorteVentaRangoRequest request = CorteVentaRangoRequest.builder()
                 .fechaIni(fechaIni)
                 .fechaFin(fechaFin)
                 .ultimoCorte(ultimoCorte)
                 .actual(actual)
+                .excluirCorteId(excluirCorteId)
                 .build();
 
         return ResponseEntity.ok(service.consultarRango(request));

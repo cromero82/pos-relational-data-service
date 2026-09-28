@@ -16,6 +16,9 @@ public interface ReciboService {
     ReciboUpdateResult update(Long id, ReciboDto reciboDto);
     boolean delete(Long id);
 
+    /** Descarta el borrador de edición y deja el historial y el comprobante originales. */
+    void descartarEdicionSinCambios(Long reciboId);
+
     /**
      * Opción B (liquidación CxC): archiva el recibo vivo a historial + documento VTA
      * con líneas de pago construidas desde abonos. No registra pendiente electrónico

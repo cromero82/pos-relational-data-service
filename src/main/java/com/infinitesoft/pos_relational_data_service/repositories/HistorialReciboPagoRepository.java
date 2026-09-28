@@ -43,4 +43,20 @@ public interface HistorialReciboPagoRepository extends JpaRepository<HistorialRe
     List<Object[]> findResumenVentasPorMetodoPagoAfterId(
             @Param("afterId") Long afterId,
             @Param("end") LocalDateTime end);
+
+    /**
+     * Ventas del rango que no están ya en un corte vigente solapado:
+     * id estrictamente mayor al piso y fecha dentro de [start, end].
+     */
+    @Query("SELECT p.metodoPagoId, SUM(p.monto) FROM HistorialReciboPago p, HistorialRecibo h "
+            + "WHERE p.historialReciboId = h.id "
+            + "AND h.id > :afterId "
+            + "AND h.fechaCreacion >= :start AND h.fechaCreacion <= :end "
+            + "AND h.estadoId = 2 "
+            + "AND NOT EXISTS (SELECT 1 FROM CuentaPorCobrar c WHERE c.historialReciboId = h.id) "
+            + "GROUP BY p.metodoPagoId")
+    List<Object[]> findResumenVentasPorMetodoPagoAfterIdEntre(
+            @Param("afterId") Long afterId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
 }

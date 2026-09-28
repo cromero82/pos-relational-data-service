@@ -69,6 +69,15 @@ public class HistorialReciboController {
 
     @PutMapping("/{id}")
     public ResponseEntity<HistorialRecibo> update(@PathVariable Long id, @RequestBody HistorialRecibo historialRecibo, @RequestParam(required = true) Long sesionId) {
+        boolean aEdicion = historialRecibo.getEstadoId() != null
+                && ReciboEstado.EDICION.getId().equals(historialRecibo.getEstadoId());
+        if (aEdicion) {
+            if (service.findById(id) == null) {
+                return ResponseEntity.notFound().build();
+            }
+            service.update(id, historialRecibo, sesionId);
+            return ResponseEntity.noContent().build();
+        }
         HistorialRecibo updated = service.update(id, historialRecibo, sesionId);
         if (updated == null) {
             return ResponseEntity.notFound().build();

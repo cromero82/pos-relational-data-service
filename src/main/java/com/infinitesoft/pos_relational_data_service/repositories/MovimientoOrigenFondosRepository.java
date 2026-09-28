@@ -145,6 +145,19 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
             @Param("end") LocalDateTime end,
             @Param("excluidos") List<TipoMovimientoOrigenFondos> excluidos);
 
+    /** Movimientos del rango con id mayor al piso de un corte vigente solapado. */
+    @Query("SELECT m.metodoPagoId, COALESCE(SUM(m.impacto), 0) "
+            + "FROM MovimientoOrigenFondos m "
+            + "WHERE m.id > :afterId "
+            + "AND m.fechaCreacion >= :start AND m.fechaCreacion <= :end "
+            + FILTRO_CIERRE_MOVIMIENTOS
+            + "GROUP BY m.metodoPagoId")
+    List<Object[]> findResumenMovimientosPorMetodoPagoAfterIdEntre(
+            @Param("afterId") Long afterId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("excluidos") List<TipoMovimientoOrigenFondos> excluidos);
+
     /**
      * Solo cobranzas CxC ({@code ENTRADA_COBRANZA}) por medio, en el mismo rango del cierre.
      * Se separa de la columna «Movimientos» —que además trae traslados, entradas manuales y
@@ -171,6 +184,20 @@ public interface MovimientoOrigenFondosRepository extends JpaRepository<Movimien
             + "GROUP BY m.metodoPagoId")
     List<Object[]> findResumenPorTipoYMetodoPagoAfterId(
             @Param("afterId") Long afterId,
+            @Param("end") LocalDateTime end,
+            @Param("tipo") TipoMovimientoOrigenFondos tipo);
+
+    /** Cobranzas del rango con id mayor al piso de un corte vigente solapado. */
+    @Query("SELECT m.metodoPagoId, COALESCE(SUM(m.impacto), 0) "
+            + "FROM MovimientoOrigenFondos m "
+            + "WHERE m.id > :afterId "
+            + "AND m.fechaCreacion >= :start AND m.fechaCreacion <= :end "
+            + "AND m.metodoPagoId IS NOT NULL "
+            + "AND m.tipoMovimiento = :tipo "
+            + "GROUP BY m.metodoPagoId")
+    List<Object[]> findResumenPorTipoYMetodoPagoAfterIdEntre(
+            @Param("afterId") Long afterId,
+            @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
             @Param("tipo") TipoMovimientoOrigenFondos tipo);
 }

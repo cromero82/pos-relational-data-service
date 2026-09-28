@@ -13,6 +13,8 @@ import java.util.Optional;
 @Repository
 public interface CuentaPorCobrarRepository extends JpaRepository<CuentaPorCobrar, Long> {
 
+    boolean existsByHistorialReciboId(Long historialReciboId);
+
     Optional<CuentaPorCobrar> findFirstByReciboIdAndEstadoInOrderByIdDesc(
             Long reciboId,
             List<String> estados

@@ -27,6 +27,12 @@ public interface HistorialReciboService {
                                  Long metodoPagoId, Boolean mixto, Boolean sinCorte,
                                  Long clienteId, Long productoId, Pageable pageable);
     void moveToEdition(Long historialReciboId, Long sesionId);
+
+    /**
+     * Anula el comprobante y borra el historial original. Solo al confirmar una edición con cambios,
+     * o al restaurar. No se llama al abrir la edición.
+     */
+    void retirarPorEdicionConfirmada(Long historialReciboId);
     HistorialDocumentosDto getDocumentos(Long historialReciboId);
     RestaurarTicketResponseDto restaurarTicket(Long historialReciboId, Long sesionId, MotivoOperacionRequestDto request);
     java.util.List<com.infinitesoft.pos_relational_data_service.dto.ReciboPagoLineaDto> findPagosByHistorialId(Long historialReciboId);

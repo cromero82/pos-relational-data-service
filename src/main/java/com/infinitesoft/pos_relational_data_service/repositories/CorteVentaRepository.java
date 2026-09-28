@@ -32,6 +32,12 @@ public interface CorteVentaRepository extends JpaRepository<CorteVenta, Long> {
             LocalDateTime rangeStart1, LocalDateTime rangeEnd1,
             LocalDateTime rangeStart2, LocalDateTime rangeEnd2);
 
+    /** Turnos cuyo [fechaIni, fechaFin] pisa el rango, incluidos los que lo contienen por completo. */
+    @Query("SELECT c FROM CorteVenta c WHERE c.fechaIni <= :fin AND c.fechaFin >= :ini")
+    List<CorteVenta> findSolapadosConRango(
+            @Param("ini") LocalDateTime ini,
+            @Param("fin") LocalDateTime fin);
+
     List<CorteVenta> findByFechaIniGreaterThanEqualAndFechaIniLessThanEqual(LocalDateTime start, LocalDateTime end);
 
     /**

@@ -37,4 +37,7 @@ public class ReciboDto {
      * con {@code metodoPagoId} + {@code total}.
      */
     private List<ReciboPagoLineaDto> pagos;
+
+    /** Origen del que sale el efectivo al bajar el total de una edición. */
+    private Integer origenFondosDevolucionId;
 }
