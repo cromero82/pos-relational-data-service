@@ -29,6 +29,22 @@ public class CorteVentaDTO {
     private BigDecimal totalSistema;
     /** Σ tickets cobrados. Fuente de verdad para dashboard Ingresos. */
     private BigDecimal totalVentasSistema;
+    /** Snapshot de indicadores al registrar. Nulos en cortes anteriores a la migración 74. */
+    private BigDecimal kpiVentasTurno;
+    private BigDecimal kpiEfectivoDisponible;
+    private BigDecimal kpiMediosElectronicos;
+    private BigDecimal kpiTotalDisponible;
+    private BigDecimal kpiCartera;
+    private BigDecimal kpiCarteraCobrada;
+    /** this − corte de referencia (ayer / turno similar). */
+    private BigDecimal kpiVentasTurnoDelta;
+    private LocalDateTime kpiVentasTurnoReferenciaFecha;
+    /** SUBE | BAJA | IGUAL */
+    private String kpiVentasTurnoDireccion;
+    /** Variación % de cartera vs corte anterior. */
+    private BigDecimal kpiCarteraDeltaPct;
+    /** SUBE | BAJA | IGUAL — SUBE es peor (más deuda). */
+    private String kpiCarteraDireccion;
     private List<VentasTipoDTO> ventasTipo;
     private List<CorteVentaDetalleDTO> detalles;
     private String estado;

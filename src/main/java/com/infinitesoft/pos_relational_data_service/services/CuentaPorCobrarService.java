@@ -5,8 +5,10 @@ import com.infinitesoft.pos_relational_data_service.dto.AbrirCuentaPorCobrarRequ
 import com.infinitesoft.pos_relational_data_service.dto.CerrarCuentaPorCobrarRequest;
 import com.infinitesoft.pos_relational_data_service.dto.CuentaPorCobrarDto;
 import com.infinitesoft.pos_relational_data_service.dto.RegistrarAbonoCxcRequest;
+import com.infinitesoft.pos_relational_data_service.dto.SaldoCxcVigenteDto;
 import com.infinitesoft.pos_relational_data_service.dto.SincronizarCxCTicketRequest;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface CuentaPorCobrarService {
@@ -16,6 +18,10 @@ public interface CuentaPorCobrarService {
     CuentaPorCobrarDto findById(Long id);
 
     List<CuentaPorCobrarDto> listarVigentes();
+
+    BigDecimal saldoVigente();
+
+    SaldoCxcVigenteDto resumenVigente();
 
     List<CuentaPorCobrarDto> listarArchivados();
 

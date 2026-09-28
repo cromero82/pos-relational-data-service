@@ -9,6 +9,7 @@ import com.infinitesoft.pos_relational_data_service.dto.MovimientoOrigenFondosDt
 import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoLineaDto;
 import com.infinitesoft.pos_relational_data_service.dto.ReciboPagoResponseDto;
 import com.infinitesoft.pos_relational_data_service.dto.RegistrarAbonoCxcRequest;
+import com.infinitesoft.pos_relational_data_service.dto.SaldoCxcVigenteDto;
 import com.infinitesoft.pos_relational_data_service.dto.SincronizarCxCTicketRequest;
 import com.infinitesoft.pos_relational_data_service.entities.AbonoCxc;
 import com.infinitesoft.pos_relational_data_service.entities.Client;
@@ -285,6 +286,24 @@ public class CuentaPorCobrarServiceImpl implements CuentaPorCobrarService {
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal saldoVigente() {
+        BigDecimal saldo = cuentaPorCobrarRepository.sumSaldoVigente();
+        return saldo != null ? saldo : BigDecimal.ZERO;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SaldoCxcVigenteDto resumenVigente() {
+        BigDecimal saldo = cuentaPorCobrarRepository.sumSaldoVigente();
+        BigDecimal cobrada = cuentaPorCobrarRepository.sumCobradaVigente();
+        return SaldoCxcVigenteDto.builder()
+                .saldo(saldo != null ? saldo : BigDecimal.ZERO)
+                .cobrada(cobrada != null ? cobrada : BigDecimal.ZERO)
+                .build();
     }
 
     @Override

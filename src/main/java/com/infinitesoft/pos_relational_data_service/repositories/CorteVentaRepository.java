@@ -28,6 +28,13 @@ public interface CorteVentaRepository extends JpaRepository<CorteVenta, Long> {
 
     Optional<CorteVenta> findFirstByEstadoNotInOrderByIdDesc(List<String> estados);
 
+    Optional<CorteVenta> findFirstByIdLessThanAndEstadoNotInOrderByIdDesc(Long id, List<String> estados);
+
+    List<CorteVenta> findByEstadoNotInAndFechaFinGreaterThanEqualAndFechaFinLessThanOrderByFechaFinAscIdAsc(
+            List<String> estados, LocalDateTime desde, LocalDateTime hasta);
+
+    List<CorteVenta> findByEstadoNotIn(List<String> estados);
+
     List<CorteVenta> findByFechaIniBetweenOrFechaFinBetween(
             LocalDateTime rangeStart1, LocalDateTime rangeEnd1,
             LocalDateTime rangeStart2, LocalDateTime rangeEnd2);

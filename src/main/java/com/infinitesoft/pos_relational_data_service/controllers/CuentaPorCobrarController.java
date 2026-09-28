@@ -5,6 +5,7 @@ import com.infinitesoft.pos_relational_data_service.dto.AbrirCuentaPorCobrarRequ
 import com.infinitesoft.pos_relational_data_service.dto.CerrarCuentaPorCobrarRequest;
 import com.infinitesoft.pos_relational_data_service.dto.CuentaPorCobrarDto;
 import com.infinitesoft.pos_relational_data_service.dto.RegistrarAbonoCxcRequest;
+import com.infinitesoft.pos_relational_data_service.dto.SaldoCxcVigenteDto;
 import com.infinitesoft.pos_relational_data_service.dto.SincronizarCxCTicketRequest;
 import com.infinitesoft.pos_relational_data_service.services.CuentaPorCobrarService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,11 @@ public class CuentaPorCobrarController {
     @GetMapping("/vigentes")
     public List<CuentaPorCobrarDto> listarVigentes() {
         return service.listarVigentes();
+    }
+
+    @GetMapping("/saldo-vigente")
+    public SaldoCxcVigenteDto saldoVigente() {
+        return service.resumenVigente();
     }
 
     /** Archivados = PAGADA + ANULADA + CASTIGADA. */

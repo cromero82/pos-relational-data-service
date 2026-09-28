@@ -4,6 +4,7 @@ import com.infinitesoft.pos_relational_data_service.dto.BaseInicialPendienteDto;
 import com.infinitesoft.pos_relational_data_service.dto.BaseInicialRequest;
 import com.infinitesoft.pos_relational_data_service.dto.BaseInicialResultDto;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaDTO;
+import com.infinitesoft.pos_relational_data_service.dto.CorteKpiReferenciaDto;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoRequest;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoResponse;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoPendienteDto;
@@ -102,6 +103,11 @@ public class CorteVentaController {
     @GetMapping("/by-ids")
     public List<CorteVentaDTO> findByIds(@RequestParam("ids") List<Long> ids) {
         return service.findByIds(ids);
+    }
+
+    @GetMapping("/kpi-referencia")
+    public CorteKpiReferenciaDto kpiReferencia() {
+        return service.obtenerKpiReferencia();
     }
 
     @GetMapping("/{id}")

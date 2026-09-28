@@ -60,6 +60,24 @@ public class CorteVenta {
     @Builder.Default
     private BigDecimal totalVentasSistema = BigDecimal.ZERO;
 
+    @Column(name = "kpi_ventas_turno", precision = 14, scale = 2)
+    private BigDecimal kpiVentasTurno;
+
+    @Column(name = "kpi_efectivo_disponible", precision = 14, scale = 2)
+    private BigDecimal kpiEfectivoDisponible;
+
+    @Column(name = "kpi_medios_electronicos", precision = 14, scale = 2)
+    private BigDecimal kpiMediosElectronicos;
+
+    @Column(name = "kpi_total_disponible", precision = 14, scale = 2)
+    private BigDecimal kpiTotalDisponible;
+
+    @Column(name = "kpi_cartera", precision = 14, scale = 2)
+    private BigDecimal kpiCartera;
+
+    @Column(name = "kpi_cartera_cobrada", precision = 14, scale = 2)
+    private BigDecimal kpiCarteraCobrada;
+
     @Column(name = "sesion_id")
     private Long sesionId;
 

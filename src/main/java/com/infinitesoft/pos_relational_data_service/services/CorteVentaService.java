@@ -4,6 +4,7 @@ import com.infinitesoft.pos_relational_data_service.dto.BaseInicialPendienteDto;
 import com.infinitesoft.pos_relational_data_service.dto.BaseInicialRequest;
 import com.infinitesoft.pos_relational_data_service.dto.BaseInicialResultDto;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaDTO;
+import com.infinitesoft.pos_relational_data_service.dto.CorteKpiReferenciaDto;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoRequest;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoResponse;
 import com.infinitesoft.pos_relational_data_service.dto.DistribucionEfectivoPendienteDto;
@@ -29,6 +30,7 @@ public interface CorteVentaService {
     CorteVentaRangoResponse consultarRango(CorteVentaRangoRequest request);
     List<CorteVentaDTO> search(LocalDateTime fechaIni, LocalDateTime fechaFin);
     List<CorteVentaDTO> findByIds(List<Long> ids);
+    CorteKpiReferenciaDto obtenerKpiReferencia();
     DistribucionEfectivoPendienteDto obtenerDistribucionPendiente();
     DistribucionEfectivoResultDto confirmarDistribucionEfectivo(Long corteId, DistribucionEfectivoRequest request);
     BaseInicialPendienteDto obtenerBaseInicialPendiente();

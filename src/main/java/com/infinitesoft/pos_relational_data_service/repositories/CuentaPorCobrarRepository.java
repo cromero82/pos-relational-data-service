@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +27,17 @@ public interface CuentaPorCobrarRepository extends JpaRepository<CuentaPorCobrar
     );
 
     List<CuentaPorCobrar> findByEstadoInOrderByFechaOrigenDesc(List<String> estados);
+
+    @Query("SELECT COALESCE(SUM(c.saldoPendiente), 0) FROM CuentaPorCobrar c "
+            + "WHERE c.estado IN ('ABIERTA', 'PARCIAL')")
+    BigDecimal sumSaldoVigente();
+
+    /** Abonado de CxC vigentes: total ticket (o original) menos saldo. */
+    @Query("SELECT COALESCE(SUM(CASE WHEN COALESCE(c.totalTicket, c.montoOriginal) "
+            + "> c.saldoPendiente THEN COALESCE(c.totalTicket, c.montoOriginal) "
+            + "- c.saldoPendiente ELSE 0 END), 0) FROM CuentaPorCobrar c "
+            + "WHERE c.estado IN ('ABIERTA', 'PARCIAL')")
+    BigDecimal sumCobradaVigente();
 
     /**
      * Suelta FK a recibo/ticket en BD de inmediato (evita 23503 al borrar recibo/ticket).

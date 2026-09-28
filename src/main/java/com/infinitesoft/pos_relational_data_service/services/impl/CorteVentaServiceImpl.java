@@ -4,6 +4,7 @@ import com.infinitesoft.pos_relational_data_service.dto.BaseInicialPendienteDto;
 import com.infinitesoft.pos_relational_data_service.dto.BaseInicialRequest;
 import com.infinitesoft.pos_relational_data_service.dto.BaseInicialResultDto;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaDTO;
+import com.infinitesoft.pos_relational_data_service.dto.CorteKpiReferenciaDto;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaDetalleDTO;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoRequest;
 import com.infinitesoft.pos_relational_data_service.dto.CorteVentaRangoResponse;
@@ -25,7 +26,9 @@ import com.infinitesoft.pos_relational_data_service.entities.MotivoMovimiento;
 import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.OrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.VentasTipo;
+import com.infinitesoft.pos_relational_data_service.entities.enums.NaturalezaOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaRepository;
+import com.infinitesoft.pos_relational_data_service.repositories.CuentaPorCobrarRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaCorreccionRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaCorreccionDetalleRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.CorteVentaDetalleRepository;
@@ -47,6 +50,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -100,6 +105,9 @@ public class CorteVentaServiceImpl implements CorteVentaService {
     @Autowired
     private EstadisticaFinancieraService estadisticaFinancieraService;
 
+    @Autowired
+    private CuentaPorCobrarRepository cuentaPorCobrarRepository;
+
     @Override
     public CorteVenta create(CorteVenta corteVenta) {
         log.info("Iniciando servicio CorteVentaServiceImpl - Método: create - fechaIni: {} - fechaFin: {}", corteVenta.getFechaIni(), corteVenta.getFechaFin());
@@ -127,12 +135,14 @@ public class CorteVentaServiceImpl implements CorteVentaService {
             entity.setFechaRevision(DateUtils.obtenerFechaSistema());
         }
 
+        CorteVentaRangoResponse rangoKpis = null;
         if (dto.isUltimoCorte() && dto.isActual()) {
             CorteVentaRangoRequest request = CorteVentaRangoRequest.builder()
                     .ultimoCorte(true)
                     .actual(true)
                     .build();
-            CorteVentaRangoResponse rango = this.consultarRango(request);
+            rangoKpis = this.consultarRango(request);
+            CorteVentaRangoResponse rango = rangoKpis;
 
             entity.setFechaIni(rango.getFechaIni());
             entity.setFechaFin(rango.getFechaFin());
@@ -154,9 +164,20 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                             });
                 }
             }
+            validarVentasTurnoNoCero(rango);
         } else if (!dto.isUltimoCorte()
                 && entity.getFechaIni() != null && entity.getFechaFin() != null) {
-            recalcularSistemaPorRango(entity, dto);
+            rangoKpis = recalcularSistemaPorRango(entity, dto);
+        } else if (entity.getFechaIni() != null && entity.getFechaFin() != null) {
+            rangoKpis = this.consultarRango(CorteVentaRangoRequest.builder()
+                    .ultimoCorte(dto.isUltimoCorte())
+                    .actual(dto.isActual())
+                    .fechaIni(entity.getFechaIni())
+                    .fechaFin(entity.getFechaFin())
+                    .build());
+            validarVentasTurnoNoCero(rangoKpis);
+        } else {
+            validarVentasTurnoNoCeroDesdeTotales(nz(entity.getTotalVentasSistema()), BigDecimal.ZERO);
         }
 
         // Calcular ultimoHistorialReciboId si fechaIni y fechaFin están presentes
@@ -183,6 +204,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
             saved.setDistribucionEfectivoEstado("PENDIENTE");
             repository.save(saved);
         }
+        persistirKpisSnapshot(saved, detalles, rangoKpis);
         sincronizarEstadisticaDeCorte(saved);
         return saved;
     }
@@ -191,7 +213,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
      * Cierre por fechas (sin watermark): los totales de sistema salen del rango, no del cliente.
      * El contado declarado se conserva; el desfase se recalcula y se vuelve a exigir motivo.
      */
-    private void recalcularSistemaPorRango(CorteVenta entity, CorteVentaDTO dto) {
+    private CorteVentaRangoResponse recalcularSistemaPorRango(CorteVenta entity, CorteVentaDTO dto) {
         CorteVentaRangoResponse rango = this.consultarRango(CorteVentaRangoRequest.builder()
                 .ultimoCorte(false)
                 .actual(false)
@@ -247,6 +269,8 @@ public class CorteVentaServiceImpl implements CorteVentaService {
             }
         }
         validarMotivosDesfase(dto);
+        validarVentasTurnoNoCero(rango);
+        return rango;
     }
 
     /**
@@ -255,9 +279,23 @@ public class CorteVentaServiceImpl implements CorteVentaService {
      * {@code excluirCorteId} es el corte que se divide: su propio watermark no puede ser el piso.
      */
     private long[] pisoDeCortesSolapados(LocalDateTime ini, LocalDateTime fin, Long excluirCorteId) {
+        return pisoDeCortes(repository.findSolapadosConRango(ini, fin), excluirCorteId);
+    }
+
+    /**
+     * Piso global: el máximo watermark de todos los cortes vigentes.
+     * No se elige por fechaCreacion: un corte insertado con fecha posterior (p. ej. turno
+     * simulado a las 18:33) dejaría fuera cierres posteriores con ids más altos y haría
+     * recontar los mismos tickets.
+     */
+    private long[] pisoDeTodosLosVigentes() {
+        return pisoDeCortes(repository.findByEstadoNotIn(CorteVentaRepository.ESTADOS_NO_VIGENTES), null);
+    }
+
+    private long[] pisoDeCortes(List<CorteVenta> cortes, Long excluirCorteId) {
         long historial = 0L;
         long movimiento = 0L;
-        for (CorteVenta corte : repository.findSolapadosConRango(ini, fin)) {
+        for (CorteVenta corte : cortes) {
             if (corte.getEstado() != null
                     && CorteVentaRepository.ESTADOS_NO_VIGENTES.contains(corte.getEstado())) {
                 continue;
@@ -273,6 +311,26 @@ public class CorteVentaServiceImpl implements CorteVentaService {
             }
         }
         return new long[] { historial, movimiento };
+    }
+
+    private void validarVentasTurnoNoCero(CorteVentaRangoResponse rango) {
+        BigDecimal ventas = BigDecimal.ZERO;
+        BigDecimal cobranzas = BigDecimal.ZERO;
+        if (rango != null && rango.getVentasTipo() != null) {
+            for (CorteVentaRangoResponse.VentasTipoResumenDTO vt : rango.getVentasTipo()) {
+                ventas = ventas.add(nz(vt.getTotalVentasSistema()));
+                cobranzas = cobranzas.add(nz(vt.getTotalCobranzasSistema()));
+            }
+        } else if (rango != null) {
+            ventas = nz(rango.getTotalVentasSistema());
+        }
+        validarVentasTurnoNoCeroDesdeTotales(ventas, cobranzas);
+    }
+
+    private void validarVentasTurnoNoCeroDesdeTotales(BigDecimal ventas, BigDecimal cobranzas) {
+        if (nz(ventas).add(nz(cobranzas)).signum() == 0) {
+            throw new IllegalArgumentException("No se puede registrar el cierre: Ventas turno es 0.");
+        }
     }
 
     private void validarMotivosDesfase(CorteVentaDTO dto) {
@@ -685,6 +743,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                         caja.getId(), general.getId(), montoGeneral, nuevoId, obsDistribucion);
             }
             movimientoOrigenFondosRepository.findMaxId().ifPresent(nuevo::setUltimoMovimientoOrigenFondosId);
+            persistirKpisSnapshot(nuevo, detalles, rango);
             ultimoNuevo = repository.save(nuevo);
 
             correccionDetalleRepository.save(CorteVentaCorreccionDetalle.builder()
@@ -909,19 +968,16 @@ public class CorteVentaServiceImpl implements CorteVentaService {
 
         if (request.isUltimoCorte()) {
             Optional<CorteVenta> ultimoCorteVentaOpt =
-                    repository.findFirstByEstadoNotInOrderByFechaCreacionDescIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES);
+                    repository.findFirstByEstadoNotInOrderByIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES);
             Optional<HistorialRecibo> posteriorHistorialRecibo;
 
             if (ultimoCorteVentaOpt.isPresent()) {
                 CorteVenta ultimoCorteVenta = ultimoCorteVentaOpt.get();
                 ultimoCorteVentaRef = ultimoCorteVenta;
                 response.setUltimoCorte(ultimoCorteVenta.getFechaCreacion());
-                if (ultimoCorteVenta.getUltimoMovimientoOrigenFondosId() != null) {
-                    movimientoAfterId = ultimoCorteVenta.getUltimoMovimientoOrigenFondosId();
-                }
-                if (ultimoCorteVenta.getUltimoHistorialReciboId() != null) {
-                    historialAfterId = ultimoCorteVenta.getUltimoHistorialReciboId();
-                }
+                long[] pisoVigentes = pisoDeTodosLosVigentes();
+                movimientoAfterId = pisoVigentes[1];
+                historialAfterId = pisoVigentes[0];
                 // Base: efectivo post-distribución; el resto = saldo OF al watermark
                 // (no el Contado del corte: en dump prod no hay ledger y ese total infla QR/Nequi).
                 if (ultimoCorteVenta.getBaseSiguienteEfectivo() != null) {
@@ -1267,7 +1323,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                         .map(c -> c.getId().equals(entity.getId()))
                         .orElse(false);
 
-        return CorteVentaDTO.builder()
+        CorteVentaDTO dto = CorteVentaDTO.builder()
                 .id(entity.getId())
                 .usuarioId(entity.getUsuarioId())
                 .fechaCreacion(entity.getFechaCreacion())
@@ -1282,6 +1338,12 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 .totalVentasSistema(entity.getTotalVentasSistema() != null
                         ? entity.getTotalVentasSistema()
                         : sumarVentasSistemaDto(detalles, ventasTipoDTOList))
+                .kpiVentasTurno(entity.getKpiVentasTurno())
+                .kpiEfectivoDisponible(entity.getKpiEfectivoDisponible())
+                .kpiMediosElectronicos(entity.getKpiMediosElectronicos())
+                .kpiTotalDisponible(entity.getKpiTotalDisponible())
+                .kpiCartera(entity.getKpiCartera())
+                .kpiCarteraCobrada(entity.getKpiCarteraCobrada())
                 .ventasTipo(ventasTipoDTOList)
                 .detalles(detalles)
                 .estado(entity.getEstado())
@@ -1289,6 +1351,22 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 .revisadoPor(entity.getRevisadoPor())
                 .fechaRevision(entity.getFechaRevision())
                 .ultimoVigente(ultimoVigente)
+                .build();
+        anexarComparacionKpis(dto, entity);
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CorteKpiReferenciaDto obtenerKpiReferencia() {
+        CorteVenta anterior = repository
+                .findFirstByEstadoNotInOrderByIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES)
+                .orElse(null);
+        return CorteKpiReferenciaDto.builder()
+                .kpiCarteraAnterior(anterior == null ? null : nz(anterior.getKpiCartera()))
+                .kpiCarteraAnteriorFecha(anterior == null ? null : anterior.getFechaFin())
+                .kpiVentasTurnoReferencia(anterior == null ? null : ventasDeCorte(anterior))
+                .kpiVentasTurnoReferenciaFecha(anterior == null ? null : anterior.getFechaFin())
                 .build();
     }
 
@@ -1358,7 +1436,7 @@ public class CorteVentaServiceImpl implements CorteVentaService {
     @Transactional
     public DistribucionEfectivoPendienteDto obtenerDistribucionPendiente() {
         Optional<CorteVenta> ultimoOpt =
-                repository.findFirstByEstadoNotInOrderByFechaCreacionDescIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES);
+                repository.findFirstByEstadoNotInOrderByIdDesc(CorteVentaRepository.ESTADOS_NO_VIGENTES);
         if (ultimoOpt.isEmpty()) {
             return DistribucionEfectivoPendienteDto.builder().pendiente(false).build();
         }
@@ -1558,6 +1636,202 @@ public class CorteVentaServiceImpl implements CorteVentaService {
                 && SecurityContextHelper.getUser().getRoles().stream()
                         .anyMatch(r -> "admin".equalsIgnoreCase(r.getSigla())
                                 || "admin".equalsIgnoreCase(r.getNombre()));
+    }
+
+    /**
+     * Copia de los indicadores al registrar: la vista Ver no debe recalcular contra el ledger
+     * posterior (ingresos/egresos posteriores distorsionarían el cierre de ese momento).
+     */
+    private void persistirKpisSnapshot(
+            CorteVenta corte,
+            List<CorteVentaDetalle> detalles,
+            CorteVentaRangoResponse rango) {
+        BigDecimal ventas = BigDecimal.ZERO;
+        BigDecimal cobranzas = BigDecimal.ZERO;
+        if (rango != null && rango.getVentasTipo() != null) {
+            for (CorteVentaRangoResponse.VentasTipoResumenDTO vt : rango.getVentasTipo()) {
+                ventas = ventas.add(nz(vt.getTotalVentasSistema()));
+                cobranzas = cobranzas.add(nz(vt.getTotalCobranzasSistema()));
+            }
+        } else {
+            ventas = nz(corte.getTotalVentasSistema());
+        }
+
+        BigDecimal efectivo = BigDecimal.ZERO;
+        BigDecimal medios = BigDecimal.ZERO;
+        if (detalles != null) {
+            for (CorteVentaDetalle d : detalles) {
+                BigDecimal real = nz(d.getTotal());
+                if (esFilaFisica(d)) {
+                    efectivo = efectivo.add(real);
+                } else {
+                    medios = medios.add(real);
+                }
+            }
+        }
+        efectivo = efectivo.add(saldoOtrasCajasFisicas());
+
+        corte.setKpiVentasTurno(ventas.add(cobranzas));
+        corte.setKpiEfectivoDisponible(efectivo);
+        corte.setKpiMediosElectronicos(medios);
+        corte.setKpiTotalDisponible(efectivo.add(medios));
+        corte.setKpiCartera(nz(cuentaPorCobrarRepository.sumSaldoVigente()));
+        corte.setKpiCarteraCobrada(nz(cuentaPorCobrarRepository.sumCobradaVigente()));
+        repository.save(corte);
+    }
+
+    private boolean esFilaFisica(CorteVentaDetalle d) {
+        OrigenFondos of = resolverOfDetalle(d);
+        return of != null && of.getNaturaleza() == NaturalezaOrigenFondos.FISICA;
+    }
+
+    private OrigenFondos resolverOfDetalle(CorteVentaDetalle d) {
+        if (d.getOrigenFondosId() != null) {
+            return origenFondosRepository.findById(d.getOrigenFondosId()).orElse(null);
+        }
+        if (d.getMetodoPagoId() != null) {
+            return origenFondosRepository.findByMetodoPagoId(d.getMetodoPagoId()).orElse(null);
+        }
+        return null;
+    }
+
+    private BigDecimal saldoOtrasCajasFisicas() {
+        BigDecimal sum = BigDecimal.ZERO;
+        for (OrigenFondos of : origenFondosRepository.findByActivoTrueOrderByOrdenAscIdAsc()) {
+            if (of.getNaturaleza() != NaturalezaOrigenFondos.FISICA) {
+                continue;
+            }
+            if (of.getMetodoPagoId() != null) {
+                continue;
+            }
+            if (esTipoDuenos(of)) {
+                continue;
+            }
+            sum = sum.add(nz(movimientoOrigenFondosService.calcularSaldo(of.getId())));
+        }
+        return sum;
+    }
+
+    private boolean esTipoDuenos(OrigenFondos of) {
+        if (of.getTipoOrigenFondos() == null || of.getTipoOrigenFondos().getCodigo() == null) {
+            return false;
+        }
+        return "DUENOS".equalsIgnoreCase(of.getTipoOrigenFondos().getCodigo().trim());
+    }
+
+    private void anexarComparacionKpis(CorteVentaDTO dto, CorteVenta entity) {
+        if (entity.getId() == null) {
+            return;
+        }
+        CorteVenta anterior = repository
+                .findFirstByIdLessThanAndEstadoNotInOrderByIdDesc(
+                        entity.getId(), CorteVentaRepository.ESTADOS_NO_VIGENTES)
+                .orElse(null);
+        if (entity.getKpiCartera() != null && anterior != null) {
+            BigDecimal prev = nz(anterior.getKpiCartera());
+            int cmp = entity.getKpiCartera().compareTo(prev);
+            dto.setKpiCarteraDireccion(cmp > 0 ? "SUBE" : cmp < 0 ? "BAJA" : "IGUAL");
+            if (prev.compareTo(BigDecimal.ZERO) == 0) {
+                dto.setKpiCarteraDeltaPct(cmp == 0 ? BigDecimal.ZERO : new BigDecimal("100.0"));
+            } else {
+                BigDecimal pct = entity.getKpiCartera().subtract(prev)
+                        .multiply(new BigDecimal("100"))
+                        .divide(prev, 1, RoundingMode.HALF_UP)
+                        .abs();
+                dto.setKpiCarteraDeltaPct(pct);
+            }
+        }
+
+        BigDecimal ventasActual = entity.getKpiVentasTurno() != null
+                ? entity.getKpiVentasTurno()
+                : nz(entity.getTotalVentasSistema());
+        if (anterior != null) {
+            BigDecimal ref = ventasDeCorte(anterior);
+            BigDecimal delta = ventasActual.subtract(ref);
+            int cmp = delta.compareTo(BigDecimal.ZERO);
+            dto.setKpiVentasTurnoDelta(delta);
+            dto.setKpiVentasTurnoReferenciaFecha(anterior.getFechaFin());
+            dto.setKpiVentasTurnoDireccion(cmp > 0 ? "SUBE" : cmp < 0 ? "BAJA" : "IGUAL");
+        }
+    }
+
+    /**
+     * Ventas del día anterior (todos los cortes vigentes de ese calendario).
+     * Si ayer no hubo cierre, toma el último día con corte en 7 días.
+     * Usa snapshot si existe; si no, {@code totalVentasSistema}.
+     */
+    private VentasDiaRef ventasDelDiaAnterior(LocalDate diaActual, Long excluirId) {
+        LocalDateTime inicioAyer = diaActual.minusDays(1).atStartOfDay();
+        LocalDateTime inicioHoy = diaActual.atStartOfDay();
+        List<CorteVenta> ayer = repository
+                .findByEstadoNotInAndFechaFinGreaterThanEqualAndFechaFinLessThanOrderByFechaFinAscIdAsc(
+                        CorteVentaRepository.ESTADOS_NO_VIGENTES, inicioAyer, inicioHoy);
+        VentasDiaRef deAyer = sumarVentasDelDia(ayer, excluirId);
+        if (deAyer != null) {
+            return deAyer;
+        }
+        LocalDateTime desde7 = diaActual.minusDays(7).atStartOfDay();
+        List<CorteVenta> semana = repository
+                .findByEstadoNotInAndFechaFinGreaterThanEqualAndFechaFinLessThanOrderByFechaFinAscIdAsc(
+                        CorteVentaRepository.ESTADOS_NO_VIGENTES, desde7, inicioHoy);
+        LocalDate ultimoDia = null;
+        for (CorteVenta c : semana) {
+            if (c.getId().equals(excluirId) || c.getFechaFin() == null) {
+                continue;
+            }
+            LocalDate d = c.getFechaFin().toLocalDate();
+            if (ultimoDia == null || d.isAfter(ultimoDia)) {
+                ultimoDia = d;
+            }
+        }
+        if (ultimoDia == null) {
+            return new VentasDiaRef(BigDecimal.ZERO, diaActual.minusDays(1).atStartOfDay());
+        }
+        List<CorteVenta> delDia = new ArrayList<>();
+        for (CorteVenta c : semana) {
+            if (c.getId().equals(excluirId) || c.getFechaFin() == null) {
+                continue;
+            }
+            if (ultimoDia.equals(c.getFechaFin().toLocalDate())) {
+                delDia.add(c);
+            }
+        }
+        return sumarVentasDelDia(delDia, excluirId);
+    }
+
+    private VentasDiaRef sumarVentasDelDia(List<CorteVenta> cortes, Long excluirId) {
+        BigDecimal total = BigDecimal.ZERO;
+        LocalDateTime fecha = null;
+        int n = 0;
+        for (CorteVenta c : cortes) {
+            if (c.getId().equals(excluirId)) {
+                continue;
+            }
+            total = total.add(ventasDeCorte(c));
+            LocalDateTime f = c.getFechaFin() != null ? c.getFechaFin() : c.getFechaCreacion();
+            if (fecha == null || (f != null && f.isAfter(fecha))) {
+                fecha = f;
+            }
+            n++;
+        }
+        if (n == 0) {
+            return null;
+        }
+        return new VentasDiaRef(total, fecha);
+    }
+
+    private BigDecimal ventasDeCorte(CorteVenta c) {
+        return c.getKpiVentasTurno() != null ? nz(c.getKpiVentasTurno()) : nz(c.getTotalVentasSistema());
+    }
+
+    private static final class VentasDiaRef {
+        private final BigDecimal total;
+        private final LocalDateTime fecha;
+
+        private VentasDiaRef(BigDecimal total, LocalDateTime fecha) {
+            this.total = total;
+            this.fecha = fecha;
+        }
     }
 
     private BigDecimal nz(BigDecimal value) {
