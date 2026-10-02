@@ -10,6 +10,7 @@ import com.infinitesoft.pos_relational_data_service.entities.MovimientoOrigenFon
 import com.infinitesoft.pos_relational_data_service.entities.Persona;
 import com.infinitesoft.pos_relational_data_service.entities.Proveedor;
 import com.infinitesoft.pos_relational_data_service.entities.enums.NaturalezaEgreso;
+import com.infinitesoft.pos_relational_data_service.entities.enums.NaturalezaOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.entities.enums.TipoMovimientoOrigenFondos;
 import com.infinitesoft.pos_relational_data_service.repositories.OrigenFondosRepository;
 import com.infinitesoft.pos_relational_data_service.repositories.MotivoMovimientoRepository;
@@ -1313,7 +1314,8 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
     }
 
     private void validarSalidaSuficiente(Integer cuentaId, BigDecimal valor) {
-        if (!isManejoEstricto()) {
+        OrigenFondos cuenta = cuentaRepository.findById(cuentaId).orElse(null);
+        if (cuenta == null || !exigeSaldoSuficiente(cuenta)) {
             return;
         }
         BigDecimal saldo = calcularSaldo(cuentaId);
@@ -1322,6 +1324,17 @@ public class MovimientoOrigenFondosServiceImpl implements MovimientoOrigenFondos
                     "Saldo insuficiente en la cuenta. Disponible: " + saldo + ", requerido: " + valor
                             + ". Registre un traslado o entrada antes de continuar.");
         }
+    }
+
+    /**
+     * Estricto: toda salida exige saldo. Flexible: solo el efectivo físico
+     * ({@link NaturalezaOrigenFondos#FISICA}); electrónicos y mixtos pueden quedar descubiertos.
+     */
+    private boolean exigeSaldoSuficiente(OrigenFondos cuenta) {
+        if (isManejoEstricto()) {
+            return true;
+        }
+        return cuenta.getNaturaleza() == NaturalezaOrigenFondos.FISICA;
     }
 
     private boolean isManejoEstricto() {

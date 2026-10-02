@@ -34,8 +34,8 @@ public interface CuentaPorCobrarRepository extends JpaRepository<CuentaPorCobrar
 
     /** Abonado de CxC vigentes: total ticket (o original) menos saldo. */
     @Query("SELECT COALESCE(SUM(CASE WHEN COALESCE(c.totalTicket, c.montoOriginal) "
-            + "> c.saldoPendiente THEN COALESCE(c.totalTicket, c.montoOriginal) "
-            + "- c.saldoPendiente ELSE 0 END), 0) FROM CuentaPorCobrar c "
+            + "> c.saldoPendiente THEN (COALESCE(c.totalTicket, c.montoOriginal) "
+            + "- c.saldoPendiente) ELSE 0 END), 0) FROM CuentaPorCobrar c "
             + "WHERE c.estado IN ('ABIERTA', 'PARCIAL')")
     BigDecimal sumCobradaVigente();
 

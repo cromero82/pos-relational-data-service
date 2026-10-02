@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Configuración de logging solo para tests.
+
+  Sobrescribe src/main/resources/log4j2-spring.xml (Log4j2 da prioridad a
+  log4j2-test.xml). La diferencia a propósito: NO registra el DbAppender, que
+  insertaba en app_log durante el cierre del contexto de Spring y emitía errores
+  "APP_LOG not found" / "HikariPool has been closed" que ensuciaban la salida
+  sin corresponder a fallos reales de los tests.
+-->
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %logger{36} : %msg%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <Logger name="org.hibernate" level="WARN"/>
+        <Logger name="org.springframework" level="WARN"/>
+        <Root level="WARN">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>
